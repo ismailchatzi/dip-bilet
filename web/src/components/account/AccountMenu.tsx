@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AccountDeals } from "@/components/account/AccountDeals";
 import { AccountDetails } from "@/components/account/AccountDetails";
 import { AccountNotifications } from "@/components/account/AccountNotifications";
@@ -16,34 +16,50 @@ const TITLES: Record<Exclude<View, "menu">, string> = {
 };
 
 export function AccountMenu() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const rootRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("menu");
+  const [coords, setCoords] = useState({ top: 0, right: 0 });
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const tab = searchParams.get("hesap");
-    if (tab === "firsatlar" || tab === "deals") {
-      setOpen(true);
-      setView("deals");
-    } else if (tab === "bilgi" || tab === "details") {
-      setOpen(true);
-      setView("details");
-    } else if (tab === "bildirim" || tab === "notifications") {
-      setOpen(true);
-      setView("notifications");
+    setMounted(true);
+  }, []);
+
+  function placePopover() {
+    const chip = chipRef.current;
+    if (!chip) return;
+    const rect = chip.getBoundingClientRect();
+    setCoords({
+      top: rect.bottom + 8,
+      right: Math.max(12, window.innerWidth - rect.right),
+    });
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    placePopover();
+    function onResize() {
+      placePopover();
     }
-  }, [searchParams]);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onResize, true);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onResize, true);
+    };
+  }, [open, view]);
 
   useEffect(() => {
     if (!open) return;
 
-    function onDoc(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setView("menu");
-      }
+    function onPointerDown(e: PointerEvent) {
+      const t = e.target as Node;
+      if (chipRef.current?.contains(t)) return;
+      if (popoverRef.current?.contains(t)) return;
+      setOpen(false);
+      setView("menu");
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -51,11 +67,11 @@ export function AccountMenu() {
         setView("menu");
       }
     }
-    // click: mousedown menü öğesinden önce kapanmasın
-    document.addEventListener("click", onDoc);
+
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("click", onDoc);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -66,14 +82,90 @@ export function AccountMenu() {
     window.location.href = "/";
   }
 
-  function openView(next: View) {
+  function openView(next: Exclude<View, "menu">) {
     setView(next);
     setOpen(true);
   }
 
+  const popover =
+    open && mounted
+      ? createPortal(
+          <div
+            ref={popoverRef}
+            className={[
+              "account-popover",
+              view !== "menu" ? "account-popover--panel" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={{
+              position: "fixed",
+              top: coords.top,
+              right: coords.right,
+              left: "auto",
+            }}
+            role="dialog"
+            aria-label="Hesap menüsü"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {view === "menu" ? (
+              <nav className="account-popover__nav">
+                <button type="button" onClick={() => openView("deals")}>
+                  Fırsat uçuşlarım
+                </button>
+                <button type="button" onClick={() => openView("details")}>
+                  Hesap bilgileri
+                </button>
+                <button type="button" onClick={() => openView("notifications")}>
+                  Bildirim ayarları
+                </button>
+                <button
+                  type="button"
+                  className="account-popover__logout"
+                  onClick={() => void signOut()}
+                >
+                  Çıkış
+                </button>
+              </nav>
+            ) : (
+              <>
+                <div className="account-popover__head">
+                  <button
+                    type="button"
+                    className="account-popover__back"
+                    onClick={() => setView("menu")}
+                  >
+                    ← Menü
+                  </button>
+                  <strong>{TITLES[view]}</strong>
+                  <button
+                    type="button"
+                    className="account-popover__close"
+                    aria-label="Kapat"
+                    onClick={() => {
+                      setOpen(false);
+                      setView("menu");
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="account-popover__body">
+                  {view === "deals" ? <AccountDeals /> : null}
+                  {view === "details" ? <AccountDetails /> : null}
+                  {view === "notifications" ? <AccountNotifications /> : null}
+                </div>
+              </>
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div className="account-menu" ref={rootRef}>
+    <div className="account-menu">
       <button
+        ref={chipRef}
         type="button"
         className="profile-chip"
         aria-label="Hesabım"
@@ -84,8 +176,9 @@ export function AccountMenu() {
             setOpen(false);
             setView("menu");
           } else {
-            setOpen(true);
+            placePopover();
             setView("menu");
+            setOpen(true);
           }
         }}
       >
@@ -102,70 +195,7 @@ export function AccountMenu() {
           />
         </svg>
       </button>
-
-      {open ? (
-        <div
-          className={[
-            "account-popover",
-            view !== "menu" ? "account-popover--panel" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          role="dialog"
-          aria-label="Hesap menüsü"
-        >
-          {view === "menu" ? (
-            <nav className="account-popover__nav">
-              <button type="button" onClick={() => openView("deals")}>
-                Fırsat uçuşlarım
-              </button>
-              <button type="button" onClick={() => openView("details")}>
-                Hesap bilgileri
-              </button>
-              <button type="button" onClick={() => openView("notifications")}>
-                Bildirim ayarları
-              </button>
-              <button
-                type="button"
-                className="account-popover__logout"
-                onClick={() => void signOut()}
-              >
-                Çıkış
-              </button>
-            </nav>
-          ) : (
-            <>
-              <div className="account-popover__head">
-                <button
-                  type="button"
-                  className="account-popover__back"
-                  onClick={() => setView("menu")}
-                >
-                  ← Menü
-                </button>
-                <strong>{TITLES[view]}</strong>
-                <button
-                  type="button"
-                  className="account-popover__close"
-                  aria-label="Kapat"
-                  onClick={() => {
-                    setOpen(false);
-                    setView("menu");
-                    router.replace("/", { scroll: false });
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="account-popover__body">
-                {view === "deals" ? <AccountDeals /> : null}
-                {view === "details" ? <AccountDetails /> : null}
-                {view === "notifications" ? <AccountNotifications /> : null}
-              </div>
-            </>
-          )}
-        </div>
-      ) : null}
+      {popover}
     </div>
   );
 }

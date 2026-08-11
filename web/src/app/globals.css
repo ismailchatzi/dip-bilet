@@ -338,10 +338,7 @@ a {
 }
 
 .account-popover {
-  position: absolute;
-  top: calc(100% + 0.55rem);
-  right: 0;
-  z-index: 70;
+  z-index: 9999;
   width: min(20rem, calc(100vw - 1.5rem));
   padding: 0.45rem;
   border-radius: 1rem;

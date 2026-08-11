@@ -17,8 +17,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const flow = searchParams.get("flow");
-  const nextRaw = searchParams.get("next") ?? "/?hesap=firsatlar";
-  const next = nextRaw.startsWith("/") ? nextRaw : "/?hesap=firsatlar";
+  const next = searchParams.get("next") ?? "/";
+  const nextPath = next.startsWith("/") ? next : "/";
   const base = siteOrigin(request);
 
   const fail = () => NextResponse.redirect(`${base}/giris?hata=auth`);
@@ -32,9 +32,7 @@ export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
     const destination =
-      flow === "confirm"
-        ? `${base}/giris?aktif=1`
-        : `${base}${next}`;
+      flow === "confirm" ? `${base}/giris?aktif=1` : `${base}${nextPath}`;
 
     const response = NextResponse.redirect(destination);
 

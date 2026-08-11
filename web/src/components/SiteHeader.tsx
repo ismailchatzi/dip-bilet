@@ -2,17 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AccountMenu } from "@/components/account/AccountMenu";
 import { createClient } from "@/lib/supabase/client";
-
-function ProfileSlot() {
-  return (
-    <Suspense fallback={<span className="profile-chip" aria-hidden />}>
-      <AccountMenu />
-    </Suspense>
-  );
-}
 
 export function SiteHeader() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -58,7 +50,7 @@ export function SiteHeader() {
       </Link>
 
       {loggedIn ? (
-        <ProfileSlot />
+        <AccountMenu />
       ) : (
         <Link
           className="btn btn-login"
