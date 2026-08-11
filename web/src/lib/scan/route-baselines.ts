@@ -1,8 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { cacheFile } from "@/lib/cache-path";
 import { routeKey } from "@/lib/scan/dates";
 
-const FILE = path.join(process.cwd(), ".cache", "route-baselines.json");
+const FILE = cacheFile("route-baselines.json");
 
 export type RouteBaseline = {
   destinationCode: string;

@@ -1,10 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { cacheFile } from "@/lib/cache-path";
 import type { ScannedFare } from "@/lib/scan/dates";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import type { Deal, DealsPayload } from "@/lib/types";
 
-const CITY_CACHE = path.join(process.cwd(), ".cache", "city-fares.json");
+const CITY_CACHE = cacheFile("city-fares.json");
 
 export type CityFaresPayload = {
   fetchedAt: string;

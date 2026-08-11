@@ -1,8 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { cacheFile } from "./cache-path";
 import type { DealsPayload } from "./types";
 
-const CACHE_FILE = path.join(process.cwd(), ".cache", "deals.json");
+const CACHE_FILE = cacheFile("deals.json");
 
 export async function readDealsCache(
   maxAgeHours: number,
