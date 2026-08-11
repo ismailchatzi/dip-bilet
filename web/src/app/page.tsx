@@ -1,29 +1,13 @@
-import Image from "next/image";
 import { DealRow } from "@/components/DealRow";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import { archiveDeals } from "@/lib/archive-deals";
 
-export default function Home() {
+export default async function Home() {
   return (
     <main>
       <div className="site-shell">
-        <header className="topbar">
-          <a className="brand" href="/" aria-label="Dip Bilet">
-            <Image
-              className="brand-logo"
-              src="/logo-db.png?v=3"
-              alt=""
-              width={242}
-              height={163}
-              priority
-              unoptimized
-            />
-            <span className="brand-wordmark">Dip Bilet</span>
-          </a>
-          <a className="btn btn-login" href="/giris">
-            Giriş Yap
-          </a>
-        </header>
+        <SiteHeader />
 
         <section className="hero">
           <h1>

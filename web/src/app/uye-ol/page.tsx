@@ -1,33 +1,29 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AuthForm } from "@/components/AuthForm";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Ücretsiz Üye Ol — Dip Bilet",
   description: "Dip Bilet Kulübü’ne katıl, dip fırsatlardan anında haberin olsun.",
 };
 
-export default function UyeOlPage() {
+export default async function UyeOlPage() {
+  const supabase = await createClient();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) redirect("/panel");
+  }
+
   return (
     <main>
       <div className="site-shell">
-        <header className="topbar">
-          <Link className="brand" href="/" aria-label="Dip Bilet">
-            <Image
-              className="brand-logo"
-              src="/logo-db.png?v=3"
-              alt=""
-              width={242}
-              height={163}
-              priority
-              unoptimized
-            />
-            <span className="brand-wordmark">Dip Bilet</span>
-          </Link>
-        </header>
+        <SiteHeader />
 
         <section className="auth-hero">
           <h1>Kulübe katıl</h1>
