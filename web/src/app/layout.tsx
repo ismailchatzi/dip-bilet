@@ -16,9 +16,9 @@ const body = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Dip Bilet — İstanbul çıkışlı dip uçuş fırsatları",
+  title: "Dip Bilet — Dip uçuş fırsatları",
   description:
-    "Kalkışın İstanbul. Biz arka planda tararız; ortalamanın altındaki biletleri sana getiririz.",
+    "Kalkışını seç. Biz arka planda tararız; ortalamanın altındaki biletleri sana getiririz.",
 };
 
 export default function RootLayout({

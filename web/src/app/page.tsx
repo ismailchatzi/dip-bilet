@@ -18,7 +18,7 @@ export default function Home() {
             <em>Dip bulma.</em>
           </h1>
           <p>
-            Sen rota seçip boğulma. Biz İstanbul çıkışlı biletleri tararız;
+            Sen rota seçip boğulma. Biz seçtiğin kalkışa göre biletleri tararız;
             ortalamanın inanılmaz derecede altına ineni buraya düşürürüz.
           </p>
           <div className="hero-actions">

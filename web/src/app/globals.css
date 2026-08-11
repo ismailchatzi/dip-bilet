@@ -849,6 +849,75 @@ a {
   line-height: 1.45;
 }
 
+.departure-prefs {
+  max-width: 560px;
+}
+
+.departure-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.departure-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.9rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--foam);
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.departure-chip:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.departure-chip--selected {
+  border-color: var(--accent);
+  background: rgba(255, 196, 120, 0.1);
+}
+
+.departure-chip--soon {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.departure-chip__city {
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+
+.departure-chip__airports {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.departure-chip__badge {
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.departure-chip__badge--on {
+  color: var(--accent);
+}
+
+@media (max-width: 520px) {
+  .departure-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .account-danger {
   margin: 2.5rem auto 1rem;
   max-width: 420px;

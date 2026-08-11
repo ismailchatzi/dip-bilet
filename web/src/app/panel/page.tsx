@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DealRow } from "@/components/DealRow";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
+import { DepartureSelect } from "@/components/DepartureSelect";
 import { EmailAlertsToggle } from "@/components/EmailAlertsToggle";
 import { SiteFooter } from "@/components/SiteFooter";
 import {
@@ -11,6 +12,7 @@ import {
   readScanBoard,
 } from "@/lib/scan/board";
 import { mergeDealsAndFares } from "@/lib/scan/city-cache";
+import { departureDisplay } from "@/lib/departures";
 import { createClient } from "@/lib/supabase/server";
 
 function envNumber(name: string, fallback: number): number {
@@ -76,7 +78,7 @@ export default async function PanelPage() {
   const [{ data: profile }, board] = await Promise.all([
     supabase
       .from("profiles")
-      .select("email_alerts")
+      .select("email_alerts, departure_code")
       .eq("id", user.id)
       .maybeSingle(),
     readScanBoard(supabase),
@@ -89,6 +91,12 @@ export default async function PanelPage() {
     minDiscount,
   );
   const emailAlerts = profile?.email_alerts ?? true;
+  const departureCode = profile?.departure_code ?? "IST";
+  const departureLabel = departureDisplay(departureCode);
+  const dealsForUser = payload.deals.map((d) => ({
+    ...d,
+    departureLabel,
+  }));
 
   return (
     <main>
@@ -116,10 +124,11 @@ export default async function PanelPage() {
         <section className="auth-hero">
           <h1>Hoş geldin</h1>
           <p>
-            {user.email} — İstanbul (IST / SAW) çıkışlı dip fırsatlar burada.
+            {user.email} — seçtiğin kalkışa göre dip fırsatlar burada.
           </p>
         </section>
 
+        <DepartureSelect initialCode={departureCode} />
         <EmailAlertsToggle initialEnabled={emailAlerts} />
 
         <section className="section-head">
@@ -134,13 +143,13 @@ export default async function PanelPage() {
           </p>
         ) : null}
 
-        {payload.deals.length === 0 ? (
+        {dealsForUser.length === 0 ? (
           <div className="empty">
             Şu an eşiğin üzerinde dip fırsat yok. Biraz sonra tekrar bak.
           </div>
         ) : (
           <div className="deal-list">
-            {payload.deals.map((deal) => (
+            {dealsForUser.map((deal) => (
               <DealRow key={deal.id} deal={deal} mode="live" />
             ))}
           </div>
