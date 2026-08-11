@@ -9,5 +9,11 @@
   SECRETS_SCAN_ENABLED = "false"
   SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SITE_URL,DEALS_CACHE_HOURS,MIN_DISCOUNT_PERCENT,RESEND_FROM_EMAIL"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Saatler UTC (TR = UTC+3). Asıl iş /api/cron/scan-deals içinde.

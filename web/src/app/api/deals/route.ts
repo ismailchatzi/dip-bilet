@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
-import { getDeals } from "@/lib/deals";
+import {
+  emptyDealsPayload,
+  readScanBoard,
+} from "@/lib/scan/board";
+import { mergeDealsAndFares } from "@/lib/scan/city-cache";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+function envNumber(name: string, fallback: number): number {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) && v > 0 ? v : fallback;
+}
+
+/** Kullanıcı API’si — SerpApi yok, sadece son cron board’u */
+export async function GET() {
   const supabase = await createClient();
   if (!supabase) {
     return NextResponse.json({ error: "Auth yok" }, { status: 500 });
@@ -18,11 +28,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Giriş gerekli" }, { status: 401 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const force = searchParams.get("refresh") === "1";
-
-  // Kotayı koru: refresh sadece bilerek ?refresh=1 ile
-  const payload = await getDeals({ forceRefresh: force });
+  const minDiscount = envNumber("MIN_DISCOUNT_PERCENT", 30);
+  const board = await readScanBoard(supabase);
+  const payload = mergeDealsAndFares(
+    board.deals ?? emptyDealsPayload(),
+    board.cityFares,
+    minDiscount,
+  );
 
   return NextResponse.json(payload);
 }

@@ -58,8 +58,8 @@ async function fetchSerpDeals(): Promise<DealsPayload> {
 }
 
 /**
- * Going tarzı: IST/SAW Deals (hafta + weekend birleşik).
- * Cache sayesinde her sayfa yenilemesi kota yakmaz.
+ * SerpApi Deals — SADECE cron (`forceRefresh: true`) çağırmalı.
+ * Panel / kullanıcı istekleri asla buraya live gitmemeli.
  */
 export async function getDeals(options?: {
   forceRefresh?: boolean;
@@ -67,9 +67,18 @@ export async function getDeals(options?: {
   const cacheHours = envNumber("DEALS_CACHE_HOURS", 12);
   const apiKey = process.env.SERPAPI_API_KEY?.trim();
 
+  // Cron dışı: dosya cache varsa o; yoksa boş. ASLA SerpApi.
   if (!options?.forceRefresh) {
-    const cached = await readDealsCache(cacheHours);
+    const cached = await readDealsCache(cacheHours * 14);
     if (cached) return cached;
+    return {
+      source: "cache",
+      fetchedAt: new Date().toISOString(),
+      departure: DEPARTURE_LABEL,
+      deals: [],
+      warning:
+        "Henüz kaydedilmiş tarama yok. Panel kota yakmaz; sonuçlar cron taramasından gelir.",
+    };
   }
 
   if (!apiKey) {

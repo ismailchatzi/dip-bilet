@@ -6,11 +6,11 @@ import { DealRow } from "@/components/DealRow";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { EmailAlertsToggle } from "@/components/EmailAlertsToggle";
 import { SiteFooter } from "@/components/SiteFooter";
-import { getDeals } from "@/lib/deals";
 import {
-  mergeDealsAndFares,
-  readCityFaresCache,
-} from "@/lib/scan/city-cache";
+  emptyDealsPayload,
+  readScanBoard,
+} from "@/lib/scan/board";
+import { mergeDealsAndFares } from "@/lib/scan/city-cache";
 import { createClient } from "@/lib/supabase/server";
 
 function envNumber(name: string, fallback: number): number {
@@ -25,8 +25,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 function sourceLabel(source: string) {
-  if (source === "serpapi") return "Canlı tarama";
-  if (source === "cache") return "Önbellek";
+  if (source === "serpapi") return "Son tarama";
+  if (source === "cache") return "Son tarama";
   return "Demo veri";
 }
 
@@ -88,20 +88,23 @@ export default async function PanelPage() {
     redirect("/giris");
   }
 
-  const cacheHours = envNumber("DEALS_CACHE_HOURS", 12);
   const minDiscount = envNumber("MIN_DISCOUNT_PERCENT", 30);
 
-  const [{ data: profile }, dealsPayload, cityFares] = await Promise.all([
+  const [{ data: profile }, board] = await Promise.all([
     supabase
       .from("profiles")
       .select("email_alerts")
       .eq("id", user.id)
       .maybeSingle(),
-    getDeals(),
-    readCityFaresCache(cacheHours * 2),
+    readScanBoard(supabase),
   ]);
 
-  const payload = mergeDealsAndFares(dealsPayload, cityFares, minDiscount);
+  // Kota koruması: panel asla SerpApi çağırmaz; sadece cron’un yazdığı board.
+  const payload = mergeDealsAndFares(
+    board.deals ?? emptyDealsPayload(),
+    board.cityFares,
+    minDiscount,
+  );
   const emailAlerts = profile?.email_alerts ?? true;
 
   return (

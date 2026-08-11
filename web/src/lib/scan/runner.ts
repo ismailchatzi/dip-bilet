@@ -4,6 +4,7 @@ import { searchapiCityFare } from "@/lib/providers/searchapi";
 import { scrappaCityFare } from "@/lib/providers/scrappa";
 import { writeCityFaresCache, fareToDeal } from "@/lib/scan/city-cache";
 import { slidingTripDates, type ScannedFare } from "@/lib/scan/dates";
+import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import {
   dealToObservation,
   fareToObservation,
@@ -129,6 +130,13 @@ export async function runScanSlot(
       dealsFound = payload.deals.length;
 
       if (payload.source !== "demo") {
+        const boardWrite = await patchScanBoard(admin, {
+          deals: { ...payload, source: "cache" },
+        });
+        if (!boardWrite.ok && boardWrite.error) {
+          errors.push(`scan_board deals: ${boardWrite.error}`);
+        }
+
         for (const deal of payload.deals) {
           observationRows.push(dealToObservation(deal));
           if ((deal.discountPercent ?? 0) >= minDiscount) {
@@ -199,7 +207,17 @@ export async function runScanSlot(
 
   cityFaresFound = scanned.length;
   if (scanned.length > 0) {
-    await writeCityFaresCache(scanned);
+    const board = await readScanBoard(admin);
+    const cityPayload = await writeCityFaresCache(
+      scanned,
+      board.cityFares?.fares,
+    );
+    const boardWrite = await patchScanBoard(admin, {
+      cityFares: cityPayload,
+    });
+    if (!boardWrite.ok && boardWrite.error) {
+      errors.push(`scan_board cities: ${boardWrite.error}`);
+    }
   }
 
   const obs = await insertObservations(admin, observationRows);

@@ -27,21 +27,29 @@ export async function readCityFaresCache(
   }
 }
 
-export async function writeCityFaresCache(
-  fares: ScannedFare[],
-): Promise<CityFaresPayload> {
-  const existing = await readCityFaresCache(24 * 14);
+export function mergeCityFares(
+  existing: ScannedFare[] | undefined,
+  incoming: ScannedFare[],
+): CityFaresPayload {
   const byCode = new Map<string, ScannedFare>();
-  for (const f of existing?.fares ?? []) {
+  for (const f of existing ?? []) {
     byCode.set(f.destinationCode, f);
   }
-  for (const f of fares) {
+  for (const f of incoming) {
     byCode.set(f.destinationCode, f);
   }
-  const payload: CityFaresPayload = {
+  return {
     fetchedAt: new Date().toISOString(),
     fares: [...byCode.values()],
   };
+}
+
+export async function writeCityFaresCache(
+  fares: ScannedFare[],
+  prior?: ScannedFare[],
+): Promise<CityFaresPayload> {
+  const existing = prior ?? (await readCityFaresCache(24 * 14))?.fares;
+  const payload = mergeCityFares(existing, fares);
   await fs.mkdir(path.dirname(CITY_CACHE), { recursive: true });
   await fs.writeFile(CITY_CACHE, JSON.stringify(payload, null, 2), "utf8");
   return payload;
