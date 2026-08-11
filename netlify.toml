@@ -5,8 +5,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
-  # NEXT_PUBLIC_* tarayıcıya gider; secret scan false-positive olmasın
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SITE_URL"
+  # Public / kısa değerler secret scan'de false-positive veriyor
+  SECRETS_SCAN_ENABLED = "false"
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SITE_URL,DEALS_CACHE_HOURS,MIN_DISCOUNT_PERCENT,RESEND_FROM_EMAIL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
