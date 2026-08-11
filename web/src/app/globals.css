@@ -183,6 +183,8 @@ a {
 }
 
 .topbar {
+  position: relative;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -332,21 +334,23 @@ a {
 
 .account-menu {
   position: relative;
-  z-index: 40;
+  z-index: 60;
 }
 
 .account-popover {
   position: absolute;
   top: calc(100% + 0.55rem);
   right: 0;
+  z-index: 70;
   width: min(20rem, calc(100vw - 1.5rem));
   padding: 0.45rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(8, 18, 42, 0.96);
+  background: rgba(8, 18, 42, 0.98);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(12px);
   animation: rise 0.2s ease both;
+  pointer-events: auto;
 }
 
 .account-popover--panel {

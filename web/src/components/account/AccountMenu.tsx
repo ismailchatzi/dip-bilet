@@ -37,6 +37,8 @@ export function AccountMenu() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (!open) return;
+
     function onDoc(e: MouseEvent) {
       if (!rootRef.current?.contains(e.target as Node)) {
         setOpen(false);
@@ -49,13 +51,14 @@ export function AccountMenu() {
         setView("menu");
       }
     }
-    document.addEventListener("mousedown", onDoc);
+    // click: mousedown menü öğesinden önce kapanmasın
+    document.addEventListener("click", onDoc);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("click", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [open]);
 
   async function signOut() {
     const supabase = createClient();
