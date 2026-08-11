@@ -14,8 +14,6 @@ const EMPTY_DEALS: DealsPayload = {
   fetchedAt: new Date(0).toISOString(),
   departure: DEPARTURE_LABEL,
   deals: [],
-  warning:
-    "Henüz kaydedilmiş tarama yok. Panel kota yakmaz; sonuçlar cron taramasından gelir.",
 };
 
 export function emptyDealsPayload(): DealsPayload {

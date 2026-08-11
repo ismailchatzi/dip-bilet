@@ -76,8 +76,6 @@ export async function getDeals(options?: {
       fetchedAt: new Date().toISOString(),
       departure: DEPARTURE_LABEL,
       deals: [],
-      warning:
-        "Henüz kaydedilmiş tarama yok. Panel kota yakmaz; sonuçlar cron taramasından gelir.",
     };
   }
 
