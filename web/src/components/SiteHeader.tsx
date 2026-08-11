@@ -1,17 +1,37 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-export async function SiteHeader() {
-  const supabase = await createClient();
-  let loggedIn = false;
+export function SiteHeader() {
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
-  if (supabase) {
+  useEffect(() => {
+    const supabase = createClient();
+    if (!supabase) {
+      setLoggedIn(false);
+      return;
+    }
+
+    let active = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setLoggedIn(Boolean(data.user));
+    });
+
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    loggedIn = Boolean(user);
-  }
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLoggedIn(Boolean(session?.user));
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <header className="topbar">
@@ -49,7 +69,13 @@ export async function SiteHeader() {
           </svg>
         </Link>
       ) : (
-        <Link className="btn btn-login" href="/giris">
+        <Link
+          className="btn btn-login"
+          href="/giris"
+          style={loggedIn === null ? { visibility: "hidden" } : undefined}
+          aria-hidden={loggedIn === null}
+          tabIndex={loggedIn === null ? -1 : undefined}
+        >
           Giriş Yap
         </Link>
       )}

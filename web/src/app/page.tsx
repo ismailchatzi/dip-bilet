@@ -3,7 +3,9 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { archiveDeals } from "@/lib/archive-deals";
 
-export default async function Home() {
+export const dynamic = "force-dynamic";
+
+export default function Home() {
   return (
     <main>
       <div className="site-shell">
