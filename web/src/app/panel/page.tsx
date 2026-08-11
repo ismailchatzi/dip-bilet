@@ -24,23 +24,6 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-function sourceLabel(source: string) {
-  if (source === "serpapi") return "Son tarama";
-  if (source === "cache") return "Son tarama";
-  return "Demo veri";
-}
-
-function formatFetchedAt(iso: string) {
-  try {
-    return new Intl.DateTimeFormat("tr-TR", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
-
 export default async function PanelPage() {
   const supabase = await createClient();
 
@@ -142,10 +125,6 @@ export default async function PanelPage() {
         <section className="section-head">
           <div>
             <h2>Güncel dip fırsatlar</h2>
-            <p>
-              {sourceLabel(payload.source)} · güncelleme{" "}
-              {formatFetchedAt(payload.fetchedAt)} · kalkış {payload.departure}
-            </p>
           </div>
         </section>
 
