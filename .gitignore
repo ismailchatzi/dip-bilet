@@ -1,0 +1,11 @@
+.secrets/
+web/node_modules/
+web/.next/
+web/.cache/
+web/.env*
+web/.env.local
+*.pem
+.DS_Store
+serpapi-key.txt
+**/serpapi-key.txt
+assets/
