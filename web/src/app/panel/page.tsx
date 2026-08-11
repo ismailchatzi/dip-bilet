@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Eski /panel → ana sayfa (hesap menüsü profil ikonunda) */
+/** Eski /panel → fırsatlar sayfası */
 export default function PanelRedirect() {
-  redirect("/");
+  redirect("/firsatlarim");
 }

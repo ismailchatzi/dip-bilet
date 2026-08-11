@@ -17,8 +17,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const flow = searchParams.get("flow");
-  const next = searchParams.get("next") ?? "/";
-  const nextPath = next.startsWith("/") ? next : "/";
+  const next = searchParams.get("next") ?? "/firsatlarim";
+  const nextPath = next.startsWith("/") ? next : "/firsatlarim";
   const base = siteOrigin(request);
 
   const fail = () => NextResponse.redirect(`${base}/giris?hata=auth`);

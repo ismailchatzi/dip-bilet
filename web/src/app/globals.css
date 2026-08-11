@@ -332,94 +332,83 @@ a {
   display: block;
 }
 
-.account-menu {
-  position: relative;
-  z-index: 60;
+.account-page {
+  padding: 1.5rem 0 2rem;
+  animation: rise 0.7s ease both;
 }
 
-.account-popover {
-  z-index: 9999;
-  width: min(20rem, calc(100vw - 1.5rem));
-  padding: 0.45rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(8, 18, 42, 0.98);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(12px);
-  animation: rise 0.2s ease both;
-  pointer-events: auto;
+.account-page h1 {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  letter-spacing: -0.03em;
 }
 
-.account-popover--panel {
-  width: min(34rem, calc(100vw - 1.25rem));
-  max-height: min(78vh, 640px);
+.account-nav {
   display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
-.account-popover__nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.account-popover__nav button {
-  text-align: left;
-  padding: 0.85rem 1rem;
-  border-radius: 0.75rem;
-  color: var(--foam);
-  font-weight: 600;
-  font-size: 0.95rem;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.account-popover__nav button:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.account-popover__logout {
-  color: #ffb4b4 !important;
-  margin-top: 0.2rem;
-  border-top: 1px solid var(--line) !important;
-  border-radius: 0 0 0.75rem 0.75rem !important;
-}
-
-.account-popover__head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 0.9rem;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
   border-bottom: 1px solid var(--line);
 }
 
-.account-popover__head strong {
-  text-align: center;
-  font-size: 0.95rem;
+.account-nav__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
-.account-popover__back,
-.account-popover__close {
+.account-nav__link {
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.account-nav__link:hover {
+  color: var(--foam);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.account-nav__link--active {
+  color: #1a1008;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.account-nav__logout {
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: #ffb4b4;
+  font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
-  font-size: 0.85rem;
-  padding: 0.25rem 0.35rem;
+  padding: 0.45rem 0.2rem;
 }
 
-.account-popover__back:hover,
-.account-popover__close:hover {
-  color: var(--foam);
+.account-nav__logout:hover {
+  color: #ffd0d0;
 }
 
-.account-popover__body {
-  overflow: auto;
-  padding: 0.85rem 1rem 1.1rem;
+.account-page__content {
+  max-width: 640px;
+}
+
+.account-page__content .departure-prefs,
+.account-page__content .account-prefs {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  text-align: left;
+  border: 0;
+  padding: 0 0 1rem;
+  background: transparent;
 }
 
 .account-section {
