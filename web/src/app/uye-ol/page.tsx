@@ -17,7 +17,7 @@ export default async function UyeOlPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) redirect("/panel");
+    if (user) redirect("/?hesap=firsatlar");
   }
 
   return (

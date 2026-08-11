@@ -16,7 +16,7 @@ export default async function GirisPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) redirect("/panel");
+    if (user) redirect("/?hesap=firsatlar");
   }
 
   return (

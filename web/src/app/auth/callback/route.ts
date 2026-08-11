@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const flow = searchParams.get("flow");
-  const next = searchParams.get("next") ?? "/panel";
+  const next = searchParams.get("next") ?? "/?hesap=firsatlar";
 
   if (code) {
     const supabase = await createClient();

@@ -2,8 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { AccountMenu } from "@/components/account/AccountMenu";
 import { createClient } from "@/lib/supabase/client";
+
+function ProfileSlot() {
+  return (
+    <Suspense fallback={<span className="profile-chip" aria-hidden />}>
+      <AccountMenu />
+    </Suspense>
+  );
+}
 
 export function SiteHeader() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
@@ -49,25 +58,7 @@ export function SiteHeader() {
       </Link>
 
       {loggedIn ? (
-        <Link
-          className="profile-chip"
-          href="/panel"
-          aria-label="Hesabım"
-          title="Hesabım"
-        >
-          <svg
-            className="profile-chip__icon"
-            viewBox="0 0 24 24"
-            width="22"
-            height="22"
-            aria-hidden="true"
-          >
-            <path
-              fill="currentColor"
-              d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-7.5 1.8-7.5 4.5V20h15v-1.25c0-2.7-3.9-4.5-7.5-4.5Z"
-            />
-          </svg>
-        </Link>
+        <ProfileSlot />
       ) : (
         <Link
           className="btn btn-login"

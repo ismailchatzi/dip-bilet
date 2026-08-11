@@ -105,7 +105,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           password,
         });
         if (loginError) throw loginError;
-        window.location.href = "/panel";
+        window.location.href = "/?hesap=firsatlar";
       }
     } catch (err) {
       setError(authErrorMessage(err));
