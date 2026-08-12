@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Syne } from "next/font/google";
-import { BackgroundMotifs } from "@/components/BackgroundMotifs";
+import { DM_Sans, Permanent_Marker, Syne } from "next/font/google";
 import "./globals.css";
 
 const display = Syne({
@@ -15,6 +14,12 @@ const body = DM_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+const graffiti = Permanent_Marker({
+  variable: "--font-graffiti",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
   title: "Dip Bilet — Dip uçuş fırsatları",
   description:
@@ -27,11 +32,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${display.variable} ${body.variable} h-full`}>
-      <body className="min-h-full antialiased">
-        <BackgroundMotifs />
-        {children}
-      </body>
+    <html
+      lang="tr"
+      className={`${display.variable} ${body.variable} ${graffiti.variable} h-full`}
+    >
+      <body className="min-h-full antialiased">{children}</body>
     </html>
   );
 }

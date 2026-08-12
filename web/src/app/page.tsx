@@ -1,68 +1,117 @@
-import { DealRow } from "@/components/DealRow";
+import { HomeDealCarousel } from "@/components/home/HomeDealCarousel";
+import { HomeFaq } from "@/components/home/HomeFaq";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { archiveDeals } from "@/lib/archive-deals";
 
 export const dynamic = "force-dynamic";
 
 export default function Home() {
   return (
-    <main>
-      <div className="site-shell">
-        <SiteHeader />
+    <div className="home-light">
+      <SiteHeader />
 
-        <section className="hero">
-          <h1>
-            Uçuş arama.
-            <br />
-            <em>Dip bulma.</em>
-          </h1>
-          <p>
-            Sen rota seçip boğulma. Biz seçtiğin kalkışa göre biletleri tararız;
-            ortalamanın inanılmaz derecede altına ineni buraya düşürürüz.
-          </p>
-          <div className="hero-actions">
-            <a className="btn btn-primary" href="#arsiv">
-              Geçmiş fırsatlar
+      <main>
+        <section className="home-hero">
+          <div className="home-hero__media img-slot img-slot--hero">
+            <span>Görsel: hero (tam genişlik — tatil / deniz)</span>
+          </div>
+          <div className="home-hero__content">
+            <h1>
+              Bir sonraki uçuşunda büyük tasarruf et —
+              <br />
+              sen hiç uğraşma.
+            </h1>
+            <p>
+              Kalkış havaalanından hayal destinasyonlarına ve sürpriz
+              rotalara dip bilet çıkınca anında e-posta ile haberin olsun.
+            </p>
+            <a className="btn btn-hero-light" href="/uye-ol">
+              Ücretsiz üye ol
             </a>
           </div>
         </section>
 
-        <section id="nasil" className="section-head section-head--center section-head--lead">
-          <div>
-            <p className="section-head__lead">
-              Üye ol, Dip Bilet Kulübü’ne katıl.
-              <br />
-              Hata fiyatı (error / mistake fare), flaş indirim ve ortalamanın
-              çok altına inen biletlerden anında haberin olsun.
-            </p>
+        <section className="home-how" id="nasil">
+          <h2>Nasıl çalışır?</h2>
+          <p className="home-how__lead">
+            Üç adımda Dip Bilet Kulübü’ne katıl — üyelik ücretsiz.
+          </p>
+          <div className="home-how__grid">
+            <article className="home-how__card">
+              <div className="img-slot img-slot--how">
+                <span>Görsel: kalkış seçimi</span>
+              </div>
+              <h3>1. Kalkışını seç</h3>
+              <p>
+                Takip etmemizi istediğin kalkış noktasını belirle. Şimdilik
+                İstanbul (IST / SAW) açık.
+              </p>
+            </article>
+            <article className="home-how__card">
+              <div className="img-slot img-slot--how">
+                <span>Görsel: destinasyon seçimi</span>
+              </div>
+              <h3>2. Hayal destinasyonlarını seç</h3>
+              <p>
+                İlgilendiğin şehirleri işaretle; sürpriz dip rotaları da
+                tararız.
+              </p>
+            </article>
+            <article className="home-how__card">
+              <div className="img-slot img-slot--how">
+                <span>Görsel: fırsat uyarısı</span>
+              </div>
+              <h3>3. Dip fırsat uyarısı al</h3>
+              <p>
+                Ortalamanın çok altına inen veya hata fiyatı yakalandığında
+                e-posta ile haberin olsun.
+              </p>
+            </article>
+          </div>
+          <div className="home-how__cta">
+            <a className="btn btn-join-blue" href="/uye-ol">
+              Ücretsiz üye ol
+            </a>
           </div>
         </section>
 
-        <div className="club-cta">
-          <a className="btn btn-signup" href="/uye-ol">
-            Ücretsiz Üye Ol
+        <HomeDealCarousel />
+
+        <section className="home-mid-cta">
+          <h2>
+            Bir sonraki kaçamağında binlerce lira
+            <br />
+            cebinde kalsın — sen hiç arama.
+          </h2>
+          <p>
+            Dip Bilet’e katıl; kalkışına göre dip fırsatlar yakalandığında
+            ilk sen duy.
+          </p>
+          <a className="btn btn-join-blue" href="/uye-ol">
+            Ücretsiz üye ol
           </a>
-        </div>
-
-        <section id="arsiv" className="section-head section-head--center">
-          <div>
-            <h2>Yakalanan fırsatlar</h2>
-            <p>
-              Daha önce yakalanmış, süresi dolmuş örnekler. Artık geçerli
-              değil — bir sonrakini kaçırmamak için kulübe katıl.
-            </p>
-          </div>
         </section>
 
-        <div className="deal-list">
-          {archiveDeals.map((deal) => (
-            <DealRow key={deal.id} deal={deal} />
-          ))}
-        </div>
+        <HomeFaq />
 
-        <SiteFooter />
-      </div>
-    </main>
+        <section className="home-vacation">
+          <div className="home-vacation__copy">
+            <h2>Tatili hak ettin</h2>
+            <p>
+              Kalkışından hayal destinasyonlarına ve sürpriz rotalara dip
+              bilet çıkınca e-posta ile haberin olsun.
+            </p>
+            <a className="btn btn-join-blue" href="/uye-ol">
+              Ücretsiz üye ol
+            </a>
+          </div>
+          <div className="home-vacation__phone img-slot img-slot--phone">
+            <span>Görsel: telefon / uyarı mockup</span>
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter />
+    </div>
   );
 }
