@@ -77,23 +77,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: profileError } = await supabase.from("profiles").upsert(
-    {
-      id: user.id,
-      email: user.email ?? "",
-      phone,
-      phone_verified: false,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "id" },
-  );
-  if (profileError) {
-    return NextResponse.json(
-      { error: `Profil güncellenemedi: ${profileError.message}` },
-      { status: 500 },
-    );
-  }
-
   const sms = await sendSms({
     to: phone,
     text: `Dip Bilet dogrulama kodu: ${code}. 10 dk gecerli.`,

@@ -116,6 +116,28 @@ export function AccountSettings() {
     setMsg("Telefon numaran doğrulandı. SMS bildirimlerini uçuş ayarlarından açabilirsin.");
   }
 
+  async function removePhone() {
+    setError(null);
+    setMsg(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/account/phone", { method: "DELETE" });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(body.error || "Telefon kaldırılamadı.");
+        return;
+      }
+      setPhone("");
+      setPhoneVerified(false);
+      setEditingPhone(false);
+      setMsg("Telefon numaran hesaptan silindi.");
+    } catch {
+      setError("Telefon kaldırılamadı.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="settings-page">
       {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
@@ -186,19 +208,30 @@ export function AccountSettings() {
               />
             ) : (
               <p>
-                {phone || "Eklenmedi"}
-                {phoneVerified ? " · doğrulandı" : ""}
+                {phoneVerified && phone ? `${phone} · doğrulandı` : "Eklenmedi"}
               </p>
             )}
           </div>
           {!editingPhone ? (
-            <button
-              type="button"
-              className="settings-edit"
-              onClick={() => setEditingPhone(true)}
-            >
-              Düzenle
-            </button>
+            <div className="settings-row__actions">
+              <button
+                type="button"
+                className="settings-edit"
+                onClick={() => setEditingPhone(true)}
+              >
+                {phoneVerified ? "Düzenle" : "Ekle"}
+              </button>
+              {phoneVerified && phone ? (
+                <button
+                  type="button"
+                  className="settings-edit"
+                  disabled={loading}
+                  onClick={() => void removePhone()}
+                >
+                  Kaldır
+                </button>
+              ) : null}
+            </div>
           ) : (
             <button
               type="button"
