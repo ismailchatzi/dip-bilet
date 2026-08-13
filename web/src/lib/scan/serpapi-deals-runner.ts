@@ -3,12 +3,7 @@ import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
-import {
-  addDaysIso,
-  nightsBetween,
-  stayRange,
-  turkeyTodayIso,
-} from "@/lib/scan/trip-rules";
+import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -32,6 +27,21 @@ function tripKey(deal: Deal) {
     deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ||
     "";
   return `${dest}|${deal.outboundDate ?? ""}|${deal.returnDate ?? ""}`;
+}
+
+function destFromHit(hit: {
+  arrival_airport_code?: string;
+  name?: string;
+}): { code: string; name: string } | null {
+  const arrival = String(hit.arrival_airport_code ?? "").toUpperCase();
+  if (!/^[A-Z]{3}$/.test(arrival)) return null;
+  if (arrival === "IST" || arrival === "SAW") return null;
+  const tracked = findTrackedDestination(arrival);
+  if (tracked) return { code: tracked.code, name: tracked.name };
+  const raw = String(hit.name ?? "")
+    .replace(/\s*\([A-Z]{3}\)\s*$/, "")
+    .trim();
+  return { code: arrival, name: raw || arrival };
 }
 
 function departureLabel(origin: string) {
@@ -108,8 +118,7 @@ export async function runSerpapiDealsScan(
   const matched: Deal[] = [];
 
   for (const hit of fetched.deals) {
-    const arrival = String(hit.arrival_airport_code ?? "").toUpperCase();
-    const dest = findTrackedDestination(arrival);
+    const dest = destFromHit(hit);
     if (!dest) continue;
 
     const outDate = hit.start_date ?? "";
@@ -119,10 +128,6 @@ export async function runSerpapiDealsScan(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(retDate)) continue;
     if (!Number.isFinite(price) || price <= 0) continue;
     if (outDate < outboundFrom) continue;
-
-    const nights = nightsBetween(outDate, retDate);
-    const [minN, maxN] = stayRange(dest.code);
-    if (nights < minN || nights > maxN) continue;
 
     const origin = String(hit.departure_airport_code ?? "IST").toUpperCase();
     matched.push(

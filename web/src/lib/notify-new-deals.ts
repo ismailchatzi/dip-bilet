@@ -11,7 +11,7 @@ function panelUrl() {
 }
 
 function relevantForUser(deals: Deal[], destCodes: string[] | null) {
-  if (!destCodes || destCodes.length === 0) return deals;
+  if (!destCodes || destCodes.length === 0) return [];
   const set = new Set(destCodes.map((c) => c.toUpperCase()));
   return deals.filter((d) => set.has(dealDestCode(d).toUpperCase()));
 }

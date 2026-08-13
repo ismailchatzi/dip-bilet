@@ -1,0 +1,53 @@
+---
+description: Scrappa tarama + fırsat eşiği (son strateji)
+alwaysApply: true
+---
+
+# Scrappa son strateji
+
+Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda ekle.
+
+## Tarama
+- Tek yön IST + SAW, gidiş + dönüş ayrı; 21 varış (en işlek havalimanı).
+- Eşleştirerek gidiş-dönüş fırsat üret. Yayınlanan fırsatı zam diye kaldırma.
+- **Gün 1–4:** tarama yok
+- **Gün 5–21 (17 gün):** **07:00, 14:00, 22:00** (TR)
+- **Kalan 6 ay:** sadece **07:00**
+- Cron: `scrappa-0700/1400/2200-background` (UTC 04 / 11 / 19)
+- Scrappa’da 1M **inactive** ise harcama 33K’dan düşer; paketi aktif et
+- `sort_by=cheapest`. Kota: gidiş+dönüş ≈ **17.900/gün → ~537K/ay**
+
+## Ucuz 4 gün ≠ gönderi
+Ayın en ucuz 4 günü sadece sıralama (rapor). 1$ fark bile 4. gün olabilir; vitrine girmez.
+
+## Hafıza
+Her tek yön sonuç `price_observations` (ve ileride origin/direction) kaydı. 1 yıl sonra: rota medyanı, dip, sezon. Silme.
+
+## Ortalama — ilk gün (1 yıl bekleme)
+İlk 6 ay taraması bitince o anki fiyatların **ortası (medyan)** = eşik.
+Örn. Roma 180 günün 150’si ~118$ → normal 118$; 83$ fırsat.
+1 yıl = geçen Ekim vs bu Ekim, tüm zamanların dibi. İlk gönderi için şart değil.
+
+## Fiyat / eşik / vitrin
+`M` = o ay gerçek medyan (gidiş medyan + dönüş medyan).
+
+- **Gönderi açılsın mı:** fiyat ≤ `M × 0.80` (gerçek medyanın %20+ altı)
+- **Kartta üstü çizili:** `M × 1.10`
+- **Detay “Fiyat Eşiği”:** `M × 0.90` (abartılı medyan değil)
+
+Örn. M=150, bilet=113 (%25 altı → gönderi)
+Kart: ~~165~~ **113** (~%32 iner gibi)
+Detay Fiyat Eşiği: **135**
+
+40$ min tasarruf kalkmaz; %20 kuralı ana eşik. Taslak; otomatik yayın yok.
+
+Gidiş/dönüş havalimanı karışabilir (SAW gidiş, IST dönüş).
+
+## Google Deals (SerpAPI, 250/ay)
+- Günde 8 tarama (TR): 01, 03, 07, 12, 14, 17, 19, 22 — `IST,SAW` tek istek, `trip_length=4,10`, 4 gün sonrası → 6 ay.
+- Google’ın döndürdüğü tüm geçerli fırsatlar vitrine girer (21 ile sınırlama yok). Görsel yoksa kart yine çıkar; foto sonra eklenir.
+- Bildirim (e-posta/SMS) yalnız kullanıcının hedef destinasyonlarındaki şehirler için.
+- Kart tarzı aynı (üstü çizili = Google avg × 1.10, Fiyat Eşiği = avg × 0.90).
+- Aynı rota (şehir + gidiş tarihi + dönüş tarihi) vitrinde varsa tekrar koyma.
+- Scrappa vitrini güncellerken `gdeals:` kartlarını silme.
+- `serpapi_flight_link` kullanma (ayrı hak). Google `flight_link` yeter.
