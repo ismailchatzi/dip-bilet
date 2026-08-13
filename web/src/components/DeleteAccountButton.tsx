@@ -37,18 +37,22 @@ export function DeleteAccountButton() {
   }
 
   return (
-    <div className="account-danger">
-      <h2>Hesap</h2>
-      <p>Hesabını silersen tüm üyelik verin gider. Yeniden kayıt olabilirsin.</p>
+    <div>
       {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
-      <button
-        type="button"
-        className="btn btn-danger"
-        onClick={onDelete}
-        disabled={loading}
-      >
-        {loading ? "Siliniyor..." : "Hesabımı sil"}
-      </button>
+      <div className="settings-row">
+        <div>
+          <strong>Hesabı sil</strong>
+          <p>Silindikten sonra geri alınamaz.</p>
+        </div>
+        <button
+          type="button"
+          className="settings-edit settings-edit--danger"
+          onClick={() => void onDelete()}
+          disabled={loading}
+        >
+          {loading ? "Siliniyor…" : "Sil"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
-import { DM_Sans, Permanent_Marker, Syne } from "next/font/google";
+import { Calistoga, Permanent_Marker, Roboto_Slab } from "next/font/google";
 import "./globals.css";
 
-const display = Syne({
+/** Cooper Black tarzı kalın display — logo/vitrin hariç genel yazı */
+const display = Calistoga({
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  subsets: ["latin", "latin-ext"],
+  weight: "400",
 });
 
-const body = DM_Sans({
+const body = Calistoga({
   variable: "--font-body",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  subsets: ["latin", "latin-ext"],
+  weight: "400",
 });
 
 const graffiti = Permanent_Marker({
   variable: "--font-graffiti",
   subsets: ["latin"],
   weight: "400",
+});
+
+/** Logo + “İSTANBUL KALKIŞLI…” — dokunulmaz */
+const slab = Roboto_Slab({
+  variable: "--font-slab",
+  subsets: ["latin", "latin-ext"],
+  weight: ["600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -34,9 +42,9 @@ export default function RootLayout({
   return (
     <html
       lang="tr"
-      className={`${display.variable} ${body.variable} ${graffiti.variable} h-full`}
+      className={`${display.variable} ${body.variable} ${graffiti.variable} ${slab.variable} h-full`}
     >
-      <body className="min-h-full antialiased">{children}</body>
+      <body className={`${body.className} min-h-full antialiased`}>{children}</body>
     </html>
   );
 }

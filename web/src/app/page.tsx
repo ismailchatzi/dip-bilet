@@ -12,9 +12,7 @@ export default function Home() {
 
       <main>
         <section className="home-hero">
-          <div className="home-hero__media img-slot img-slot--hero">
-            <span>Görsel: hero (tam genişlik — tatil / deniz)</span>
-          </div>
+          <div className="home-hero__media" aria-hidden="true" />
           <div className="home-hero__content">
             <h1>
               Bir sonraki uçuşunda büyük tasarruf et —
@@ -28,6 +26,9 @@ export default function Home() {
             <a className="btn btn-hero-light" href="/uye-ol">
               Ücretsiz üye ol
             </a>
+            <p className="home-hero__slot-note">
+              Görsel alanı: hero (tatil / deniz) — sonra eklenecek
+            </p>
           </div>
         </section>
 

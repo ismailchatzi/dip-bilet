@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ProfileMenu } from "@/components/ProfileMenu";
 import { createClient } from "@/lib/supabase/client";
 
 export function SiteHeader() {
@@ -36,13 +37,17 @@ export function SiteHeader() {
   return (
     <header className="site-header-sticky">
       <div className="site-header-sticky__inner">
-        <Link className="brand brand--light" href="/" aria-label="Dip Bilet">
+        <Link
+          className="brand brand--light"
+          href={loggedIn ? "/firsatlarim" : "/"}
+          aria-label="Dip Bilet"
+        >
           <Image
-            className="brand-logo"
-            src="/logo-db.png?v=3"
+            className="brand-logo brand-logo--badge"
+            src="/logo-db-badge.png"
             alt=""
-            width={242}
-            height={163}
+            width={80}
+            height={80}
             priority
             unoptimized
           />
@@ -53,25 +58,7 @@ export function SiteHeader() {
 
         <div className="site-header-sticky__actions">
           {loggedIn ? (
-            <Link
-              className="profile-chip profile-chip--light"
-              href="/firsatlarim"
-              aria-label="Hesabım"
-              title="Hesabım"
-            >
-              <svg
-                className="profile-chip__icon"
-                viewBox="0 0 24 24"
-                width="22"
-                height="22"
-                aria-hidden="true"
-              >
-                <path
-                  fill="currentColor"
-                  d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-7.5 1.8-7.5 4.5V20h15v-1.25c0-2.7-3.9-4.5-7.5-4.5Z"
-                />
-              </svg>
-            </Link>
+            <ProfileMenu />
           ) : (
             <>
               <Link className="header-login" href="/giris">

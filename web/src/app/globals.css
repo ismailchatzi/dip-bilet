@@ -11,8 +11,6 @@
   --line: rgba(244, 247, 251, 0.14);
   --glow: rgba(80, 140, 220, 0.18);
   --danger-ok: #3ddc97;
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
 }
 
 @theme inline {
@@ -23,6 +21,18 @@
   box-sizing: border-box;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -31,9 +41,20 @@ body {
   margin: 0;
   min-height: 100%;
   color: var(--foam);
-  font-family: var(--font-body), system-ui, sans-serif;
+  font-family: var(--font-body), "Calistoga", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   background: var(--bg-deep);
   position: relative;
+}
+
+.home-light,
+.account-light,
+.onboarding-light,
+.site-header-sticky,
+.profile-menu__panel,
+.app-toast {
+  font-family: var(--font-body), "Calistoga", Georgia, serif;
 }
 
 /* Arka plan motifleri — açık mavi, dağıtık, tıklanamaz */
@@ -207,7 +228,7 @@ a {
 }
 
 .brand-wordmark {
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-weight: 800;
   font-size: clamp(1.65rem, 3vw, 2rem);
   letter-spacing: -0.055em;
@@ -230,7 +251,7 @@ a {
 }
 
 .hero h1 {
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(2.6rem, 7vw, 4.6rem);
   line-height: 0.95;
   letter-spacing: -0.045em;
@@ -339,7 +360,7 @@ a {
 
 .account-page h1 {
   margin: 0 0 1.25rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(1.6rem, 4vw, 2.1rem);
   letter-spacing: -0.03em;
 }
@@ -377,9 +398,9 @@ a {
 }
 
 .account-nav__link--active {
-  color: #1a1008;
-  background: var(--accent);
-  border-color: var(--accent);
+  color: #fff;
+  background: var(--brand-navy, #00153d);
+  border-color: var(--brand-navy, #00153d);
 }
 
 .account-nav__logout {
@@ -535,6 +556,8 @@ a {
 
 .deal-list--compact {
   margin-top: 0.25rem;
+  padding: 0.35rem 0.2rem 4rem;
+  gap: 0.9rem;
 }
 
 .departure-prefs {
@@ -593,7 +616,7 @@ a {
 
 .section-head p.section-head__lead {
   margin: 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(1.6rem, 3vw, 2.1rem);
   letter-spacing: -0.03em;
   line-height: 1.25;
@@ -603,7 +626,7 @@ a {
 
 .section-head h2 {
   margin: 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(1.6rem, 3vw, 2.1rem);
   letter-spacing: -0.03em;
 }
@@ -700,8 +723,8 @@ a {
   margin-bottom: 0.25rem;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  background: rgba(61, 220, 151, 0.15);
-  color: var(--danger-ok);
+  background: #7ee0a8;
+  color: #fff;
   font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;
@@ -709,7 +732,7 @@ a {
 
 .deal-row__price {
   margin: 0;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: 1.35rem;
   letter-spacing: -0.02em;
 }
@@ -720,6 +743,12 @@ a {
   font-size: 0.8rem;
   text-decoration: line-through;
   text-decoration-thickness: 1px;
+}
+
+.deal-row__threshold {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .deal-row__cta {
@@ -839,7 +868,7 @@ a {
 
 .legal-page h1 {
   margin: 0 0 0.5rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(1.8rem, 4vw, 2.4rem);
   letter-spacing: -0.03em;
 }
@@ -859,7 +888,7 @@ a {
 
 .legal-body h2 {
   margin: 1.75rem 0 0.6rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: 1.15rem;
 }
 
@@ -891,7 +920,7 @@ a {
 
 .auth-hero h1 {
   margin: 0 0 0.75rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(2rem, 5vw, 2.8rem);
   letter-spacing: -0.04em;
 }
@@ -1055,7 +1084,7 @@ a {
 
 .account-prefs h2 {
   margin: 0 0 0.4rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: 1.15rem;
 }
 
@@ -1147,7 +1176,7 @@ a {
 
 .account-danger h2 {
   margin: 0 0 0.4rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: 1.15rem;
 }
 
@@ -1212,12 +1241,20 @@ a {
   --ink-soft: #444;
   --paper: #fff;
   --line-light: #e8e8e8;
-  --blue: #1a73e8;
+  --blue: #00153d;
+  --brand-navy: #00153d;
+  --brand-navy-deep: #000d28;
+  --green: #5fd992;
+  --green-deep: #3db870;
+  --green-mid: #7ee0a8;
+  --green-soft: #d8f5e4;
+  --navy-soft: #e8ecf4;
   --navy-footer: #0b1c3a;
   min-height: 100vh;
   background: var(--paper);
   color: var(--ink);
   padding-top: 4.25rem;
+  font-family: var(--font-body), "Calistoga", Georgia, serif;
 }
 
 .site-header-sticky {
@@ -1250,12 +1287,14 @@ a {
   color: #0a0a0a;
 }
 
+/* Logo yazısı — sabit, değiştirme */
 .brand-wordmark--graffiti {
-  font-family: var(--font-graffiti), cursive;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
-  transform: rotate(-2deg);
+  font-family: var(--font-slab), "Roboto Slab", serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: clamp(1.25rem, 2.4vw, 1.55rem);
+  transform: none;
+  text-transform: uppercase;
 }
 
 .header-login {
@@ -1289,6 +1328,142 @@ a {
   background: rgba(0, 0, 0, 0.08);
 }
 
+.profile-menu {
+  position: relative;
+}
+
+.profile-menu .profile-chip {
+  cursor: pointer;
+}
+
+.profile-menu__panel {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 120;
+  min-width: 240px;
+  padding: 0.4rem 0;
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+}
+
+.profile-menu__group {
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem 0;
+}
+
+.profile-menu__group + .profile-menu__group {
+  border-top: 1px solid #ececec;
+}
+
+.profile-menu__item {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 1.1rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 0.95rem;
+  color: #0a0a0a;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.profile-menu__item:hover {
+  background: #f4f6fa;
+}
+
+.profile-menu__item--danger {
+  color: #c62828;
+}
+
+.app-toast {
+  position: fixed;
+  top: 5.25rem;
+  right: 1.25rem;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  max-width: min(320px, calc(100vw - 2rem));
+  padding: 0.9rem 0.85rem 0.9rem 1rem;
+  border: 1px solid #dce8e0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14);
+  color: #0a0a0a;
+  animation: toast-in 0.28s ease both;
+}
+
+.app-toast--leave {
+  animation: toast-out 0.45s ease both;
+}
+
+.app-toast__text {
+  margin: 0;
+  flex: 1;
+  font-family: var(--font-body), "Calistoga", Georgia, serif;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  padding-right: 0.25rem;
+}
+
+.app-toast__close {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #777;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.app-toast__close:hover {
+  background: #f0f0f0;
+  color: #0a0a0a;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.brand-logo--badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #00153d;
+}
+
 .img-slot {
   display: grid;
   place-items: center;
@@ -1300,14 +1475,61 @@ a {
   padding: 1rem;
 }
 
-.img-slot--hero {
+.home-hero {
+  position: relative;
+  min-height: min(78vh, 640px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.home-hero__media {
   position: absolute;
   inset: 0;
-  border: 0;
-  border-radius: 0;
-  background: linear-gradient(120deg, #1a4a7a 0%, #3d8fd4 45%, #7ec8e8 100%);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1rem;
+  z-index: 0;
+  background: linear-gradient(
+    125deg,
+    #0d5c32 0%,
+    #1a9f5c 42%,
+    #6fd49a 78%,
+    #c8f0d8 100%
+  );
+}
+
+.home-hero__content {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 4rem 0;
+  max-width: 36rem;
+  color: #fff;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.28);
+}
+
+.home-hero__content h1 {
+  margin: 0 0 1rem;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+.home-hero__content > p {
+  margin: 0 0 1.5rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  max-width: 32rem;
+  opacity: 0.95;
+}
+
+.home-hero__slot-note {
+  margin: 1.25rem 0 0 !important;
+  font-size: 0.78rem !important;
+  opacity: 0.75 !important;
+  text-shadow: none;
+  max-width: none !important;
 }
 
 .img-slot--how {
@@ -1321,46 +1543,6 @@ a {
   border-radius: 28px;
   max-width: 260px;
   margin: 0 auto;
-}
-
-.home-hero {
-  position: relative;
-  min-height: min(78vh, 640px);
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-}
-
-.home-hero__media {
-  z-index: 0;
-}
-
-.home-hero__content {
-  position: relative;
-  z-index: 1;
-  width: min(1120px, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: 4rem 0;
-  max-width: 36rem;
-  color: #fff;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.25);
-}
-
-.home-hero__content h1 {
-  margin: 0 0 1rem;
-  font-family: var(--font-display), sans-serif;
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  line-height: 1.08;
-  letter-spacing: -0.03em;
-  font-weight: 800;
-}
-
-.home-hero__content p {
-  margin: 0 0 1.5rem;
-  font-size: 1.05rem;
-  line-height: 1.55;
-  max-width: 32rem;
-  opacity: 0.95;
 }
 
 .btn-hero-light {
@@ -1378,7 +1560,7 @@ a {
 
 .btn-join-blue {
   display: inline-flex;
-  background: var(--blue);
+  background: var(--brand-navy, #00153d);
   color: #fff;
   border-radius: 999px;
   padding: 0.9rem 1.6rem;
@@ -1402,7 +1584,7 @@ a {
 .home-mid-cta h2,
 .home-vacation h2 {
   margin: 0 0 0.5rem;
-  font-family: var(--font-display), sans-serif;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
   font-size: clamp(1.7rem, 3.5vw, 2.4rem);
   letter-spacing: -0.03em;
   color: #0a0a0a;
@@ -1484,17 +1666,31 @@ a {
   gap: 1rem;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  padding-bottom: 0.5rem;
+  padding: 0.75rem 0.35rem 1.25rem;
   -webkit-overflow-scrolling: touch;
 }
 
 .deal-card {
   flex: 0 0 min(260px, 78vw);
   scroll-snap-align: start;
-  border: 1px dashed #d0d0d0;
+  border: 1px solid #e2e2e2;
   border-radius: 14px;
   overflow: hidden;
   background: #fff;
+  transform: scale(1);
+  transform-origin: center center;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+  will-change: transform;
+}
+
+.deal-card:hover {
+  z-index: 2;
+  transform: scale(1.06);
+  border-color: #cfcfcf;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14);
 }
 
 .deal-card__media {
@@ -1530,9 +1726,14 @@ a {
 }
 
 .deal-card__off {
+  display: inline-block;
   margin: 0.25rem 0 0.85rem;
-  font-size: 0.9rem;
-  color: #444;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  background: var(--green-mid, #7ee0a8);
+  color: #fff;
 }
 
 .deal-card__cta {
@@ -1684,6 +1885,697 @@ a {
   padding-top: 4.5rem;
 }
 
+/* Profil / hesap — açık tema */
+.account-light .account-wrap {
+  width: min(960px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.account-light .account-wrap--vitrin {
+  width: min(1120px, calc(100% - 2rem));
+}
+
+.account-light .account-page {
+  padding: 0;
+  animation: none;
+}
+
+.account-light .account-page h1 {
+  color: #0a0a0a;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
+}
+
+.account-light .account-muted {
+  color: #555;
+}
+
+.account-light .account-section__title {
+  color: #0a0a0a;
+}
+
+/* Vitrin başlığı — sabit, değiştirme */
+.account-light .account-section__title--graffiti {
+  font-family: var(--font-slab), "Roboto Slab", serif;
+  font-weight: 800;
+  font-size: clamp(1.25rem, 3.2vw, 1.7rem);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  transform: none;
+  margin: 0.75rem 0 0.85rem;
+  color: #00153d;
+  text-transform: uppercase;
+}
+
+.account-light .account-page__content {
+  max-width: none;
+}
+
+.account-light .settings-page,
+.account-light .settings-block {
+  max-width: 640px;
+}
+
+.account-light .settings-section {
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.account-light .settings-section:last-child {
+  border-bottom: 0;
+}
+
+.account-light .settings-section h2 {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0a0a0a;
+}
+
+.account-light .settings-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid #efefef;
+}
+
+.account-light .settings-section .settings-row:first-of-type {
+  border-top: 0;
+  padding-top: 0.15rem;
+}
+
+.account-light .settings-row strong {
+  display: block;
+  color: #0a0a0a;
+  font-size: 0.95rem;
+}
+
+.account-light .settings-row p {
+  margin: 0.25rem 0 0;
+  color: #666;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.account-light .settings-row a {
+  color: #00153d;
+  font-weight: 600;
+}
+
+.account-light .settings-edit {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: #00153d;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0.15rem 0;
+}
+
+.account-light .settings-edit:hover {
+  text-decoration: underline;
+}
+
+.account-light .settings-edit--danger {
+  color: #c62828;
+}
+
+.account-light .settings-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  align-items: center;
+}
+
+.account-light .settings-inline--stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.account-light .settings-inline input {
+  min-width: 12rem;
+  flex: 1;
+  border: 1px solid #d0d0d0;
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  color: #0a0a0a;
+  background: #fff;
+}
+
+.account-light .account-nav {
+  display: none;
+}
+
+.account-light .account-prefs,
+.account-light .departure-prefs,
+.account-light .account-page__content .account-prefs,
+.account-light .account-page__content .departure-prefs {
+  border: 1px solid #e6e6e6;
+  background: #fafafa;
+  border-radius: 16px;
+  padding: 1.15rem 1.2rem;
+  max-width: none;
+  text-align: left;
+}
+
+.account-light .account-prefs h2,
+.account-light .departure-prefs h2 {
+  color: #0a0a0a;
+}
+
+.account-light .departure-chip {
+  background: #fff;
+  border-color: #d8d8d8;
+  color: #0a0a0a;
+}
+
+.account-light .departure-chip--selected {
+  border-color: #00153d;
+  background: #e8ecf4;
+}
+
+.account-light .departure-chip__badge--on {
+  color: #00153d;
+}
+
+.account-light .departure-chip__airports,
+.account-light .departure-chip__badge {
+  color: #777;
+}
+
+.account-light .empty {
+  border-color: #d8d8d8;
+  color: #666;
+  background: #f7f7f7;
+}
+
+.account-light .deal-list .deal-row,
+.account-light .deal-row {
+  border-color: #e2e2e2;
+  background: #fff;
+  color: #0a0a0a;
+  box-shadow: none;
+  transform: scale(1);
+  transform-origin: center center;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    background 0.2s ease;
+}
+
+.account-light .deal-row:hover {
+  z-index: 2;
+  border-color: #00153d;
+  background: #fff;
+  transform: scale(1.03);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.12);
+}
+
+.account-light .deal-row__arrow,
+.account-light .deal-row__country,
+.account-light .deal-row__meta,
+.account-light .deal-row__avg,
+.account-light .deal-row__threshold {
+  color: #777;
+}
+
+.account-light .deal-row__badge {
+  background: #7ee0a8;
+  color: #fff;
+}
+
+.account-light .deal-row__cta {
+  background: #00153d;
+  color: #fff;
+}
+
+.account-light .deal-row:hover .deal-row__cta {
+  background: #000d28;
+}
+
+.account-light .account-field {
+  color: #555;
+}
+
+.account-light .account-field input {
+  border-color: #d0d0d0;
+  background: #fff;
+  color: #0a0a0a;
+}
+
+.account-light .pref-row {
+  border-top-color: #e6e6e6;
+}
+
+.account-light .pref-row strong {
+  color: #0a0a0a;
+}
+
+.account-light .pref-row p {
+  color: #666;
+}
+
+.account-light .pref-switch {
+  border-color: #ccc;
+  background: #e8e8e8;
+}
+
+.account-light .pref-switch--on {
+  border-color: #00153d;
+  background: #00153d;
+}
+
+.account-light .btn-primary,
+.account-light .btn-alert-on {
+  background: #00153d;
+  color: #fff;
+}
+
+.account-light .btn-alert-on:hover {
+  background: #000d28;
+}
+
+.account-light .auth-alert--ok {
+  background: #d8f5e4;
+  color: #1f8f55;
+}
+
+.account-light .auth-alert--error {
+  background: #fdecea;
+  color: #b71c1c;
+}
+
+/* ========== Onboarding kurulum sihirbazı ========== */
+
+.onboarding-light {
+  padding-top: 0;
+  min-height: 100vh;
+}
+
+.onboarding-top {
+  width: min(640px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.25rem 0 0.5rem;
+}
+
+.onboarding-main {
+  width: min(640px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0 0 3rem;
+}
+
+.onboarding-steps {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0 0 1.75rem;
+  padding: 0;
+}
+
+.onboarding-steps__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  max-width: 7rem;
+  opacity: 0.45;
+}
+
+.onboarding-steps__item--active,
+.onboarding-steps__item--done {
+  opacity: 1;
+}
+
+.onboarding-steps__num {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid #d0d0d0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #666;
+  background: #fff;
+}
+
+.onboarding-steps__item--active .onboarding-steps__num {
+  border-color: #00153d;
+  background: #00153d;
+  color: #fff;
+}
+
+.onboarding-steps__item--done .onboarding-steps__num {
+  border-color: #00153d;
+  color: #00153d;
+}
+
+.onboarding-steps__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #555;
+  text-align: center;
+}
+
+.onboarding-card {
+  border: 1px solid #e8e8e8;
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem 1.5rem;
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+}
+
+.onboarding-card h1 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
+  font-size: clamp(1.45rem, 4vw, 1.85rem);
+  letter-spacing: -0.03em;
+  color: #0a0a0a;
+}
+
+.onboarding-lead {
+  margin: 0 0 1.5rem;
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.onboarding-search {
+  position: relative;
+}
+
+.onboarding-search__label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+}
+
+.onboarding-search__input {
+  width: 100%;
+  border: 1px solid #d0d0d0;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+  color: #0a0a0a;
+  background: #fafafa;
+}
+
+.onboarding-search__input--solo {
+  margin-bottom: 0.25rem;
+}
+
+.onboarding-search__input:focus {
+  outline: 2px solid rgba(0, 21, 61, 0.28);
+  border-color: #00153d;
+  background: #fff;
+}
+
+.onboarding-search__list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.onboarding-search__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: #0a0a0a;
+}
+
+.onboarding-search__option:hover,
+.onboarding-search__option--selected {
+  background: #e8ecf4;
+}
+
+.onboarding-search__option strong {
+  font-size: 0.95rem;
+}
+
+.onboarding-search__option span {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.onboarding-search__empty {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.onboarding-selected {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #e8ecf4;
+  border: 1px solid rgba(0, 21, 61, 0.18);
+}
+
+.onboarding-selected__label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #00153d;
+  margin-bottom: 0.25rem;
+}
+
+.onboarding-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.destination-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.destination-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  background: #fff;
+  color: #0a0a0a;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.destination-chip:hover {
+  border-color: #aaa;
+}
+
+.destination-chip--selected {
+  border-color: #00153d;
+  background: #e8ecf4;
+}
+
+.destination-chip__label {
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+}
+
+.destination-chip__name {
+  font-size: 0.78rem;
+  color: #666;
+}
+
+.onboarding-notify-block {
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.onboarding-light .onboarding-pref-row {
+  padding: 1rem 1.1rem;
+  border-top: 1px solid #e8e8e8;
+  background: #fff;
+}
+
+.onboarding-light .onboarding-pref-row:first-child {
+  border-top: 0;
+}
+
+.onboarding-light .onboarding-pref-row strong {
+  color: #0a0a0a;
+}
+
+.onboarding-light .onboarding-pref-row p {
+  color: #666;
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+}
+
+.onboarding-email-readout {
+  font-weight: 500;
+  color: #00153d !important;
+}
+
+.onboarding-phone {
+  padding: 1rem;
+  border: 1px dashed #ccc;
+  border-radius: 12px;
+  background: #f9f9f9;
+}
+
+.onboarding-light .account-field {
+  color: #555;
+}
+
+.onboarding-light .account-field input {
+  border-color: #d0d0d0;
+  background: #fff;
+  color: #0a0a0a;
+}
+
+.onboarding-light .pref-switch {
+  border-color: #ccc;
+  background: #e8e8e8;
+}
+
+.onboarding-light .pref-switch--on {
+  border-color: #00153d;
+  background: #00153d;
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.onboarding-actions--split {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.btn-onboarding {
+  background: #00153d;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.85rem 1.5rem;
+  font-weight: 700;
+  border: 0;
+  cursor: pointer;
+}
+
+.btn-onboarding:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.btn-onboarding:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-onboarding-ghost {
+  background: transparent;
+  color: #444;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-onboarding-secondary {
+  background: #f0f0f0;
+  color: #0a0a0a;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-onboarding-link {
+  background: transparent;
+  border: 0;
+  color: #00153d;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.onboarding-light .auth-alert--ok {
+  background: #d8f5e4;
+  color: #1f8f55;
+}
+
+.onboarding-light .auth-alert--error {
+  background: #fdecea;
+  color: #b71c1c;
+}
+
+@media (max-width: 520px) {
+  .destination-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-actions--split {
+    flex-direction: column-reverse;
+  }
+
+  .onboarding-actions--split .btn-onboarding,
+  .onboarding-actions--split .btn-onboarding-ghost {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 900px) {
   .home-how__grid {
     grid-template-columns: 1fr;
@@ -1715,6 +2607,352 @@ a {
 
   .brand-logo {
     width: 48px;
+  }
+}
+
+/* Vitrin kartları + detay (görsel alanları boş) */
+.vitrin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.15rem;
+  margin-top: 0.35rem;
+}
+
+.vitrin-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 16px;
+  overflow: hidden;
+  text-decoration: none;
+  color: #111;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.vitrin-card:hover {
+  transform: translateY(-3px);
+  border-color: #d0d0d0;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+}
+
+.vitrin-card__photo {
+  aspect-ratio: 16 / 11;
+  background: #eceff3;
+}
+
+.vitrin-card__body {
+  padding: 1rem 1.05rem 1.1rem;
+}
+
+.vitrin-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #111;
+}
+
+.vitrin-card__prices {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0.45rem 0 0.7rem;
+}
+
+.vitrin-card__prices strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #111;
+}
+
+.vitrin-card__prices s {
+  color: #9aa0a6;
+  font-size: 0.92rem;
+  text-decoration-thickness: 1px;
+}
+
+.vitrin-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #8a8f96;
+  font-size: 0.82rem;
+}
+
+.vitrin-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.vitrin-card__meta svg,
+.deal-detail svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.deal-detail {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #111;
+}
+
+.deal-detail__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.deal-detail__back {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+}
+
+.deal-detail__back a {
+  color: #666;
+  text-decoration: none;
+}
+
+.deal-detail__back a:hover {
+  color: #111;
+}
+
+.deal-detail h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-family: inherit;
+}
+
+.deal-detail__dates {
+  margin: 0.35rem 0 0;
+  color: #777;
+  font-size: 0.95rem;
+}
+
+.deal-detail__head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.deal-detail__ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  color: #555;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0.35rem 0.2rem;
+}
+
+.deal-detail__ghost:hover {
+  color: #111;
+}
+
+.deal-detail__gallery {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.55rem;
+  min-height: 280px;
+  margin-bottom: 1.35rem;
+}
+
+.deal-detail__photo {
+  background: #eceff3;
+  border-radius: 12px;
+}
+
+.deal-detail__photo--main {
+  grid-row: 1 / span 2;
+}
+
+.deal-detail__route {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.deal-detail__mix {
+  margin: 0.25rem 0 0;
+  color: #777;
+  font-size: 0.88rem;
+}
+
+.deal-detail__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.9fr);
+  gap: 1.5rem;
+  margin-top: 1.2rem;
+  align-items: start;
+}
+
+.deal-detail__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+.deal-detail__facts h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.deal-detail__facts ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.deal-detail__facts li {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.deal-detail__facts li strong {
+  color: #111;
+  font-weight: 700;
+}
+
+.deal-detail__buy {
+  border: 1px solid #ececec;
+  border-radius: 16px;
+  padding: 1.15rem 1.2rem 1.25rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.deal-detail__from {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.deal-detail__from s {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #9aa0a6;
+}
+
+.deal-detail__saved {
+  margin: 0 0 0.35rem;
+  color: #1a9f5c;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.deal-detail__book,
+.deal-detail__alt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.7rem;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.deal-detail__book {
+  background: #8fd3ea;
+  color: #083344;
+  border: 0;
+}
+
+.deal-detail__book:hover {
+  background: #7bc7e2;
+}
+
+.deal-detail__book--disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.deal-detail__alt {
+  background: #fff;
+  color: #111;
+  border: 1px solid #d8d8d8;
+}
+
+.deal-detail__alt:hover {
+  border-color: #111;
+}
+
+.account-light .account-wrap--vitrin .account-page h1 {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 960px) {
+  .vitrin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deal-detail__grid,
+  .deal-detail__facts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .vitrin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .deal-detail__head {
+    flex-direction: column;
+  }
+
+  .deal-detail__head-actions {
+    justify-content: flex-start;
+  }
+
+  .deal-detail__gallery {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    min-height: 0;
+  }
+
+  .deal-detail__photo {
+    min-height: 140px;
+  }
+
+  .deal-detail__photo--main {
+    grid-row: auto;
+    min-height: 200px;
   }
 }
 

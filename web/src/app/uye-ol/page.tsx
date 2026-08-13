@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AuthForm } from "@/components/AuthForm";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -17,7 +18,10 @@ export default async function UyeOlPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) redirect("/firsatlarim");
+    if (user) {
+      const profile = await fetchOnboardingProfile(supabase, user.id);
+      redirect(postAuthPath(profile));
+    }
   }
 
   return (

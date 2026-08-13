@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
 import { createClient, isAuthConfigured } from "@/lib/supabase/client";
 
 type Mode = "signup" | "login";
@@ -105,7 +106,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
           password,
         });
         if (loginError) throw loginError;
-        window.location.href = "/firsatlarim";
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const profile = user
+          ? await fetchOnboardingProfile(supabase, user.id)
+          : null;
+        window.location.href = postAuthPath(profile);
       }
     } catch (err) {
       setError(authErrorMessage(err));

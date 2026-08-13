@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DEPARTURE_OPTIONS,
   DEFAULT_DEPARTURE_CODE,
@@ -10,13 +10,19 @@ import { createClient } from "@/lib/supabase/client";
 
 export function DepartureSelect({
   initialCode,
+  onChange,
 }: {
   initialCode?: string | null;
+  onChange?: (code: string) => void;
 }) {
   const [code, setCode] = useState(initialCode || DEFAULT_DEPARTURE_CODE);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialCode) setCode(initialCode);
+  }, [initialCode]);
 
   async function select(next: string, available: boolean) {
     if (!available || next === code || loading) return;
@@ -58,6 +64,7 @@ export function DepartureSelect({
     }
 
     setCode(next);
+    onChange?.(next);
     setSaved(true);
     setLoading(false);
   }

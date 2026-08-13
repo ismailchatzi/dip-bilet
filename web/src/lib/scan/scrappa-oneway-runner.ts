@@ -6,6 +6,10 @@ import {
   legsForDest,
   type ScrappaWindow,
 } from "@/lib/scan/scrappa-horizon";
+import {
+  publishAllShowcase,
+  publishDestShowcase,
+} from "@/lib/scan/scrappa-match";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const DATES_PER_BATCH = 15;
@@ -23,6 +27,7 @@ export type ScrappaBatchResult = {
   dest?: string;
   scanned: number;
   saved: number;
+  matched: number;
   errors: string[];
 };
 
@@ -49,6 +54,7 @@ export async function runScrappaOneWayBatch(
       next: null,
       scanned: 0,
       saved: 0,
+      matched: 0,
       errors,
     };
   }
@@ -119,6 +125,25 @@ export async function runScrappaOneWayBatch(
     };
   }
 
+  let matched = 0;
+  if (admin) {
+    try {
+      if (next === null) {
+        const pub = await publishAllShowcase(admin);
+        if (!pub.ok) errors.push(`vitrin: ${pub.error}`);
+        else matched = pub.count;
+      } else {
+        const pub = await publishDestShowcase(admin, dest);
+        if (!pub.ok) errors.push(`vitrin: ${pub.error}`);
+        else matched = pub.count;
+      }
+    } catch (e) {
+      errors.push(
+        `vitrin: ${e instanceof Error ? e.message : "eşleştirme hatası"}`,
+      );
+    }
+  }
+
   return {
     ok: errors.length === 0,
     done: next === null,
@@ -126,6 +151,7 @@ export async function runScrappaOneWayBatch(
     dest: dest.code,
     scanned,
     saved,
+    matched,
     errors: errors.slice(0, 20),
   };
 }

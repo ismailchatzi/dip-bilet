@@ -3,7 +3,10 @@ export type Deal = {
   destination: string;
   country?: string;
   price: number;
+  /** Kartta üstü çizili fiyat (medyan × 1.10) */
   averagePrice?: number;
+  /** Detay: Fiyat Eşiği (medyan × 0.90) */
+  thresholdPrice?: number;
   discountPercent?: number;
   currency: string;
   outboundDate?: string;
@@ -12,6 +15,7 @@ export type Deal = {
   stops?: number;
   googleFlightsUrl?: string;
   departureLabel: string;
+  foundAt?: string;
 };
 
 export type DealsPayload = {

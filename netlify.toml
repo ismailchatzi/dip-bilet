@@ -16,4 +16,6 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Saatler UTC (TR = UTC+3). Scrappa: 07/14/22 TR = 04/11/19 UTC.
+# Saatler UTC (TR = UTC+3).
+# Scrappa: 07/14/22 TR = 04/11/19 UTC.
+# SerpAPI Deals: 01/03/07/12/14/17/19/22 TR = 22/00/04/09/11/14/16/19 UTC.

@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
-import {
-  emptyDealsPayload,
-  readScanBoard,
-} from "@/lib/scan/board";
-import { mergeDealsAndFares } from "@/lib/scan/city-cache";
+import { emptyDealsPayload, readScanBoard } from "@/lib/scan/board";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-function envNumber(name: string, fallback: number): number {
-  const v = Number(process.env[name]);
-  return Number.isFinite(v) && v > 0 ? v : fallback;
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-/** Kullanıcı API’si — SerpApi yok, sadece son cron board’u */
+/** Kayıtlı kullanıcı vitrini — eşik altı gidiş-dönüşler */
 export async function GET() {
   const supabase = await createClient();
   if (!supabase) {
@@ -28,13 +23,15 @@ export async function GET() {
     return NextResponse.json({ error: "Giriş gerekli" }, { status: 401 });
   }
 
-  const minDiscount = envNumber("MIN_DISCOUNT_PERCENT", 30);
   const board = await readScanBoard(supabase);
-  const payload = mergeDealsAndFares(
-    board.deals ?? emptyDealsPayload(),
-    board.cityFares,
-    minDiscount,
+  const payload = board.deals ?? emptyDealsPayload();
+  const today = todayIso();
+  const deals = (payload.deals ?? []).filter(
+    (d) => !d.outboundDate || d.outboundDate >= today,
   );
 
-  return NextResponse.json(payload);
+  return NextResponse.json({
+    ...payload,
+    deals,
+  });
 }

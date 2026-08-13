@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { fetchOnboardingProfile, postAuthPath } from "@/lib/onboarding";
 
 function siteOrigin(request: Request) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
@@ -31,10 +32,12 @@ export async function GET(request: Request) {
 
   try {
     const cookieStore = await cookies();
-    const destination =
-      flow === "confirm" ? `${base}/giris?aktif=1` : `${base}${nextPath}`;
-
-    const response = NextResponse.redirect(destination);
+    let nextPathResolved = nextPath;
+    const pendingCookies: {
+      name: string;
+      value: string;
+      options: Parameters<NextResponse["cookies"]["set"]>[2];
+    }[] = [];
 
     const supabase = createServerClient(url, key, {
       cookies: {
@@ -44,7 +47,7 @@ export async function GET(request: Request) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, options);
-            response.cookies.set(name, value, options);
+            pendingCookies.push({ name, value, options });
           });
         },
       },
@@ -56,9 +59,29 @@ export async function GET(request: Request) {
       return fail();
     }
 
+    if (flow !== "confirm") {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const profile = await fetchOnboardingProfile(supabase, user.id);
+        nextPathResolved = postAuthPath(profile);
+      }
+    }
+
+    const destination =
+      flow === "confirm"
+        ? `${base}/giris?aktif=1`
+        : `${base}${nextPathResolved}`;
+
     if (flow === "confirm") {
       await supabase.auth.signOut();
     }
+
+    const response = NextResponse.redirect(destination);
+    pendingCookies.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options);
+    });
 
     return response;
   } catch (err) {

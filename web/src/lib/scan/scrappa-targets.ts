@@ -40,6 +40,19 @@ export const SCRAPPA_DESTINATIONS: ScrappaDestination[] = [
   { code: "MLE", name: "Maldivler" },
 ];
 
+/** Yeni şehir listeye eklenince Deals taraması da onu görür */
+export function findTrackedDestination(
+  airportCode: string,
+): ScrappaDestination | null {
+  const code = airportCode.trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(code)) return null;
+  return (
+    SCRAPPA_DESTINATIONS.find(
+      (d) => d.code === code || d.skippedAlt === code,
+    ) ?? null
+  );
+}
+
 /** 1 varış × 1 tarih = 4 one-way istek */
 export function scrappaLegsForDate(
   destCode: string,

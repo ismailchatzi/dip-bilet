@@ -74,6 +74,7 @@ export async function POST(request: Request) {
     dest: batch.dest,
     scanned: batch.scanned,
     saved: batch.saved,
+    matched: batch.matched,
     errors: batch.errors,
   });
 }

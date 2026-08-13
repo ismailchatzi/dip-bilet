@@ -23,6 +23,18 @@ function formatDate(iso?: string) {
   }).format(d);
 }
 
+function formatFoundAt(iso?: string) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
 export function DealRow({
   deal,
   mode = "archive",
@@ -33,6 +45,7 @@ export function DealRow({
   const dates = [formatDate(deal.outboundDate), formatDate(deal.returnDate)]
     .filter(Boolean)
     .join(" → ");
+  const found = formatFoundAt(deal.foundAt);
 
   const isArchive = mode === "archive";
 
@@ -59,6 +72,7 @@ export function DealRow({
               ? " · Direkt"
               : ` · ${deal.stops} aktarma`
             : ""}
+          {found ? ` · bulundu ${found}` : ""}
         </p>
       </div>
 
@@ -73,7 +87,12 @@ export function DealRow({
         </p>
         {typeof deal.averagePrice === "number" ? (
           <p className="deal-row__avg">
-            ort. {formatMoney(deal.averagePrice, deal.currency)}
+            {formatMoney(deal.averagePrice, deal.currency)}
+          </p>
+        ) : null}
+        {typeof deal.thresholdPrice === "number" ? (
+          <p className="deal-row__threshold">
+            Fiyat Eşiği {formatMoney(deal.thresholdPrice, deal.currency)}
           </p>
         ) : null}
       </div>
