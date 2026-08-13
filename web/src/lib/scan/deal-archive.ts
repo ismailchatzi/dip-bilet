@@ -3,8 +3,8 @@ import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
 
-/** Anasayfaya düşmesi için gidişin üzerinden geçmesi gereken gün. */
-export const ARCHIVE_MIN_AGE_DAYS = 2;
+/** Anasayfaya düşmesi için uçuş gününden sonra beklenen gün (ertesi gün = 1). */
+export const ARCHIVE_MIN_AGE_DAYS = 1;
 /** Arşivde tutma süresi. */
 export const ARCHIVE_KEEP_DAYS = 60;
 /** Anasayfada gösterilecek kart tavanı. */

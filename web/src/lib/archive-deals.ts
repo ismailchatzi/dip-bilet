@@ -15,6 +15,7 @@ export const archiveDeals: Deal[] = [
     airline: "Pegasus",
     stops: 0,
     departureLabel: "İstanbul",
+    foundAt: "2026-05-02T07:00:00.000Z",
   },
   {
     id: "archive-2",
@@ -29,6 +30,7 @@ export const archiveDeals: Deal[] = [
     airline: "AJet",
     stops: 0,
     departureLabel: "İstanbul",
+    foundAt: "2026-04-08T07:00:00.000Z",
   },
   {
     id: "archive-3",
@@ -43,6 +45,7 @@ export const archiveDeals: Deal[] = [
     airline: "Wizz Air",
     stops: 0,
     departureLabel: "İstanbul",
+    foundAt: "2026-05-18T07:00:00.000Z",
   },
   {
     id: "archive-4",
@@ -57,5 +60,6 @@ export const archiveDeals: Deal[] = [
     airline: "Turkish Airlines",
     stops: 0,
     departureLabel: "İstanbul",
+    foundAt: "2026-02-24T07:00:00.000Z",
   },
 ];

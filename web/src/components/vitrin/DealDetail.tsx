@@ -7,6 +7,7 @@ import {
   dealCityTitle,
   dealDateRange,
   dealDateRangeShort,
+  dealFoundLabel,
   dealDestCode,
   dealOutOrigin,
   dealReturnAirport,
@@ -20,6 +21,7 @@ import { useState } from "react";
 
 export function DealDetail({ deal }: { deal: Deal }) {
   const [copied, setCopied] = useState(false);
+  const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
   const dest = dealDestCode(deal);
   const out = dealOutOrigin(deal);
@@ -134,6 +136,13 @@ export function DealDetail({ deal }: { deal: Deal }) {
                 <span>Tarihler</span>
                 <strong>{dealDateRangeShort(deal)}</strong>
               </li>
+              {found ? (
+                <li>
+                  <ClockIcon />
+                  <span>Fırsat tarihi</span>
+                  <strong>{found}</strong>
+                </li>
+              ) : null}
             </ul>
           </section>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { DestPhoto } from "@/components/vitrin/DestPhoto";
+import { dealFoundLabel } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import { useRef } from "react";
 
@@ -65,6 +66,9 @@ export function HomeDealCarousel({ deals }: { deals: Deal[] }) {
               </p>
               {typeof deal.discountPercent === "number" ? (
                 <p className="deal-card__off">%{deal.discountPercent} altında</p>
+              ) : null}
+              {dealFoundLabel(deal) ? (
+                <p className="deal-card__found">{dealFoundLabel(deal)}</p>
               ) : null}
               <a className="deal-card__cta" href="/uye-ol">
                 Fırsatları gör →

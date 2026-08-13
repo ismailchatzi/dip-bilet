@@ -53,7 +53,7 @@ Gidiş/dönüş havalimanı karışabilir (SAW gidiş, IST dönüş).
 - `serpapi_flight_link` kullanma (ayrı hak). Google `flight_link` yeter.
 
 ## Eski kart / anasayfa
-- Canlı vitrin: gidiş tarihi bugün veya sonrası.
-- Anasayfa “Son yakalanan fırsatlar”: gidişin üzerinden **en az 2 gün** geçmiş kartlar.
-- Arşiv 60 gün tutulur, anasayfada en iyi ~12 kart. Gerçek kart yoksa örnekler kalır.
+- Canlı vitrin: uçuş günü gelene kadar durur (fiyat artsa da kalkmaz; yakalanma tarihi kartta).
+- Anasayfa “Son yakalanan fırsatlar”: uçuş gününden **ertesi gün**. En yüksek indirim oranları, en iyi ~12 kart.
+- Arşiv 60 gün tutulur. Gerçek kart yoksa örnekler kalır.
 - Arşiv kartında bilet linki yok; CTA üye ol.

@@ -4,6 +4,7 @@ import {
   dealCityName,
   dealCityTitle,
   dealDestCode,
+  dealFoundLabel,
   dealHref,
   dealOutOrigin,
   formatDealMoney,
@@ -13,6 +14,7 @@ import Link from "next/link";
 
 export function DealCard({ deal }: { deal: Deal }) {
   const dest = dealDestCode(deal) || dealCityName(deal);
+  const found = dealFoundLabel(deal);
   return (
     <Link href={dealHref(deal)} className="vitrin-card">
       <DestPhoto dest={dest} alt={dealCityTitle(deal)} className="vitrin-card__photo" />
@@ -34,6 +36,7 @@ export function DealCard({ deal }: { deal: Deal }) {
             {dealCabin()}
           </span>
         </div>
+        {found ? <p className="vitrin-card__found">{found}</p> : null}
       </div>
     </Link>
   );

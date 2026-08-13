@@ -1755,13 +1755,19 @@ a {
 
 .deal-card__off {
   display: inline-block;
-  margin: 0.25rem 0 0.85rem;
+  margin: 0.25rem 0 0.45rem;
   padding: 0.22rem 0.6rem;
   border-radius: 999px;
   font-size: 0.88rem;
   font-weight: 700;
   background: var(--green-mid, #7ee0a8);
   color: #fff;
+}
+
+.deal-card__found {
+  margin: 0 0 0.85rem;
+  color: #8a8f96;
+  font-size: 0.78rem;
 }
 
 .deal-card__cta {
@@ -2799,6 +2805,12 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.vitrin-card__found {
+  margin: 0.4rem 0 0;
+  color: #8a8f96;
+  font-size: 0.78rem;
 }
 
 .vitrin-card__meta svg,

@@ -60,6 +60,21 @@ export function formatDealDateShort(iso?: string) {
   }).format(d);
 }
 
+/** Fırsatın vitrine düştüğü TR günü. */
+export function formatFoundDate(iso?: string) {
+  if (!iso) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return formatDealDateShort(iso);
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  const tr = new Date(t + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return formatDealDateShort(tr);
+}
+
+export function dealFoundLabel(deal: Deal) {
+  const day = formatFoundDate(deal.foundAt);
+  return day ? `${day}’da yakalandı` : null;
+}
+
 function showcaseParts(deal: Deal) {
   if (deal.id.startsWith("scrappa:") || deal.id.startsWith("gdeals:")) {
     return deal.id.split(":");
