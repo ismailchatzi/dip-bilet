@@ -3,14 +3,12 @@ import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
-import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
+import { turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STRIKE_RATIO = 1.1;
 const THRESHOLD_RATIO = 0.9;
-const HORIZON_START_DAYS = 4;
-const HORIZON_END_DAYS = 182;
 
 export type SerpapiDealsScanResult = {
   ok: boolean;
@@ -99,10 +97,7 @@ export async function runSerpapiDealsScan(
   admin: SupabaseClient | null,
 ): Promise<SerpapiDealsScanResult> {
   const today = turkeyTodayIso();
-  const outboundFrom = addDaysIso(today, HORIZON_START_DAYS);
-  const outboundTo = addDaysIso(today, HORIZON_END_DAYS);
-
-  const fetched = await fetchGoogleDeals({ outboundFrom, outboundTo });
+  const fetched = await fetchGoogleDeals();
   if (!fetched.ok) {
     return {
       ok: false,
@@ -127,7 +122,7 @@ export async function runSerpapiDealsScan(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(outDate)) continue;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(retDate)) continue;
     if (!Number.isFinite(price) || price <= 0) continue;
-    if (outDate < outboundFrom) continue;
+    if (outDate < today) continue;
 
     const origin = String(hit.departure_airport_code ?? "IST").toUpperCase();
     matched.push(

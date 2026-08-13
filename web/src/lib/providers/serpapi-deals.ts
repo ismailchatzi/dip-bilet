@@ -18,11 +18,12 @@ type SerpapiDealsJson = {
   deals?: SerpapiDealHit[];
 };
 
-/** IST+SAW, gidiş-dönüş, 4–10 gece, 4 gün sonrası → ~6 ay. 1 hak. */
-export async function fetchGoogleDeals(input: {
-  outboundFrom: string;
-  outboundTo: string;
-}): Promise<{ ok: boolean; deals: SerpapiDealHit[]; error?: string }> {
+/** IST+SAW gidiş-dönüş. Tarih/gece filtresi yok; Google ne sunduysa o. 1 hak. */
+export async function fetchGoogleDeals(): Promise<{
+  ok: boolean;
+  deals: SerpapiDealHit[];
+  error?: string;
+}> {
   const apiKey = process.env.SERPAPI_API_KEY?.trim();
   if (!apiKey) return { ok: false, deals: [], error: "SERPAPI_API_KEY eksik" };
 
@@ -30,8 +31,6 @@ export async function fetchGoogleDeals(input: {
     engine: "google_flights_deals",
     departure_id: "IST,SAW",
     type: "1",
-    trip_length: "4,10",
-    outbound_date: `${input.outboundFrom},${input.outboundTo}`,
     currency: "USD",
     gl: "tr",
     hl: "tr",
