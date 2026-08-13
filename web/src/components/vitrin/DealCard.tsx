@@ -1,6 +1,9 @@
+import { DestPhoto } from "@/components/vitrin/DestPhoto";
 import {
   dealCabin,
+  dealCityName,
   dealCityTitle,
+  dealDestCode,
   dealHref,
   dealOutOrigin,
   formatDealMoney,
@@ -9,9 +12,10 @@ import type { Deal } from "@/lib/types";
 import Link from "next/link";
 
 export function DealCard({ deal }: { deal: Deal }) {
+  const dest = dealDestCode(deal) || dealCityName(deal);
   return (
     <Link href={dealHref(deal)} className="vitrin-card">
-      <div className="vitrin-card__photo" aria-hidden="true" />
+      <DestPhoto dest={dest} alt={dealCityTitle(deal)} className="vitrin-card__photo" />
       <div className="vitrin-card__body">
         <h3 className="vitrin-card__title">{dealCityTitle(deal)}</h3>
         <p className="vitrin-card__prices">

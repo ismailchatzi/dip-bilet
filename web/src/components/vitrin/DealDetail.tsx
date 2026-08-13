@@ -1,7 +1,9 @@
 "use client";
 
+import { DestGallery } from "@/components/vitrin/DestGallery";
 import {
   dealCabin,
+  dealCityName,
   dealCityTitle,
   dealDateRange,
   dealDateRangeShort,
@@ -64,11 +66,7 @@ export function DealDetail({ deal }: { deal: Deal }) {
         </div>
       </div>
 
-      <div className="deal-detail__gallery" aria-hidden="true">
-        <div className="deal-detail__photo deal-detail__photo--main" />
-        <div className="deal-detail__photo" />
-        <div className="deal-detail__photo" />
-      </div>
+      <DestGallery dest={dest || dealCityName(deal)} alt={title} />
 
       <h3 className="deal-detail__route">{dealRouteLine(deal)}</h3>
       {out !== back ? (

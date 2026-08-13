@@ -1694,9 +1694,12 @@ a {
 }
 
 .deal-card__media {
+  position: relative;
   aspect-ratio: 4 / 5;
   border: 0;
   border-radius: 0;
+  overflow: hidden;
+  background: #eceff3;
 }
 
 .deal-card__body {
@@ -2642,8 +2645,29 @@ a {
 }
 
 .vitrin-card__photo {
+  position: relative;
   aspect-ratio: 16 / 11;
+  overflow: hidden;
   background: #eceff3;
+}
+
+.dest-photo__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  animation: destPhotoFade 0.45s ease;
+}
+
+@keyframes destPhotoFade {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .vitrin-card__body {
@@ -2774,6 +2798,8 @@ a {
 }
 
 .deal-detail__photo {
+  position: relative;
+  overflow: hidden;
   background: #eceff3;
   border-radius: 12px;
 }
