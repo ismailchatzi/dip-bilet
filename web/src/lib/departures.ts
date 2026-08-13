@@ -125,6 +125,28 @@ export function filterDepartureSearch(query: string) {
   );
 }
 
+export type DepartureAirport = {
+  code: string;
+  label: string;
+};
+
+/** Uçuş ayarlarındaki kalkış tercihine göre filtrelenebilir havalimanları */
+export function airportsFromDepartureCode(
+  code: string | null | undefined,
+): DepartureAirport[] {
+  const d = getDepartureOption(code);
+  if (d.code === "IST_ONLY") {
+    return [{ code: "IST", label: "İstanbul Havalimanı" }];
+  }
+  if (d.code === "SAW_ONLY") {
+    return [{ code: "SAW", label: "Sabiha Gökçen" }];
+  }
+  return [
+    { code: "IST", label: "İstanbul Havalimanı" },
+    { code: "SAW", label: "Sabiha Gökçen" },
+  ];
+}
+
 export function departureDisplay(code: string | null | undefined) {
   const d = getDepartureOption(code);
   return `${d.label} (${d.airports})`;

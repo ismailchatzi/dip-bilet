@@ -159,14 +159,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
     <div className="auth-card">
       <form className="auth-form" onSubmit={onSubmit}>
         <label className="auth-field">
-          <span>E-posta</span>
+          {mode === "login" ? null : <span>E-posta</span>}
           <input
             type="email"
             autoComplete="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="ornek@mail.com"
+            placeholder={mode === "login" ? "Email" : "ornek@mail.com"}
           />
         </label>
 

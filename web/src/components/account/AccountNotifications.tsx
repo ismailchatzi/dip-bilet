@@ -63,10 +63,7 @@ export function AccountNotifications() {
     })();
   }, []);
 
-  async function patch(next: {
-    email_alerts?: boolean;
-    sms_alerts?: boolean;
-  }) {
+  async function patchEmail(next: boolean) {
     setError(null);
     setLoading(true);
     const supabase = createClient();
@@ -87,7 +84,7 @@ export function AccountNotifications() {
       {
         id: user.id,
         email: user.email ?? "",
-        ...next,
+        email_alerts: next,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },
@@ -97,9 +94,34 @@ export function AccountNotifications() {
       setLoading(false);
       return;
     }
-    if (typeof next.email_alerts === "boolean") setEmailAlerts(next.email_alerts);
-    if (typeof next.sms_alerts === "boolean") setSmsAlerts(next.sms_alerts);
+    setEmailAlerts(next);
     setLoading(false);
+  }
+
+  async function patchSms(next: boolean) {
+    if (!phoneVerified) {
+      setError("SMS için önce telefonunu doğrula.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/account/sms-alerts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(body.error || "SMS ayarı kaydedilemedi.");
+        return;
+      }
+      setSmsAlerts(next);
+    } catch {
+      setError("SMS ayarı kaydedilemedi.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -118,7 +140,7 @@ export function AccountNotifications() {
           label="Mail ile bilgilendirme"
           checked={emailAlerts}
           disabled={loading}
-          onChange={() => void patch({ email_alerts: !emailAlerts })}
+          onChange={() => void patchEmail(!emailAlerts)}
         />
       </div>
 
@@ -137,7 +159,7 @@ export function AccountNotifications() {
           disabled={loading || !phoneVerified}
           onChange={() => {
             if (!phoneVerified) return;
-            void patch({ sms_alerts: !smsAlerts });
+            void patchSms(!smsAlerts);
           }}
         />
       </div>

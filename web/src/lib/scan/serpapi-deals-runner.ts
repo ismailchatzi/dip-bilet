@@ -1,3 +1,4 @@
+import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
@@ -192,6 +193,8 @@ export async function runSerpapiDealsScan(
       error: saved.error,
     };
   }
+
+  await notifyNewDeals(admin, existing, deals);
 
   return {
     ok: true,

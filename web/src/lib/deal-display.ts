@@ -127,6 +127,16 @@ export function dealMatchesDeparture(deal: Deal, departureCode: string) {
   return true;
 }
 
+export function dealMatchesOrigins(deal: Deal, origins: string[]) {
+  if (origins.length === 0) return true;
+  return origins.includes(dealOutOrigin(deal));
+}
+
+export function dealMatchesDests(deal: Deal, dests: string[]) {
+  if (dests.length === 0) return true;
+  return dests.includes(dealDestCode(deal));
+}
+
 export function dealCabin() {
   return "Ekonomi";
 }

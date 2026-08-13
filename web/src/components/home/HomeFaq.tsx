@@ -21,7 +21,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "SMS bildirimi gönderebilir misiniz?",
-    a: "E-posta bildirimleri aktif. SMS için telefon doğrulaması gerekir; altyapı hazırlanıyor.",
+    a: "Evet. Hesap ayarlarından telefonunu doğrula, uçuş ayarlarından SMS bildirimini aç. Yeni dip fırsat hedef destinasyonlarına düşünce SMS gider.",
   },
   {
     q: "Üyelikte uçuş dışında ek avantaj var mı?",

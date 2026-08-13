@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AuthForm } from "@/components/AuthForm";
-import { SiteFooter } from "@/components/SiteFooter";
-import { SiteHeader } from "@/components/SiteHeader";
+import { AuthSplit } from "@/components/AuthSplit";
 import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,20 +23,10 @@ export default async function GirisPage() {
   }
 
   return (
-    <main>
-      <div className="site-shell">
-        <SiteHeader />
-
-        <section className="auth-hero">
-          <h1>Giriş yap</h1>
-          <p>Dip Bilet Kulübü hesabınla devam et.</p>
-        </section>
-
-        <Suspense fallback={<div className="auth-card">Yükleniyor...</div>}>
-          <AuthForm mode="login" />
-        </Suspense>
-        <SiteFooter />
-      </div>
-    </main>
+    <AuthSplit title="Tekrar hoş geldin.">
+      <Suspense fallback={<div className="auth-card">Yükleniyor...</div>}>
+        <AuthForm mode="login" />
+      </Suspense>
+    </AuthSplit>
   );
 }

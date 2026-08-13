@@ -1,3 +1,4 @@
+import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import {
@@ -202,7 +203,8 @@ export async function publishDestShowcase(
 ): Promise<{ ok: boolean; count: number; error?: string }> {
   const fresh = await matchDestFromDb(admin, dest);
   const board = await readScanBoard(admin);
-  const others = (board.deals?.deals ?? []).filter(
+  const previous = board.deals?.deals ?? [];
+  const others = previous.filter(
     (d) => isGoogleDeal(d) || destCodeFromDeal(d) !== dest.code,
   );
   const taken = new Set(others.map(tripKey));
@@ -211,6 +213,7 @@ export async function publishDestShowcase(
   );
   const saved = await patchScanBoard(admin, { deals: dealsPayload(deals) });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
+  await notifyNewDeals(admin, previous, deals);
   return { ok: true, count: fresh.length };
 }
 
@@ -219,7 +222,8 @@ export async function publishAllShowcase(
   admin: SupabaseClient,
 ): Promise<{ ok: boolean; count: number; error?: string }> {
   const board = await readScanBoard(admin);
-  const googleKept = (board.deals?.deals ?? []).filter(isGoogleDeal);
+  const previous = board.deals?.deals ?? [];
+  const googleKept = previous.filter(isGoogleDeal);
   const taken = new Set(googleKept.map(tripKey));
   const all: Deal[] = [...googleKept];
   for (const dest of SCRAPPA_DESTINATIONS) {
@@ -233,5 +237,6 @@ export async function publishAllShowcase(
   all.sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0));
   const saved = await patchScanBoard(admin, { deals: dealsPayload(all) });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
+  await notifyNewDeals(admin, previous, all);
   return { ok: true, count: all.length };
 }

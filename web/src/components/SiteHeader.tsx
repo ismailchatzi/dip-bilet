@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import { createClient } from "@/lib/supabase/client";
 
-export function SiteHeader() {
+export function SiteHeader({ logoOnly = false }: { logoOnly?: boolean }) {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -56,20 +56,22 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <div className="site-header-sticky__actions">
-          {loggedIn ? (
-            <ProfileMenu />
-          ) : (
-            <>
-              <Link className="header-login" href="/giris">
-                Giriş Yap
-              </Link>
-              <Link className="btn btn-header-join" href="/uye-ol">
-                Ücretsiz üye ol →
-              </Link>
-            </>
-          )}
-        </div>
+        {logoOnly ? null : (
+          <div className="site-header-sticky__actions">
+            {loggedIn ? (
+              <ProfileMenu />
+            ) : (
+              <>
+                <Link className="header-login" href="/giris">
+                  Giriş Yap
+                </Link>
+                <Link className="btn btn-header-join" href="/uye-ol">
+                  Ücretsiz üye ol →
+                </Link>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

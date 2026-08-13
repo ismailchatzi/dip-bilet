@@ -75,8 +75,8 @@ export function DestinationSettings({
     <div className="settings-block">
       {toast ? <Toast message={toast} onClose={dismissToast} /> : null}
       <p className="account-muted">
-        Takip etmek istediğin şehirleri işaretle. Dip taramalarında bu liste
-        öncelikli olur.
+        Takip etmek istediğin şehirleri işaretle. Vitrin filtresi ve SMS
+        uyarıları bu listedeki destinasyonlara göre çalışır.
       </p>
       {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
 

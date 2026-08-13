@@ -74,3 +74,17 @@ export function dealAlertEmailContent(deals: Deal[], panelUrl: string) {
 
   return { subject, text, html };
 }
+
+export function dealAlertSmsContent(deals: Deal[], panelUrl: string) {
+  const top = deals.slice(0, 2);
+  const bits = top.map((d) => {
+    const name = d.destination.replace(/\s*\([A-Z]{3}\)\s*$/, "").trim();
+    return `${name} ${formatMoney(d.price, d.currency)}`;
+  });
+  const extra = deals.length > 2 ? ` +${deals.length - 2}` : "";
+  const shortUrl = panelUrl.replace(/^https?:\/\//, "");
+  if (deals.length === 1) {
+    return `Dip Bilet: ${bits[0]}. ${shortUrl}`;
+  }
+  return `Dip Bilet: ${deals.length} yeni dip. ${bits.join(", ")}${extra}. ${shortUrl}`;
+}

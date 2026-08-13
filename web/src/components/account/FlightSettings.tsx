@@ -44,6 +44,7 @@ export function FlightSettings() {
   const [email, setEmail] = useState("");
   const [departureCode, setDepartureCode] = useState("IST");
   const [destCodes, setDestCodes] = useState<string[]>([]);
+  const [phoneVerified, setPhoneVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,14 +69,12 @@ export function FlightSettings() {
         setSmsAlerts(Boolean(data.sms_alerts));
         if (data.departure_code) setDepartureCode(data.departure_code);
         setDestCodes(data.destination_codes ?? []);
+        setPhoneVerified(Boolean(data.phone_verified));
       }
     })();
   }, []);
 
-  async function patch(next: {
-    email_alerts?: boolean;
-    sms_alerts?: boolean;
-  }) {
+  async function patchEmail(next: boolean) {
     setError(null);
     setLoading(true);
     const supabase = createClient();
@@ -96,7 +95,7 @@ export function FlightSettings() {
       {
         id: user.id,
         email: user.email ?? "",
-        ...next,
+        email_alerts: next,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },
@@ -106,9 +105,34 @@ export function FlightSettings() {
       setLoading(false);
       return;
     }
-    if (typeof next.email_alerts === "boolean") setEmailAlerts(next.email_alerts);
-    if (typeof next.sms_alerts === "boolean") setSmsAlerts(next.sms_alerts);
+    setEmailAlerts(next);
     setLoading(false);
+  }
+
+  async function patchSms(next: boolean) {
+    if (!phoneVerified) {
+      setError("SMS için önce telefonunu doğrula.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/account/sms-alerts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+      });
+      const body = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(body.error || "SMS ayarı kaydedilemedi.");
+        return;
+      }
+      setSmsAlerts(next);
+    } catch {
+      setError("SMS ayarı kaydedilemedi.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const destCount = destCodes.length;
@@ -133,7 +157,7 @@ export function FlightSettings() {
             label="E-posta bildirimleri"
             checked={emailAlerts}
             disabled={loading}
-            onChange={() => void patch({ email_alerts: !emailAlerts })}
+            onChange={() => void patchEmail(!emailAlerts)}
           />
         </div>
 
@@ -141,15 +165,24 @@ export function FlightSettings() {
           <div>
             <strong>SMS bildirimleri</strong>
             <p>
-              Yakında aktif olacak. Telefonunu{" "}
-              <Link href="/hesap-ayarlari">hesap ayarlarından</Link> ekleyebilirsin.
+              {phoneVerified
+                ? "Doğrulanmış telefonuna dip fırsat SMS’i"
+                : (
+                  <>
+                    Önce telefonunu{" "}
+                    <Link href="/hesap-ayarlari">hesap ayarlarından</Link> doğrula.
+                  </>
+                )}
             </p>
           </div>
           <Switch
             label="SMS bildirimleri"
             checked={smsAlerts}
-            disabled
-            onChange={() => {}}
+            disabled={loading || !phoneVerified}
+            onChange={() => {
+              if (!phoneVerified) return;
+              void patchSms(!smsAlerts);
+            }}
           />
         </div>
       </section>
@@ -162,7 +195,7 @@ export function FlightSettings() {
             <strong>Kalkış havalimanı</strong>
             <p>{departureDisplay(departureCode)}</p>
           </div>
-          <Link className="settings-edit" href="/firsatlarim">
+          <Link className="settings-edit" href="/kalkis-havalimani">
             Düzenle
           </Link>
         </div>

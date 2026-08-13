@@ -2,16 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
+import { PhoneVerify } from "@/components/account/PhoneVerify";
 import { createClient } from "@/lib/supabase/client";
-
-function normalizeTrPhone(raw: string) {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("90") && digits.length === 12) return `+${digits}`;
-  if (digits.startsWith("0") && digits.length === 11) return `+90${digits.slice(1)}`;
-  if (digits.length === 10) return `+90${digits}`;
-  if (raw.trim().startsWith("+") && digits.length >= 10) return `+${digits}`;
-  return null;
-}
 
 export function AccountSettings() {
   const [email, setEmail] = useState("");
@@ -117,51 +109,11 @@ export function AccountSettings() {
     setLoading(false);
   }
 
-  async function savePhone() {
-    setError(null);
-    setMsg(null);
-    const normalized = normalizeTrPhone(phone);
-    if (!normalized) {
-      setError("Geçerli bir telefon gir (örn. 05xx xxx xx xx).");
-      return;
-    }
-    setLoading(true);
-    const supabase = createClient();
-    if (!supabase) {
-      setError("Bağlantı kurulamadı.");
-      setLoading(false);
-      return;
-    }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Oturum bulunamadı.");
-      setLoading(false);
-      return;
-    }
-    const { error: err } = await supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        email: user.email ?? "",
-        phone: normalized,
-        phone_verified: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    );
-    if (err) {
-      setError(err.message);
-      setLoading(false);
-      return;
-    }
-    setPhone(normalized);
-    setPhoneVerified(false);
+  function onPhoneVerified(next: string) {
+    setPhone(next);
+    setPhoneVerified(true);
     setEditingPhone(false);
-    setMsg(
-      "Telefon kaydedildi. SMS doğrulama yakında açılacak.",
-    );
-    setLoading(false);
+    setMsg("Telefon numaran doğrulandı. SMS bildirimlerini uçuş ayarlarından açabilirsin.");
   }
 
   return (
@@ -222,23 +174,16 @@ export function AccountSettings() {
           <div>
             <strong>Telefon</strong>
             {editingPhone ? (
-              <div className="settings-inline">
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="05xx xxx xx xx"
-                  autoComplete="tel"
-                />
-                <button
-                  type="button"
-                  className="btn btn-onboarding-secondary"
-                  disabled={loading}
-                  onClick={() => void savePhone()}
-                >
-                  Kaydet
-                </button>
-              </div>
+              <PhoneVerify
+                phone={phone}
+                onPhoneChange={(v) => {
+                  setPhone(v);
+                  setPhoneVerified(false);
+                }}
+                verified={phoneVerified}
+                onVerified={onPhoneVerified}
+                disabled={loading}
+              />
             ) : (
               <p>
                 {phone || "Eklenmedi"}

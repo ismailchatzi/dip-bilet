@@ -26,9 +26,6 @@ export default function Home() {
             <a className="btn btn-hero-light" href="/uye-ol">
               Ücretsiz üye ol
             </a>
-            <p className="home-hero__slot-note">
-              Görsel alanı: hero (tatil / deniz) — sonra eklenecek
-            </p>
           </div>
         </section>
 
@@ -39,8 +36,8 @@ export default function Home() {
           </p>
           <div className="home-how__grid">
             <article className="home-how__card">
-              <div className="img-slot img-slot--how">
-                <span>Görsel: kalkış seçimi</span>
+              <div className="home-how__visual home-how__visual--chip">
+                <img src="/how-1.png" alt="Kalkış seçimi" />
               </div>
               <h3>1. Kalkışını seç</h3>
               <p>
@@ -49,8 +46,8 @@ export default function Home() {
               </p>
             </article>
             <article className="home-how__card">
-              <div className="img-slot img-slot--how">
-                <span>Görsel: destinasyon seçimi</span>
+              <div className="home-how__visual">
+                <img src="/how-2.png" alt="Destinasyon seçimi" />
               </div>
               <h3>2. Hayal destinasyonlarını seç</h3>
               <p>
@@ -59,8 +56,8 @@ export default function Home() {
               </p>
             </article>
             <article className="home-how__card">
-              <div className="img-slot img-slot--how">
-                <span>Görsel: fırsat uyarısı</span>
+              <div className="home-how__visual">
+                <img src="/how-3.png" alt="Dip fırsat kartları" />
               </div>
               <h3>3. Dip fırsat uyarısı al</h3>
               <p>
@@ -106,8 +103,8 @@ export default function Home() {
               Ücretsiz üye ol
             </a>
           </div>
-          <div className="home-vacation__phone img-slot img-slot--phone">
-            <span>Görsel: telefon / uyarı mockup</span>
+          <div className="home-vacation__phone">
+            <img src="/phone-alert.png" alt="Dip Bilet fırsat uyarısı" />
           </div>
         </section>
       </main>
