@@ -19,6 +19,7 @@
 
 # deals cache (SerpApi kotasını korur)
 /.cache/
+/.data/
 
 # production
 /build
