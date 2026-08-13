@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { emptyDealsPayload, readScanBoard } from "@/lib/scan/board";
+import { isLiveDeal } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /** Kayıtlı kullanıcı vitrini — eşik altı gidiş-dönüşler */
 export async function GET() {
@@ -25,13 +22,11 @@ export async function GET() {
 
   const board = await readScanBoard(supabase);
   const payload = board.deals ?? emptyDealsPayload();
-  const today = todayIso();
-  const deals = (payload.deals ?? []).filter(
-    (d) => !d.outboundDate || d.outboundDate >= today,
-  );
+  const deals = (payload.deals ?? []).filter((d) => isLiveDeal(d));
 
   return NextResponse.json({
     ...payload,
     deals,
+    archive: undefined,
   });
 }

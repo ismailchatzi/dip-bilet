@@ -51,3 +51,9 @@ Gidiş/dönüş havalimanı karışabilir (SAW gidiş, IST dönüş).
 - Aynı rota (şehir + gidiş tarihi + dönüş tarihi) vitrinde varsa tekrar koyma.
 - Scrappa vitrini güncellerken `gdeals:` kartlarını silme.
 - `serpapi_flight_link` kullanma (ayrı hak). Google `flight_link` yeter.
+
+## Eski kart / anasayfa
+- Canlı vitrin: gidiş tarihi bugün veya sonrası.
+- Anasayfa “Son yakalanan fırsatlar”: gidişin üzerinden **en az 2 gün** geçmiş kartlar.
+- Arşiv 60 gün tutulur, anasayfada en iyi ~12 kart. Gerçek kart yoksa örnekler kalır.
+- Arşiv kartında bilet linki yok; CTA üye ol.

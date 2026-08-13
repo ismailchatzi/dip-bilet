@@ -23,5 +23,7 @@ export type DealsPayload = {
   fetchedAt: string;
   departure: string;
   deals: Deal[];
+  /** Gidişi geçmiş kartlar; anasayfa 2 gün sonra gösterir. */
+  archive?: Deal[];
   warning?: string;
 };

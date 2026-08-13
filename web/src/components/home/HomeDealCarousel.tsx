@@ -1,7 +1,7 @@
 "use client";
 
 import { DestPhoto } from "@/components/vitrin/DestPhoto";
-import { archiveDeals } from "@/lib/archive-deals";
+import type { Deal } from "@/lib/types";
 import { useRef } from "react";
 
 function formatMoney(amount: number, currency: string) {
@@ -16,7 +16,7 @@ function formatMoney(amount: number, currency: string) {
   }
 }
 
-export function HomeDealCarousel() {
+export function HomeDealCarousel({ deals }: { deals: Deal[] }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   function scroll(dir: -1 | 1) {
@@ -46,7 +46,7 @@ export function HomeDealCarousel() {
       </div>
 
       <div className="home-deals__track" ref={scrollerRef}>
-        {archiveDeals.map((deal) => (
+        {deals.map((deal) => (
           <article key={deal.id} className="deal-card">
             <DestPhoto
               dest={deal.destination}

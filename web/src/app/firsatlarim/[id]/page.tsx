@@ -5,6 +5,7 @@ import { DealDetail } from "@/components/vitrin/DealDetail";
 import { dealCityTitle } from "@/lib/deal-display";
 import { requireAuthOnboarding } from "@/lib/onboarding";
 import { readScanBoard } from "@/lib/scan/board";
+import { isLiveDeal } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,9 +29,8 @@ export default async function DealDetailPage({ params }: PageProps) {
   if (!supabase) notFound();
 
   const board = await readScanBoard(supabase);
-  const today = new Date().toISOString().slice(0, 10);
   const deal = (board.deals?.deals ?? []).find((d) => d.id === id);
-  if (!deal || (deal.outboundDate && deal.outboundDate < today)) {
+  if (!deal || !isLiveDeal(deal)) {
     notFound();
   }
 

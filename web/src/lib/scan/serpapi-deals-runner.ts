@@ -1,10 +1,10 @@
 import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
-import { DEPARTURE_LABEL } from "@/lib/scan/routes";
+import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import { turkeyTodayIso } from "@/lib/scan/trip-rules";
-import type { Deal, DealsPayload } from "@/lib/types";
+import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const STRIKE_RATIO = 1.1;
@@ -18,14 +18,6 @@ export type SerpapiDealsScanResult = {
   skippedDup: number;
   error?: string;
 };
-
-function tripKey(deal: Deal) {
-  const dest =
-    deal.id.split(":")[1] ||
-    deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ||
-    "";
-  return `${dest}|${deal.outboundDate ?? ""}|${deal.returnDate ?? ""}`;
-}
 
 function destFromHit(hit: {
   arrival_airport_code?: string;
@@ -156,15 +148,15 @@ export async function runSerpapiDealsScan(
   }
 
   const board = await readScanBoard(admin);
-  const existing = (board.deals?.deals ?? []).filter(
-    (d) => !d.outboundDate || d.outboundDate >= today,
+  const existingLive = (board.deals?.deals ?? []).filter((d) =>
+    isLiveDeal(d, today),
   );
-  const seen = new Set(existing.map(tripKey));
+  const seen = new Set(existingLive.map(archiveTripKey));
   const fresh: Deal[] = [];
   let skippedDup = 0;
 
   for (const deal of matched) {
-    const key = tripKey(deal);
+    const key = archiveTripKey(deal);
     if (seen.has(key)) {
       skippedDup += 1;
       continue;
@@ -173,15 +165,12 @@ export async function runSerpapiDealsScan(
     fresh.push(deal);
   }
 
-  const deals = [...existing, ...fresh].sort(
-    (a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0),
+  const { payload, live, previousLive } = foldShowcase(
+    board.deals,
+    [...existingLive, ...fresh],
+    foundAt,
+    today,
   );
-  const payload: DealsPayload = {
-    source: "cache",
-    fetchedAt: foundAt,
-    departure: DEPARTURE_LABEL,
-    deals,
-  };
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) {
     return {
@@ -194,7 +183,7 @@ export async function runSerpapiDealsScan(
     };
   }
 
-  await notifyNewDeals(admin, existing, deals);
+  await notifyNewDeals(admin, previousLive, live);
 
   return {
     ok: true,

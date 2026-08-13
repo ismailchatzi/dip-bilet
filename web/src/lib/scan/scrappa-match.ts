@@ -1,12 +1,12 @@
 import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
-import { DEPARTURE_LABEL } from "@/lib/scan/routes";
+import { foldShowcase } from "@/lib/scan/deal-archive";
 import {
   SCRAPPA_DESTINATIONS,
   type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
 import { nightsBetween, stayRange } from "@/lib/scan/trip-rules";
-import type { Deal, DealsPayload } from "@/lib/types";
+import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const POST_RATIO = 0.8;
@@ -172,15 +172,6 @@ export async function matchDestFromDb(
   return matchDestDeals(dest, rows);
 }
 
-function dealsPayload(deals: Deal[]): DealsPayload {
-  return {
-    source: "cache",
-    fetchedAt: new Date().toISOString(),
-    departure: DEPARTURE_LABEL,
-    deals,
-  };
-}
-
 function destCodeFromDeal(deal: Deal) {
   if (deal.id.startsWith("scrappa:") || deal.id.startsWith("gdeals:")) {
     return deal.id.split(":")[1] ?? "";
@@ -208,12 +199,11 @@ export async function publishDestShowcase(
     (d) => isGoogleDeal(d) || destCodeFromDeal(d) !== dest.code,
   );
   const taken = new Set(others.map(tripKey));
-  const deals = [...others, ...fresh.filter((d) => !taken.has(tripKey(d)))].sort(
-    (a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0),
-  );
-  const saved = await patchScanBoard(admin, { deals: dealsPayload(deals) });
+  const deals = [...others, ...fresh.filter((d) => !taken.has(tripKey(d)))];
+  const { payload, live, previousLive } = foldShowcase(board.deals, deals);
+  const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
-  await notifyNewDeals(admin, previous, deals);
+  await notifyNewDeals(admin, previousLive, live);
   return { ok: true, count: fresh.length };
 }
 
@@ -234,9 +224,9 @@ export async function publishAllShowcase(
       all.push(deal);
     }
   }
-  all.sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0));
-  const saved = await patchScanBoard(admin, { deals: dealsPayload(all) });
+  const { payload, live, previousLive } = foldShowcase(board.deals, all);
+  const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
-  await notifyNewDeals(admin, previous, all);
-  return { ok: true, count: all.length };
+  await notifyNewDeals(admin, previousLive, live);
+  return { ok: true, count: live.length };
 }

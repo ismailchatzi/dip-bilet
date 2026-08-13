@@ -2,10 +2,12 @@ import { HomeDealCarousel } from "@/components/home/HomeDealCarousel";
 import { HomeFaq } from "@/components/home/HomeFaq";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { getHomepageArchive } from "@/lib/homepage-archive";
 
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default async function Home() {
+  const archive = await getHomepageArchive();
   return (
     <div className="home-light">
       <SiteHeader />
@@ -73,7 +75,7 @@ export default function Home() {
           </div>
         </section>
 
-        <HomeDealCarousel />
+        <HomeDealCarousel deals={archive} />
 
         <section className="home-mid-cta">
           <h2>

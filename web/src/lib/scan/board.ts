@@ -14,6 +14,7 @@ const EMPTY_DEALS: DealsPayload = {
   fetchedAt: new Date(0).toISOString(),
   departure: DEPARTURE_LABEL,
   deals: [],
+  archive: [],
 };
 
 export function emptyDealsPayload(): DealsPayload {
