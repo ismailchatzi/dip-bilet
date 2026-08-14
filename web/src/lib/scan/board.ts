@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CityFaresPayload } from "@/lib/scan/city-cache";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
-import type { DealsPayload } from "@/lib/types";
+import type { DealsPayload, ScrappaJob } from "@/lib/types";
 
 export type ScanBoard = {
   deals: DealsPayload | null;
@@ -41,6 +41,14 @@ export async function readScanBoard(
   };
 }
 
+function newerScrappaJob(a?: ScrappaJob | null, b?: ScrappaJob | null) {
+  if (a?.status === "running" && b?.status !== "running") return a;
+  if (b?.status === "running" && a?.status !== "running") return b;
+  if (!a) return b ?? undefined;
+  if (!b) return a;
+  return Date.parse(a.heartbeatAt) >= Date.parse(b.heartbeatAt) ? a : b;
+}
+
 /** Cron: sadece güncellenen parçayı yazar, diğerini korur */
 export async function patchScanBoard(
   admin: SupabaseClient,
@@ -51,13 +59,14 @@ export async function patchScanBoard(
 ): Promise<{ ok: boolean; error?: string }> {
   const current = await readScanBoard(admin);
   const incoming = patch.deals;
+  const latest = incoming ? await readScanBoard(admin) : current;
   const deals = incoming
     ? {
         ...incoming,
-        scrappaJob:
-          incoming.scrappaJob !== undefined
-            ? incoming.scrappaJob
-            : current.deals?.scrappaJob,
+        scrappaJob: newerScrappaJob(
+          incoming.scrappaJob,
+          newerScrappaJob(latest.deals?.scrappaJob, current.deals?.scrappaJob),
+        ),
       }
     : current.deals;
   const row = {

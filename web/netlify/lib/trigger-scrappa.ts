@@ -1,19 +1,8 @@
-import { createAdminClient } from "../../src/lib/supabase/admin";
-import { runScrappaOneWayBatch } from "../../src/lib/scan/scrappa-oneway-runner";
-import {
-  cursorFromJob,
-  enqueueScrappaWindow,
-  isJobFresh,
-  jobFromPayload,
-  saveScrappaJob,
-} from "../../src/lib/scan/scrappa-job";
-import { readScanBoard } from "../../src/lib/scan/board";
-import type { ScrappaJob } from "../../src/lib/types";
-import type { ScrappaWindow } from "../../src/lib/scan/scrappa-horizon";
+type ScrappaWindow = "full" | "near";
 
-const TICK_PATH = "/.netlify/functions/scrappa-tick-background";
 const SLICE_MS = 8 * 60 * 1000;
 const MAX_BATCHES = 4;
+const TICK_PATH = "/.netlify/functions/scrappa-tick-background";
 
 function siteBase() {
   return (
@@ -24,13 +13,35 @@ function siteBase() {
   ).replace(/\/$/, "");
 }
 
-async function kickTick() {
+async function postApi(path: string, body: object) {
   const base = siteBase();
   const secret = process.env.CRON_SECRET?.trim();
   if (!base || !secret) {
     console.error("URL veya CRON_SECRET eksik");
-    return;
+    return null;
   }
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  console.log(path, res.status, text.slice(0, 1500));
+  if (!res.ok) return null;
+  try {
+    return JSON.parse(text) as { ok?: boolean; running?: boolean };
+  } catch {
+    return { ok: res.ok };
+  }
+}
+
+async function kickTick() {
+  const base = siteBase();
+  const secret = process.env.CRON_SECRET?.trim();
+  if (!base || !secret) return;
   try {
     const res = await fetch(`${base}${TICK_PATH}`, {
       method: "POST",
@@ -47,111 +58,25 @@ async function kickTick() {
 }
 
 export async function startScrappaWindow(window: ScrappaWindow) {
-  const admin = createAdminClient();
-  if (!admin) {
-    console.error("Supabase yok");
-    return;
-  }
-  await enqueueScrappaWindow(admin, window);
+  const started = await postApi("/api/cron/scrappa-start", { window });
+  if (!started?.ok) return;
   await kickTick();
 }
 
 export async function runScrappaTick(force = false) {
-  const admin = createAdminClient();
-  if (!admin) {
-    console.error("Supabase yok");
-    return;
-  }
-
-  const board = await readScanBoard(admin);
-  let job = jobFromPayload(board.deals);
-  if (!job || job.status !== "running") {
-    console.log("scrappa tick: iş yok");
-    return;
-  }
-  if (!force && isJobFresh(job)) {
-    console.log("scrappa tick: başka dilim çalışıyor");
-    return;
-  }
-
   const deadline = Date.now() + SLICE_MS;
   let batches = 0;
-
+  let running = true;
   while (Date.now() < deadline && batches < MAX_BATCHES) {
-    job = {
-      ...job,
-      heartbeatAt: new Date().toISOString(),
-    };
-    await saveScrappaJob(admin, job);
-
-    const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
-    batches += 1;
-    job = applyBatch(job, batch);
-    await saveScrappaJob(admin, job);
-
-    console.log("scrappa dilim", {
-      dest: batch.dest,
-      scanned: batch.scanned,
-      saved: batch.saved,
-      next: batch.next,
-      errors: batch.errors,
+    const result = await postApi("/api/cron/scrappa-tick", {
+      force: batches === 0 ? force : true,
     });
-
-    if (job.status !== "running") break;
+    batches += 1;
+    if (!result) break;
+    if (result.running === false) {
+      running = false;
+      break;
+    }
   }
-
-  if (job.status === "running") {
-    await kickTick();
-  }
-}
-
-function applyBatch(
-  job: ScrappaJob,
-  batch: {
-    done: boolean;
-    next: { window: ScrappaWindow; destIndex: number; dateIndex: number } | null;
-    scanned: number;
-    saved: number;
-  },
-): ScrappaJob {
-  const scanned = job.scanned + batch.scanned;
-  const saved = job.saved + batch.saved;
-  const now = new Date().toISOString();
-
-  if (batch.next) {
-    return {
-      ...job,
-      destIndex: batch.next.destIndex,
-      dateIndex: batch.next.dateIndex,
-      window: batch.next.window,
-      heartbeatAt: now,
-      scanned,
-      saved,
-    };
-  }
-
-  const queue = [...(job.queue ?? [])];
-  const nextWindow = queue.shift();
-  if (nextWindow) {
-    return {
-      status: "running",
-      window: nextWindow,
-      destIndex: 0,
-      dateIndex: 0,
-      queue,
-      heartbeatAt: now,
-      startedAt: now,
-      scanned,
-      saved,
-    };
-  }
-
-  return {
-    ...job,
-    status: "idle",
-    queue: [],
-    heartbeatAt: now,
-    scanned,
-    saved,
-  };
+  if (running) await kickTick();
 }
