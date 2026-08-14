@@ -10,6 +10,15 @@ export const ARCHIVE_KEEP_DAYS = 60;
 /** Anasayfada gösterilecek kart tavanı. */
 export const ARCHIVE_SHOW_MAX = 12;
 
+export function sortByFoundAt(deals: Deal[]) {
+  return [...deals].sort((a, b) => {
+    const fb = b.foundAt ?? "";
+    const fa = a.foundAt ?? "";
+    if (fb !== fa) return fb.localeCompare(fa);
+    return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
+  });
+}
+
 export function isLiveDeal(deal: Deal, today = turkeyTodayIso()) {
   return !deal.outboundDate || deal.outboundDate >= today;
 }
@@ -33,9 +42,9 @@ export function splitLiveAndArchive(
   previousArchive: Deal[],
   today = turkeyTodayIso(),
 ): { live: Deal[]; archive: Deal[] } {
-  const live = candidates
-    .filter((d) => isLiveDeal(d, today))
-    .sort((a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0));
+  const live = sortByFoundAt(
+    candidates.filter((d) => isLiveDeal(d, today)),
+  );
   const expired = candidates.filter((d) => !isLiveDeal(d, today));
   const seen = new Set<string>();
   const archive: Deal[] = [];

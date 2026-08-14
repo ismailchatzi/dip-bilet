@@ -12,6 +12,7 @@ import {
   dealMatchesDests,
   dealMatchesOrigins,
 } from "@/lib/deal-display";
+import { sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/client";
 import type { Deal, DealsPayload } from "@/lib/types";
 
@@ -110,12 +111,14 @@ export function AccountDeals() {
 
   const visible = useMemo(
     () =>
-      deals.filter(
-        (d) =>
-          dealMatchesOrigins(d, selectedOrigins) &&
-          dealMatchesDests(d, selectedDests) &&
-          d.price >= priceMin &&
-          d.price <= priceMax,
+      sortByFoundAt(
+        deals.filter(
+          (d) =>
+            dealMatchesOrigins(d, selectedOrigins) &&
+            dealMatchesDests(d, selectedDests) &&
+            d.price >= priceMin &&
+            d.price <= priceMax,
+        ),
       ),
     [deals, selectedOrigins, selectedDests, priceMin, priceMax],
   );
