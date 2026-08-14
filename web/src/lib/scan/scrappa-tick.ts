@@ -14,7 +14,12 @@ import type { ScrappaJob } from "@/lib/types";
 function applyBatch(
   job: ScrappaJob,
   batch: {
-    next: { window: ScrappaWindow; destIndex: number; dateIndex: number } | null;
+    next: {
+      window: ScrappaWindow;
+      destIndex: number;
+      dateIndex: number;
+      legIndex: number;
+    } | null;
     scanned: number;
     saved: number;
   },
@@ -28,6 +33,7 @@ function applyBatch(
       ...job,
       destIndex: batch.next.destIndex,
       dateIndex: batch.next.dateIndex,
+      legIndex: batch.next.legIndex,
       window: batch.next.window,
       heartbeatAt: now,
       scanned,
@@ -43,6 +49,7 @@ function applyBatch(
       window: nextWindow,
       destIndex: 0,
       dateIndex: 0,
+      legIndex: 0,
       queue,
       heartbeatAt: now,
       startedAt: now,
@@ -82,9 +89,6 @@ export async function runScrappaTick(force = false) {
   if (!force && isJobFresh(job)) {
     return { ok: true, running: true, skipped: "dilim çalışıyor" };
   }
-
-  job = { ...job, heartbeatAt: new Date().toISOString() };
-  await saveScrappaJob(admin, job);
 
   const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
   job = applyBatch(job, batch);

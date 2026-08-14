@@ -1,7 +1,7 @@
 type ScrappaWindow = "full" | "near";
 
 const SLICE_MS = 8 * 60 * 1000;
-const MAX_BATCHES = 4;
+const MAX_BATCHES = 50;
 const TICK_PATH = "/.netlify/functions/scrappa-tick-background";
 
 function siteBase() {

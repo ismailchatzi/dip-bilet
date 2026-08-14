@@ -23,6 +23,7 @@ export type ScrappaJob = {
   window: "full" | "near";
   destIndex: number;
   dateIndex: number;
+  legIndex: number;
   queue: Array<"full" | "near">;
   heartbeatAt: string;
   startedAt: string;

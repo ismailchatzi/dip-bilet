@@ -12,12 +12,11 @@ import {
 } from "@/lib/scan/scrappa-match";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const DATES_PER_BATCH = 3;
-
 export type ScrappaCursor = {
   window: ScrappaWindow;
   destIndex: number;
   dateIndex: number;
+  legIndex: number;
 };
 
 export type ScrappaBatchResult = {
@@ -31,14 +30,35 @@ export type ScrappaBatchResult = {
   errors: string[];
 };
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 function seasonFromDate(iso: string) {
   return iso.slice(0, 7);
 }
 
+function advance(
+  cursor: ScrappaCursor,
+  destCount: number,
+  dateCount: number,
+  legCount: number,
+): ScrappaCursor | null {
+  let { destIndex, dateIndex, legIndex, window } = cursor;
+  legIndex += 1;
+  if (legIndex < legCount) {
+    return { window, destIndex, dateIndex, legIndex };
+  }
+  legIndex = 0;
+  dateIndex += 1;
+  if (dateIndex < dateCount) {
+    return { window, destIndex, dateIndex, legIndex };
+  }
+  dateIndex = 0;
+  destIndex += 1;
+  if (destIndex < destCount) {
+    return { window, destIndex, dateIndex, legIndex };
+  }
+  return null;
+}
+
+/** Tek bir tek-yön istek — Netlify kısa kesmesin diye. */
 export async function runScrappaOneWayBatch(
   admin: SupabaseClient | null,
   cursor: ScrappaCursor,
@@ -46,8 +66,11 @@ export async function runScrappaOneWayBatch(
   const dests = allDestinations();
   const dates = horizonDates(cursor.window);
   const errors: string[] = [];
+  const destIndex = cursor.destIndex;
+  const dateIndex = Math.max(0, cursor.dateIndex);
+  const legIndex = Math.max(0, cursor.legIndex ?? 0);
 
-  if (cursor.destIndex >= dests.length) {
+  if (destIndex >= dests.length) {
     return {
       ok: true,
       done: true,
@@ -59,47 +82,58 @@ export async function runScrappaOneWayBatch(
     };
   }
 
-  const dest = dests[cursor.destIndex]!;
+  const dest = dests[destIndex]!;
   const legs = legsForDest(dest.code, dest.name);
-  const slice = dates.slice(
-    cursor.dateIndex,
-    cursor.dateIndex + DATES_PER_BATCH,
-  );
+  const date = dates[dateIndex];
+  const leg = legs[legIndex];
+  if (!date || !leg) {
+    const next = advance(
+      { ...cursor, destIndex, dateIndex, legIndex },
+      dests.length,
+      dates.length,
+      legs.length,
+    );
+    return {
+      ok: true,
+      done: next === null,
+      next,
+      dest: dest.code,
+      scanned: 0,
+      saved: 0,
+      matched: 0,
+      errors: ["boş dilim"],
+    };
+  }
 
   const rows: ObservationRow[] = [];
   let scanned = 0;
-
-  for (const date of slice) {
-    for (const leg of legs) {
-      try {
-        const fare = await scrappaOneWay({
-          origin: leg.origin,
-          destination: leg.destination,
-          date,
-        });
-        scanned += 1;
-        if (fare) {
-          rows.push({
-            route_key: `${leg.origin}>${leg.destination}`,
-            season_key: seasonFromDate(date),
-            destination_code: dest.code,
-            destination_name: `${leg.origin}→${leg.destination}`,
-            price: fare.price,
-            currency: "USD",
-            outbound_date: date,
-            return_date: null,
-            source: "scrappa_oneway",
-            discount_percent: null,
-            average_price: null,
-          });
-        }
-      } catch (e) {
-        errors.push(
-          `${leg.origin}>${leg.destination} ${date}: ${e instanceof Error ? e.message : "hata"}`,
-        );
-      }
-      await sleep(80);
+  try {
+    const fare = await scrappaOneWay({
+      origin: leg.origin,
+      destination: leg.destination,
+      date,
+    });
+    scanned = 1;
+    if (fare) {
+      rows.push({
+        route_key: `${leg.origin}>${leg.destination}`,
+        season_key: seasonFromDate(date),
+        destination_code: dest.code,
+        destination_name: `${leg.origin}→${leg.destination}`,
+        price: fare.price,
+        currency: "USD",
+        outbound_date: date,
+        return_date: null,
+        source: "scrappa_oneway",
+        discount_percent: null,
+        average_price: null,
+      });
     }
+  } catch (e) {
+    errors.push(
+      `${leg.origin}>${leg.destination} ${date}: ${e instanceof Error ? e.message : "hata"}`,
+    );
+    scanned = 1;
   }
 
   let saved = 0;
@@ -109,24 +143,16 @@ export async function runScrappaOneWayBatch(
     else saved = rows.length;
   }
 
-  const nextDate = cursor.dateIndex + DATES_PER_BATCH;
-  let next: ScrappaCursor | null = null;
-  if (nextDate < dates.length) {
-    next = {
-      window: cursor.window,
-      destIndex: cursor.destIndex,
-      dateIndex: nextDate,
-    };
-  } else if (cursor.destIndex + 1 < dests.length) {
-    next = {
-      window: cursor.window,
-      destIndex: cursor.destIndex + 1,
-      dateIndex: 0,
-    };
-  }
+  const next = advance(
+    { window: cursor.window, destIndex, dateIndex, legIndex },
+    dests.length,
+    dates.length,
+    legs.length,
+  );
 
   let matched = 0;
-  if (admin) {
+  const destDone = !next || next.destIndex !== destIndex;
+  if (admin && destDone) {
     try {
       if (next === null) {
         const pub = await publishAllShowcase(admin);

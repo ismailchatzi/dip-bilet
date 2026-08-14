@@ -8,7 +8,7 @@ export function jobFromPayload(deals: DealsPayload | null | undefined) {
   return deals?.scrappaJob ?? null;
 }
 
-export function isJobFresh(job: ScrappaJob | null, maxAgeMs = 4 * 60 * 1000) {
+export function isJobFresh(job: ScrappaJob | null, maxAgeMs = 20 * 1000) {
   if (!job || job.status !== "running") return false;
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return false;
@@ -65,6 +65,7 @@ export async function enqueueScrappaWindow(
     window,
     destIndex: 0,
     dateIndex: 0,
+    legIndex: 0,
     queue: [],
     heartbeatAt: now,
     startedAt: now,
@@ -78,5 +79,6 @@ export function cursorFromJob(job: ScrappaJob): ScrappaCursor {
     window: job.window,
     destIndex: job.destIndex,
     dateIndex: job.dateIndex,
+    legIndex: job.legIndex ?? 0,
   };
 }

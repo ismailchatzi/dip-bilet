@@ -28,14 +28,17 @@ function parseCursor(input: {
   window?: unknown;
   destIndex?: unknown;
   dateIndex?: unknown;
+  legIndex?: unknown;
 }): ScrappaCursor | null {
   const window = parseWindow(input.window);
   if (!window) return null;
   const destIndex = Number(input.destIndex ?? 0);
   const dateIndex = Number(input.dateIndex ?? 0);
+  const legIndex = Number(input.legIndex ?? 0);
   if (!Number.isFinite(destIndex) || destIndex < 0) return null;
   if (!Number.isFinite(dateIndex) || dateIndex < 0) return null;
-  return { window, destIndex, dateIndex };
+  if (!Number.isFinite(legIndex) || legIndex < 0) return null;
+  return { window, destIndex, dateIndex, legIndex };
 }
 
 export async function POST(request: Request) {
@@ -46,6 +49,7 @@ export async function POST(request: Request) {
     window: url.searchParams.get("window"),
     destIndex: url.searchParams.get("destIndex"),
     dateIndex: url.searchParams.get("dateIndex"),
+    legIndex: url.searchParams.get("legIndex"),
   });
 
   if (!cursor) {
