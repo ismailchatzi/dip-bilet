@@ -28,5 +28,6 @@ export async function GET() {
     ...payload,
     deals,
     archive: undefined,
+    scrappaJob: undefined,
   });
 }

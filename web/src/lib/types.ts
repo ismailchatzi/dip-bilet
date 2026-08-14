@@ -18,6 +18,18 @@ export type Deal = {
   foundAt?: string;
 };
 
+export type ScrappaJob = {
+  status: "running" | "idle";
+  window: "full" | "near";
+  destIndex: number;
+  dateIndex: number;
+  queue: Array<"full" | "near">;
+  heartbeatAt: string;
+  startedAt: string;
+  scanned: number;
+  saved: number;
+};
+
 export type DealsPayload = {
   source: "serpapi" | "cache" | "demo";
   fetchedAt: string;
@@ -26,4 +38,6 @@ export type DealsPayload = {
   /** Uçuş günü geçmiş kartlar; anasayfa ertesi gün gösterir. */
   archive?: Deal[];
   warning?: string;
+  /** Scrappa tarama defteri — vitrine gitmez. */
+  scrappaJob?: ScrappaJob;
 };

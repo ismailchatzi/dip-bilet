@@ -13,7 +13,7 @@ Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda ekle.
 - **Gün 1–4:** tarama yok
 - **Gün 5–21 (17 gün):** **07:00, 14:00, 22:00** (TR)
 - **Kalan 6 ay:** sadece **07:00**
-- Cron: `scrappa-0700/1400/2200-background` (UTC 04 / 11 / 19)
+- Cron: `scrappa-0700/1400/2200-background` (UTC 04 / 11 / 19) işi kuyruğa alır; `scrappa-tick` her 5 dk kaldığı yerden 4 paket (~240 istek) yapar. Defter `scan_board.deals.scrappaJob`.
 - Scrappa’da 1M **inactive** ise harcama 33K’dan düşer; paketi aktif et
 - `sort_by=cheapest`. Kota: gidiş+dönüş ≈ **17.900/gün → ~537K/ay**
 

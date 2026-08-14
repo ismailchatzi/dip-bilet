@@ -50,9 +50,19 @@ export async function patchScanBoard(
   },
 ): Promise<{ ok: boolean; error?: string }> {
   const current = await readScanBoard(admin);
+  const incoming = patch.deals;
+  const deals = incoming
+    ? {
+        ...incoming,
+        scrappaJob:
+          incoming.scrappaJob !== undefined
+            ? incoming.scrappaJob
+            : current.deals?.scrappaJob,
+      }
+    : current.deals;
   const row = {
     id: 1,
-    deals: patch.deals ?? current.deals,
+    deals,
     city_fares: patch.cityFares ?? current.cityFares,
     updated_at: new Date().toISOString(),
   };

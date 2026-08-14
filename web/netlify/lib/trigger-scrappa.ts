@@ -1,5 +1,19 @@
-import type { ScrappaCursor } from "../../src/lib/scan/scrappa-oneway-runner";
+import { createAdminClient } from "../../src/lib/supabase/admin";
+import { runScrappaOneWayBatch } from "../../src/lib/scan/scrappa-oneway-runner";
+import {
+  cursorFromJob,
+  enqueueScrappaWindow,
+  isJobFresh,
+  jobFromPayload,
+  saveScrappaJob,
+} from "../../src/lib/scan/scrappa-job";
+import { readScanBoard } from "../../src/lib/scan/board";
+import type { ScrappaJob } from "../../src/lib/types";
 import type { ScrappaWindow } from "../../src/lib/scan/scrappa-horizon";
+
+const TICK_PATH = "/.netlify/functions/scrappa-tick-background";
+const SLICE_MS = 8 * 60 * 1000;
+const MAX_BATCHES = 4;
 
 function siteBase() {
   return (
@@ -10,68 +24,134 @@ function siteBase() {
   ).replace(/\/$/, "");
 }
 
-async function postBatch(cursor: ScrappaCursor) {
+async function kickTick() {
   const base = siteBase();
   const secret = process.env.CRON_SECRET?.trim();
   if (!base || !secret) {
     console.error("URL veya CRON_SECRET eksik");
-    return null;
+    return;
   }
-  const res = await fetch(`${base}/api/cron/scrappa-oneway`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(cursor),
-  });
-  const text = await res.text();
-  console.log("scrappa batch", res.status, text.slice(0, 2000));
-  if (!res.ok) return null;
   try {
-    return JSON.parse(text) as {
-      done: boolean;
-      next: ScrappaCursor | null;
-      dest?: string;
-      scanned: number;
-      saved: number;
-    };
-  } catch {
-    return null;
+    const res = await fetch(`${base}${TICK_PATH}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ force: true }),
+    });
+    console.log("scrappa tick kick", res.status);
+  } catch (err) {
+    console.error("scrappa tick kick fail", err);
   }
 }
 
-/** 15 dk background içinde batch zinciri; süre dolarsa kendini tekrar çağırır */
-export async function runScrappaWindow(
-  window: ScrappaWindow,
-  start?: ScrappaCursor,
-  continuePath?: string,
-) {
-  let cursor: ScrappaCursor = start ?? {
-    window,
-    destIndex: 0,
-    dateIndex: 0,
+export async function startScrappaWindow(window: ScrappaWindow) {
+  const admin = createAdminClient();
+  if (!admin) {
+    console.error("Supabase yok");
+    return;
+  }
+  await enqueueScrappaWindow(admin, window);
+  await kickTick();
+}
+
+export async function runScrappaTick(force = false) {
+  const admin = createAdminClient();
+  if (!admin) {
+    console.error("Supabase yok");
+    return;
+  }
+
+  const board = await readScanBoard(admin);
+  let job = jobFromPayload(board.deals);
+  if (!job || job.status !== "running") {
+    console.log("scrappa tick: iş yok");
+    return;
+  }
+  if (!force && isJobFresh(job)) {
+    console.log("scrappa tick: başka dilim çalışıyor");
+    return;
+  }
+
+  const deadline = Date.now() + SLICE_MS;
+  let batches = 0;
+
+  while (Date.now() < deadline && batches < MAX_BATCHES) {
+    job = {
+      ...job,
+      heartbeatAt: new Date().toISOString(),
+    };
+    await saveScrappaJob(admin, job);
+
+    const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
+    batches += 1;
+    job = applyBatch(job, batch);
+    await saveScrappaJob(admin, job);
+
+    console.log("scrappa dilim", {
+      dest: batch.dest,
+      scanned: batch.scanned,
+      saved: batch.saved,
+      next: batch.next,
+      errors: batch.errors,
+    });
+
+    if (job.status !== "running") break;
+  }
+
+  if (job.status === "running") {
+    await kickTick();
+  }
+}
+
+function applyBatch(
+  job: ScrappaJob,
+  batch: {
+    done: boolean;
+    next: { window: ScrappaWindow; destIndex: number; dateIndex: number } | null;
+    scanned: number;
+    saved: number;
+  },
+): ScrappaJob {
+  const scanned = job.scanned + batch.scanned;
+  const saved = job.saved + batch.saved;
+  const now = new Date().toISOString();
+
+  if (batch.next) {
+    return {
+      ...job,
+      destIndex: batch.next.destIndex,
+      dateIndex: batch.next.dateIndex,
+      window: batch.next.window,
+      heartbeatAt: now,
+      scanned,
+      saved,
+    };
+  }
+
+  const queue = [...(job.queue ?? [])];
+  const nextWindow = queue.shift();
+  if (nextWindow) {
+    return {
+      status: "running",
+      window: nextWindow,
+      destIndex: 0,
+      dateIndex: 0,
+      queue,
+      heartbeatAt: now,
+      startedAt: now,
+      scanned,
+      saved,
+    };
+  }
+
+  return {
+    ...job,
+    status: "idle",
+    queue: [],
+    heartbeatAt: now,
+    scanned,
+    saved,
   };
-  const deadline = Date.now() + 12 * 60 * 1000;
-
-  while (Date.now() < deadline) {
-    const result = await postBatch(cursor);
-    if (!result) break;
-    if (result.done || !result.next) {
-      console.log("scrappa window bitti", window);
-      return;
-    }
-    cursor = result.next;
-  }
-
-  if (continuePath) {
-    const base = siteBase();
-    const url = `${base}${continuePath}`;
-    console.log("scrappa continue", url, cursor);
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cursor),
-    }).catch((err) => console.error("continue fail", err));
-  }
 }

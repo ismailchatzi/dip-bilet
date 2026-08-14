@@ -1,21 +1,8 @@
-import { runScrappaWindow } from "../lib/trigger-scrappa";
-import type { ScrappaCursor } from "../../src/lib/scan/scrappa-oneway-runner";
+import { startScrappaWindow } from "../lib/trigger-scrappa";
 
-/** TR 07:00 = UTC 04:00 — 6 ay + yakın 17 gün */
-export default async (req?: Request) => {
-  let start: ScrappaCursor | undefined;
-  try {
-    if (req) {
-      start = (await req.json()) as ScrappaCursor;
-    }
-  } catch {
-    /* scheduled: boş */
-  }
-  await runScrappaWindow(
-    "full",
-    start?.window === "full" ? start : undefined,
-    "/.netlify/functions/scrappa-0700-background",
-  );
+/** TR 07:00 = UTC 04:00 — tam tarama kuyruğa girer, dilim dilim biter. */
+export default async () => {
+  await startScrappaWindow("full");
 };
 
 export const config = {
