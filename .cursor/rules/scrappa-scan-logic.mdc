@@ -44,7 +44,7 @@ Detay Fiyat Eşiği: **135**
 Gidiş/dönüş havalimanı karışabilir (SAW gidiş, IST dönüş).
 
 ## Google Deals (SerpAPI, 250/ay)
-- Günde 8 tarama (TR): 01, 03, 07, 12, 14, 17, 19, 22 — `IST,SAW` tek istek. Tarih/gece kısıtı yok; Google ne sunduysa alınır.
+- Günde 8 tarama (TR): 01, 03, 07, 12, 14, 17, 19, 22. `IST,SAW` tek istek Google’dan boş; taramalar IST / SAW nöbetleşe. `trip_length=4,10` yoksa kart gelmiyor.
 - Google’ın döndürdüğü tüm geçerli fırsatlar vitrine girer (21 ile sınırlama yok). Görsel yoksa kart yine çıkar; foto sonra eklenir.
 - Bildirim (e-posta/SMS) yalnız kullanıcının hedef destinasyonlarındaki şehirler için.
 - Kart tarzı aynı (üstü çizili = Google avg × 1.10, Fiyat Eşiği = avg × 0.90).

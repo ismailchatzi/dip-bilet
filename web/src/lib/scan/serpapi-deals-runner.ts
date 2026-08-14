@@ -85,11 +85,17 @@ function toShowcaseDeal(
   };
 }
 
+function originForThisScan(now = new Date()): "IST" | "SAW" {
+  const hour = new Date(now.getTime() + 3 * 60 * 60 * 1000).getUTCHours();
+  return hour % 2 === 0 ? "IST" : "SAW";
+}
+
 export async function runSerpapiDealsScan(
   admin: SupabaseClient | null,
 ): Promise<SerpapiDealsScanResult> {
   const today = turkeyTodayIso();
-  const fetched = await fetchGoogleDeals();
+  const origin = originForThisScan();
+  const fetched = await fetchGoogleDeals(origin);
   if (!fetched.ok) {
     return {
       ok: false,
@@ -108,8 +114,8 @@ export async function runSerpapiDealsScan(
     const dest = destFromHit(hit);
     if (!dest) continue;
 
-    const outDate = hit.start_date ?? "";
-    const retDate = hit.end_date ?? "";
+    const outDate = hit.outbound_date ?? hit.start_date ?? "";
+    const retDate = hit.return_date ?? hit.end_date ?? "";
     const price = Number(hit.price);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(outDate)) continue;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(retDate)) continue;

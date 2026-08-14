@@ -7,6 +7,8 @@ export type SerpapiDealHit = {
   flight_link?: string;
   start_date?: string;
   end_date?: string;
+  outbound_date?: string;
+  return_date?: string;
   departure_airport_code?: string;
   arrival_airport_code?: string;
   stops?: number;
@@ -18,8 +20,8 @@ type SerpapiDealsJson = {
   deals?: SerpapiDealHit[];
 };
 
-/** IST+SAW gidiş-dönüş. Tarih/gece filtresi yok; Google ne sunduysa o. 1 hak. */
-export async function fetchGoogleDeals(): Promise<{
+/** Tek havalimanı + 4–10 gün. IST,SAW birleşik istek Google’dan boş dönüyor. 1 hak. */
+export async function fetchGoogleDeals(departureId: "IST" | "SAW" = "IST"): Promise<{
   ok: boolean;
   deals: SerpapiDealHit[];
   error?: string;
@@ -29,8 +31,9 @@ export async function fetchGoogleDeals(): Promise<{
 
   const params = new URLSearchParams({
     engine: "google_flights_deals",
-    departure_id: "IST,SAW",
+    departure_id: departureId,
     type: "1",
+    trip_length: "4,10",
     currency: "USD",
     gl: "tr",
     hl: "tr",
