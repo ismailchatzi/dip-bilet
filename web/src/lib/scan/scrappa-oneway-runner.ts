@@ -12,7 +12,7 @@ import {
 } from "@/lib/scan/scrappa-match";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const DATES_PER_BATCH = 15;
+const DATES_PER_BATCH = 3;
 
 export type ScrappaCursor = {
   window: ScrappaWindow;
