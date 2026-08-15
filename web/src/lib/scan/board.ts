@@ -42,6 +42,8 @@ export async function readScanBoard(
 }
 
 function newerScrappaJob(a?: ScrappaJob | null, b?: ScrappaJob | null) {
+  if (a?.halted && !b?.halted) return a;
+  if (b?.halted && !a?.halted) return b;
   if (a?.status === "running" && b?.status !== "running") return a;
   if (b?.status === "running" && a?.status !== "running") return b;
   if (!a) return b ?? undefined;

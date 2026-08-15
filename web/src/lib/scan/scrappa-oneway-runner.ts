@@ -1,4 +1,7 @@
-import { scrappaOneWay } from "@/lib/providers/scrappa";
+import {
+  scrappaOneWay,
+  ScrappaUnavailableError,
+} from "@/lib/providers/scrappa";
 import { insertObservations, type ObservationRow } from "@/lib/scan/observations";
 import {
   allDestinations,
@@ -22,12 +25,15 @@ export type ScrappaCursor = {
 export type ScrappaBatchResult = {
   ok: boolean;
   done: boolean;
+  hold: boolean;
   next: ScrappaCursor | null;
   dest?: string;
   scanned: number;
   saved: number;
   matched: number;
   errors: string[];
+  lastError?: string;
+  pauseMs?: number;
 };
 
 function seasonFromDate(iso: string) {
@@ -74,6 +80,7 @@ export async function runScrappaOneWayBatch(
     return {
       ok: true,
       done: true,
+      hold: false,
       next: null,
       scanned: 0,
       saved: 0,
@@ -96,6 +103,7 @@ export async function runScrappaOneWayBatch(
     return {
       ok: true,
       done: next === null,
+      hold: false,
       next,
       dest: dest.code,
       scanned: 0,
@@ -130,9 +138,23 @@ export async function runScrappaOneWayBatch(
       });
     }
   } catch (e) {
-    errors.push(
-      `${leg.origin}>${leg.destination} ${date}: ${e instanceof Error ? e.message : "hata"}`,
-    );
+    const msg = e instanceof Error ? e.message : "hata";
+    errors.push(`${leg.origin}>${leg.destination} ${date}: ${msg}`);
+    if (e instanceof ScrappaUnavailableError) {
+      return {
+        ok: false,
+        done: false,
+        hold: true,
+        next: { window: cursor.window, destIndex, dateIndex, legIndex },
+        dest: dest.code,
+        scanned: 0,
+        saved: 0,
+        matched: 0,
+        errors: errors.slice(0, 20),
+        lastError: msg,
+        pauseMs: 15 * 60 * 1000,
+      };
+    }
     scanned = 1;
   }
 
@@ -173,6 +195,7 @@ export async function runScrappaOneWayBatch(
   return {
     ok: errors.length === 0,
     done: next === null,
+    hold: false,
     next,
     dest: dest.code,
     scanned,

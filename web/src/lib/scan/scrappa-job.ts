@@ -45,6 +45,16 @@ export async function enqueueScrappaWindow(
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
   const now = new Date().toISOString();
+  if (current?.halted) {
+    return saveScrappaJob(admin, {
+      ...current,
+      status: "idle",
+      queue: [],
+      heartbeatAt: now,
+      halted: true,
+      lastError: current.lastError || "taramalar askıda",
+    });
+  }
 
   if (current?.status === "running") {
     const startedDay = (current.startedAt ?? "").slice(0, 10);
@@ -71,6 +81,8 @@ export async function enqueueScrappaWindow(
     startedAt: now,
     scanned: 0,
     saved: 0,
+    lastError: undefined,
+    pausedUntil: undefined,
   });
 }
 

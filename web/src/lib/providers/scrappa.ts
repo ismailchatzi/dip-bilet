@@ -7,6 +7,17 @@ type ScrappaFlight = {
   legs?: Array<{ airline?: string; stops?: number }>;
 };
 
+export class ScrappaUnavailableError extends Error {
+  status: number;
+  reason: string;
+  constructor(status: number, reason: string) {
+    super(`Scrappa Google oturumu yok (${reason || status})`);
+    this.name = "ScrappaUnavailableError";
+    this.status = status;
+    this.reason = reason;
+  }
+}
+
 function pickCheapest(flights: ScrappaFlight[]) {
   const priced = flights
     .filter((f) => typeof f.price === "number" && f.price! > 0)
@@ -24,6 +35,21 @@ export type ScrappaOneWay = {
   stops?: number;
   durationMin?: number;
 };
+
+async function readScrappaJson(res: Response) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as {
+      flights?: ScrappaFlight[];
+      error?: string;
+      message?: string;
+      failed_stage?: string;
+      last_failure_reason?: string;
+    };
+  } catch {
+    return { error: text.slice(0, 200) };
+  }
+}
 
 /** Tek yön en ucuz — sort_by=cheapest. Sayı USD (TRY etiketi yalan). */
 export async function scrappaOneWay(input: {
@@ -45,6 +71,7 @@ export async function scrappaOneWay(input: {
   });
 
   let lastStatus = 0;
+  let lastReason = "";
   for (let attempt = 1; attempt <= 3; attempt++) {
     const res = await fetch(
       `https://scrappa.co/api/flights/one-way?${params}`,
@@ -57,16 +84,24 @@ export async function scrappaOneWay(input: {
       },
     );
     lastStatus = res.status;
-    if (res.status === 429 || res.status === 503) {
-      await new Promise((r) => setTimeout(r, 1200 * attempt));
+    const json = await readScrappaJson(res);
+    lastReason =
+      json.last_failure_reason ||
+      json.failed_stage ||
+      json.error ||
+      json.message ||
+      "";
+
+    if (res.status === 429) {
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
       continue;
     }
-    if (!res.ok) throw new Error(`Scrappa one-way HTTP ${res.status}`);
-    const json = (await res.json()) as {
-      flights?: ScrappaFlight[];
-      error?: string;
-      message?: string;
-    };
+    if (res.status === 503) {
+      throw new ScrappaUnavailableError(503, lastReason);
+    }
+    if (!res.ok) {
+      throw new Error(`Scrappa one-way HTTP ${res.status}: ${lastReason}`);
+    }
     if (json.error || json.message?.toLowerCase().includes("error")) {
       throw new Error(json.error || json.message || "Scrappa one-way hata");
     }
@@ -83,5 +118,5 @@ export async function scrappaOneWay(input: {
       durationMin: best.total_duration_minutes,
     };
   }
-  throw new Error(`Scrappa one-way retry bitti HTTP ${lastStatus}`);
+  throw new Error(`Scrappa one-way retry bitti HTTP ${lastStatus} ${lastReason}`);
 }

@@ -29,6 +29,10 @@ export type ScrappaJob = {
   startedAt: string;
   scanned: number;
   saved: number;
+  lastError?: string;
+  pausedUntil?: string;
+  /** Elle askı: cron yeniden başlatmaz. */
+  halted?: boolean;
 };
 
 export type DealsPayload = {
