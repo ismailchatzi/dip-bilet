@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { runSerpapiDealsScan } from "@/lib/scan/serpapi-deals-runner";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SCANS_HALTED } from "@/lib/scan/halt";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -18,9 +17,6 @@ function isAuthorized(request: Request) {
 
 export async function POST(request: Request) {
   if (!isAuthorized(request)) return unauthorized();
-  if (SCANS_HALTED) {
-    return NextResponse.json({ ok: true, halted: true, skipped: "taramalar askıda" });
-  }
   const admin = createAdminClient();
   const result = await runSerpapiDealsScan(admin);
   return NextResponse.json(result);
