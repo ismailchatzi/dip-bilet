@@ -19,5 +19,5 @@ export default async (req?: Request) => {
 };
 
 export const config = {
-  schedule: "*/5 * * * *",
+  // VPS tarıyor; Netlify Scrappa kapalı
 };
