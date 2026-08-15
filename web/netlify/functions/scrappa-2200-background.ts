@@ -6,5 +6,5 @@ export default async () => {
 };
 
 export const config = {
-  // schedule kapalı (askı)
+  schedule: "0 19 * * *",
 };

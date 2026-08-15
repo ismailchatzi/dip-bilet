@@ -19,5 +19,5 @@ export default async (req?: Request) => {
 };
 
 export const config = {
-  // schedule kapalı (askı)
+  schedule: "*/5 * * * *",
 };
