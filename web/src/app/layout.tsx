@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Calistoga, Permanent_Marker, Roboto_Slab } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 
 /** Cooper Black tarzı kalın display — logo/vitrin hariç genel yazı */
@@ -45,18 +44,15 @@ export default function RootLayout({
       lang="tr"
       className={`${display.variable} ${body.variable} ${graffiti.variable} ${slab.variable} h-full`}
     >
-      <body className={`${body.className} min-h-full antialiased`}>
-        {children}
-        <Script id="travelpayouts-drive" strategy="afterInteractive">{`
-          (function () {
-            var script = document.createElement("script");
-            script.async = 1;
-            script.setAttribute("data-cmp-ab", "2");
-            script.src = "https://emridco.com/NTYwNDc1.js?t=560475";
-            document.head.appendChild(script);
-          })();
-        `}</Script>
-      </body>
+      <head>
+        {/* Travelpayouts Drive — doğrulama ham HTML'de bu URL'yi arıyor */}
+        <script
+          async
+          data-cmp-ab="2"
+          src="https://emridco.com/NTYwNDc1.js?t=560475"
+        />
+      </head>
+      <body className={`${body.className} min-h-full antialiased`}>{children}</body>
     </html>
   );
 }
