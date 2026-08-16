@@ -152,6 +152,8 @@ export function dealBookingUrl(deal: Deal) {
   }
   return stored || undefined;
 }
+
+export function dealHref(deal: Deal) {
   return `/firsatlarim/${encodeURIComponent(deal.id)}`;
 }
 
