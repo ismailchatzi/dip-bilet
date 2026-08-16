@@ -9,6 +9,7 @@ import {
 } from "@/lib/departures";
 import { destinationByCode } from "@/lib/destinations";
 import {
+  cheapestDealPerCity,
   dealMatchesDests,
   dealMatchesOrigins,
 } from "@/lib/deal-display";
@@ -112,12 +113,14 @@ export function AccountDeals() {
   const visible = useMemo(
     () =>
       sortByFoundAt(
-        deals.filter(
-          (d) =>
-            dealMatchesOrigins(d, selectedOrigins) &&
-            dealMatchesDests(d, selectedDests) &&
-            d.price >= priceMin &&
-            d.price <= priceMax,
+        cheapestDealPerCity(
+          deals.filter(
+            (d) =>
+              dealMatchesOrigins(d, selectedOrigins) &&
+              dealMatchesDests(d, selectedDests) &&
+              d.price >= priceMin &&
+              d.price <= priceMax,
+          ),
         ),
       ),
     [deals, selectedOrigins, selectedDests, priceMin, priceMax],

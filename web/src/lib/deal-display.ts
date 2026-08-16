@@ -134,23 +134,43 @@ export function dealRouteLine(deal: Deal) {
 
 export function dealBookingUrl(deal: Deal) {
   const stored = deal.googleFlightsUrl ?? "";
-  if (stored.includes("tfs=") || stored.includes("/flights/search")) {
-    return stored;
-  }
+  if (stored.includes("tfs=")) return stored;
+
   const out = dealOutOrigin(deal);
   const dest = dealDestCode(deal);
   const ret = dealReturnAirport(deal);
   const od = deal.outboundDate;
   const rd = deal.returnDate;
   if (out && dest && od && rd) {
-    const flt = `${out}.${dest}.${od}*${dest}.${ret}.${rd}`;
-    const q = `${out} to ${dest} ${od} ${dest} to ${ret} ${rd}`;
-    return `https://www.google.com/travel/flights/search?hl=tr&gl=tr&curr=USD&q=${encodeURIComponent(q)}#flt=${flt}`;
+    const q = `Flights from ${out} to ${dest} on ${od} returning ${rd} to ${ret}`;
+    return `https://www.google.com/travel/flights/search?hl=tr&gl=tr&curr=USD&q=${encodeURIComponent(q)}`;
   }
-  if (stored.includes("/travel/flights?")) {
-    return stored.replace("/travel/flights?", "/travel/flights/search?");
+  return stored.includes("/travel/flights/search") ? stored : undefined;
+}
+
+export function cheapestDealPerCity(deals: Deal[]) {
+  const best = new Map<string, Deal>();
+  for (const deal of deals) {
+    const key = dealDestCode(deal) || deal.destination;
+    const cur = best.get(key);
+    if (!cur || deal.price < cur.price) best.set(key, deal);
   }
-  return stored || undefined;
+  return deals.filter((deal) => {
+    const key = dealDestCode(deal) || deal.destination;
+    return best.get(key)?.id === deal.id;
+  });
+}
+
+export function otherCityDeals(current: Deal, all: Deal[]) {
+  const code = dealDestCode(current);
+  if (!code) return [];
+  return all
+    .filter((d) => d.id !== current.id && dealDestCode(d) === code)
+    .sort(
+      (a, b) =>
+        (a.outboundDate ?? "").localeCompare(b.outboundDate ?? "") ||
+        a.price - b.price,
+    );
 }
 
 export function dealHref(deal: Deal) {

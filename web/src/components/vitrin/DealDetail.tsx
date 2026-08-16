@@ -9,6 +9,8 @@ import {
   dealDateRangeShort,
   dealFoundLabel,
   dealBookingUrl,
+  dealHref,
+  otherCityDeals,
   dealDestCode,
   dealOutOrigin,
   dealReturnAirport,
@@ -20,7 +22,13 @@ import type { Deal } from "@/lib/types";
 import Link from "next/link";
 import { useState } from "react";
 
-export function DealDetail({ deal }: { deal: Deal }) {
+export function DealDetail({
+  deal,
+  cityDeals = [],
+}: {
+  deal: Deal;
+  cityDeals?: Deal[];
+}) {
   const [copied, setCopied] = useState(false);
   const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
@@ -28,6 +36,7 @@ export function DealDetail({ deal }: { deal: Deal }) {
   const out = dealOutOrigin(deal);
   const back = dealReturnAirport(deal);
   const bookUrl = dealBookingUrl(deal);
+  const alts = otherCityDeals(deal, cityDeals);
 
   async function share() {
     const url = window.location.href;
@@ -188,6 +197,22 @@ export function DealDetail({ deal }: { deal: Deal }) {
           </button>
         </aside>
       </div>
+
+      {alts.length > 0 ? (
+        <section className="deal-alts">
+          <h3>Farklı Tarihli Dip Fiyatlar</h3>
+          <ul>
+            {alts.map((d) => (
+              <li key={d.id}>
+                <Link href={dealHref(d)}>
+                  <span>{dealDateRangeShort(d)}</span>
+                  <strong>{formatDealMoney(d.price, d.currency)}</strong>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </article>
   );
 }

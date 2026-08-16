@@ -33,10 +33,14 @@ export default async function DealDetailPage({ params }: PageProps) {
   if (!deal || !isLiveDeal(deal)) {
     notFound();
   }
+  const dest = deal.id.split(":")[1] ?? "";
+  const cityDeals = (board.deals?.deals ?? []).filter(
+    (d) => isLiveDeal(d) && d.id.split(":")[1] === dest,
+  );
 
   return (
     <AccountShell title={dealCityTitle(deal)} wide hideTitle>
-      <DealDetail deal={deal} />
+      <DealDetail deal={deal} cityDeals={cityDeals} />
     </AccountShell>
   );
 }
