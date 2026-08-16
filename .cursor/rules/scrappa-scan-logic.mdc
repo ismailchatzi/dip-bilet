@@ -39,15 +39,15 @@ Sonra gidiş medyan + (tavanlı) dönüş medyan.
 
 Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** fiyatı basılır (`/round-trip`, `sort_by=cheapest`). Tek yön IST+SAW toplamı kart olmaz. Kazanan pakette +1 kredi: `/booking-details` yalnız **aynı uçuşun** satıcı toplamı (Google En ucuz: 95→91). Insights/dip/tek yön rakamı yok; listeye göre %15’ten fazla inmez. Bileti incele = Google En ucuz (`sort=2`).
 
-- **Gönderi açılsın mı:** paket fiyat ≤ `M × 0.80`
+- **3 hafta (gidiş ≤ 21 gün):** paket ≤ `M × 0.70` (%30 altı)
+- **6 ay (daha uzak):** paket ≤ `M × 0.75` (%25 altı)
 - **Kartta üstü çizili:** `M × 1.10`
 - **Detay “Fiyat Eşiği”:** `M × 0.90`
+- Şehir başına en fazla 2 dip kart + 6 ayın **en ucuz ayından 1 taban kart** (yüzde şartı yok; Madrid Ocak $200 örneği). Taslak; otomatik yayın yok.
 
-Örn. M=150, bilet=113 (%25 altı → gönderi)
+Örn. M=150, bilet=113 (%25 altı → 6 ay gönderi)
 Kart: ~~165~~ **113**
 Detay Fiyat Eşiği: **135**
-
-IST tek başına ucuz görünüp SAW/şehir daha ucuzsa IST kartı basılmaz. 40$ min tasarruf kalkmaz; %20 kuralı ana eşik. Taslak; otomatik yayın yok.
 
 ## Google Deals (SerpAPI, 250/ay)
 - Günde 8 tarama (TR): 01, 03, 07, 12, 14, 17, 19, 22. `IST,SAW` tek istek Google’dan boş; taramalar IST / SAW nöbetleşe. `trip_length=4,10` yoksa kart gelmiyor.
