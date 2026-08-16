@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dealWithinStopLimit } from "@/lib/deal-display";
 import { emptyDealsPayload, readScanBoard } from "@/lib/scan/board";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,9 @@ export async function GET() {
 
   const board = await readScanBoard(supabase);
   const payload = board.deals ?? emptyDealsPayload();
-  const deals = (payload.deals ?? []).filter((d) => isLiveDeal(d));
+  const deals = (payload.deals ?? []).filter(
+    (d) => isLiveDeal(d) && dealWithinStopLimit(d),
+  );
 
   return NextResponse.json({
     ...payload,

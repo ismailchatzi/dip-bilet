@@ -5,7 +5,12 @@ import {
   SCRAPPA_DESTINATIONS,
   type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
-import { nightsBetween, stayRange } from "@/lib/scan/trip-rules";
+import { googleFlightsSearchUrl } from "@/lib/deal-display";
+import {
+  scrappaRoundTrip,
+  ScrappaUnavailableError,
+} from "@/lib/providers/scrappa";
+import { nightsBetween, stayRange, maxStopsForDest } from "@/lib/scan/trip-rules";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -36,15 +41,42 @@ function destOf(routeKey: string) {
   return routeKey.split(">")[1] ?? "";
 }
 
-function googleFlightsUrl(
-  outOrigin: string,
-  dest: string,
-  outDate: string,
-  retDest: string,
-  retDate: string,
+function isIstanbul(code: string) {
+  return code === "IST" || code === "SAW";
+}
+
+/** O gün İstanbul→şehir (veya dönüş) en ucuz tek yön — IST/SAW tek havuz. */
+function cityDailyMins(
+  rows: Obs[],
+  destCode: string,
+  direction: "out" | "in",
 ) {
-  const q = `Flights from ${outOrigin} to ${dest} on ${outDate} returning ${retDate} to ${retDest}`;
-  return `https://www.google.com/travel/flights/search?hl=tr&gl=tr&curr=USD&q=${encodeURIComponent(q)}`;
+  const byDate = new Map<string, { price: number; season: string }>();
+  for (const r of rows) {
+    const from = originOf(r.route_key);
+    const to = destOf(r.route_key);
+    const ok =
+      direction === "out"
+        ? isIstanbul(from) && to === destCode
+        : from === destCode && isIstanbul(to);
+    if (!ok) continue;
+    const prev = byDate.get(r.outbound_date);
+    if (!prev || r.price < prev.price) {
+      byDate.set(r.outbound_date, { price: r.price, season: r.season_key });
+    }
+  }
+  return byDate;
+}
+
+function cityMonthlyMedian(
+  daily: Map<string, { price: number; season: string }>,
+  season: string,
+): number | null {
+  const prices = [...daily.values()]
+    .filter((d) => d.season === season)
+    .map((d) => d.price);
+  if (prices.length < MIN_MEDIAN_SAMPLES) return null;
+  return median(prices);
 }
 
 function departureLabel(outOrigin: string, retDest: string) {
@@ -82,18 +114,6 @@ async function loadObservations(
     );
 }
 
-function monthlyMedian(
-  rows: Obs[],
-  routeKey: string,
-  season: string,
-): number | null {
-  const prices = rows
-    .filter((r) => r.route_key === routeKey && r.season_key === season)
-    .map((r) => r.price);
-  if (prices.length < MIN_MEDIAN_SAMPLES) return null;
-  return median(prices);
-}
-
 export function matchDestDeals(
   dest: ScrappaDestination,
   rows: Obs[],
@@ -102,54 +122,73 @@ export function matchDestDeals(
   const [minNights, maxNights] = stayRange(dest.code);
   const outbound = rows.filter((r) => destOf(r.route_key) === dest.code);
   const inbound = rows.filter((r) => originOf(r.route_key) === dest.code);
+  const outDaily = cityDailyMins(rows, dest.code, "out");
+  const inDaily = cityDailyMins(rows, dest.code, "in");
+
+  type Best = {
+    total: number;
+    out: Obs;
+    ret: Obs;
+  };
+  const cheapestPair = new Map<string, Best>();
+
+  for (const out of outbound) {
+    if (!isIstanbul(originOf(out.route_key))) continue;
+    for (const ret of inbound) {
+      if (!isIstanbul(destOf(ret.route_key))) continue;
+      const nights = nightsBetween(out.outbound_date, ret.outbound_date);
+      if (nights < minNights || nights > maxNights) continue;
+      const total = out.price + ret.price;
+      const key = `${out.outbound_date}|${ret.outbound_date}`;
+      const prev = cheapestPair.get(key);
+      if (!prev || total < prev.total) {
+        cheapestPair.set(key, { total, out, ret });
+      }
+    }
+  }
 
   type Combo = Deal & { realDiscount: number };
   const combos: Combo[] = [];
 
-  for (const out of outbound) {
-    const outMed = monthlyMedian(rows, out.route_key, out.season_key);
-    if (outMed == null) continue;
+  for (const { total, out, ret } of cheapestPair.values()) {
+    const outMed = cityMonthlyMedian(outDaily, out.season_key);
+    const inRaw = cityMonthlyMedian(inDaily, ret.season_key);
+    if (outMed == null || inRaw == null) continue;
+    const outForReturnMonth =
+      cityMonthlyMedian(outDaily, ret.season_key) ?? outMed;
+    const retMed = Math.min(inRaw, outForReturnMonth * 1.15);
+
+    const m = outMed + retMed;
+    if (m <= 0 || total > m * POST_RATIO) continue;
+
     const outOrigin = originOf(out.route_key);
+    const retDest = destOf(ret.route_key);
+    const strike = Math.round(m * STRIKE_RATIO);
+    const threshold = Math.round(m * THRESHOLD_RATIO);
+    const displayOff = Math.round(((strike - total) / strike) * 100);
+    const realOff = Math.round(((m - total) / m) * 100);
 
-    for (const ret of inbound) {
-      const nights = nightsBetween(out.outbound_date, ret.outbound_date);
-      if (nights < minNights || nights > maxNights) continue;
-
-      const retMed = monthlyMedian(rows, ret.route_key, ret.season_key);
-      if (retMed == null) continue;
-
-      const total = out.price + ret.price;
-      const m = outMed + retMed;
-      if (m <= 0 || total > m * POST_RATIO) continue;
-
-      const strike = Math.round(m * STRIKE_RATIO);
-      const threshold = Math.round(m * THRESHOLD_RATIO);
-      const retDest = destOf(ret.route_key);
-      const displayOff = Math.round(((strike - total) / strike) * 100);
-      const realOff = Math.round(((m - total) / m) * 100);
-
-      combos.push({
-        id: `scrappa:${dest.code}:${outOrigin}:${out.outbound_date}:${retDest}:${ret.outbound_date}`,
-        destination: `${dest.name} (${dest.code})`,
-        price: Math.round(total),
-        averagePrice: strike,
-        thresholdPrice: threshold,
-        discountPercent: displayOff,
-        currency: "USD",
-        outboundDate: out.outbound_date,
-        returnDate: ret.outbound_date,
-        googleFlightsUrl: googleFlightsUrl(
-          outOrigin,
-          dest.code,
-          out.outbound_date,
-          retDest,
-          ret.outbound_date,
-        ),
-        departureLabel: departureLabel(outOrigin, retDest),
-        foundAt,
-        realDiscount: realOff,
-      });
-    }
+    combos.push({
+      id: `scrappa:${dest.code}:${outOrigin}:${out.outbound_date}:${retDest}:${ret.outbound_date}`,
+      destination: `${dest.name} (${dest.code})`,
+      price: Math.round(total),
+      averagePrice: strike,
+      thresholdPrice: threshold,
+      discountPercent: displayOff,
+      currency: "USD",
+      outboundDate: out.outbound_date,
+      returnDate: ret.outbound_date,
+      googleFlightsUrl: googleFlightsSearchUrl(
+        outOrigin,
+        dest.code,
+        out.outbound_date,
+        retDest,
+        ret.outbound_date,
+      ),
+      departureLabel: departureLabel(outOrigin, retDest),
+      foundAt,
+      realDiscount: realOff,
+    });
   }
 
   const bestById = new Map<string, Combo>();
@@ -164,12 +203,86 @@ export function matchDestDeals(
     .map(({ realDiscount: _, ...deal }) => deal);
 }
 
+async function verifyWithRoundTrip(deal: Deal, destCode: string): Promise<Deal | null> {
+  const outDate = deal.outboundDate;
+  const retDate = deal.returnDate;
+  if (!outDate || !retDate) return null;
+  const m =
+    typeof deal.thresholdPrice === "number"
+      ? deal.thresholdPrice / THRESHOLD_RATIO
+      : null;
+  let best: {
+    origin: "IST" | "SAW";
+    price: number;
+    airline?: string;
+    stops?: number;
+    selfTransfer?: boolean;
+  } | null = null;
+  for (const origin of ["SAW", "IST"] as const) {
+    try {
+      const hit = await scrappaRoundTrip({
+        origin,
+        destination: destCode,
+        departureDate: outDate,
+        returnDate: retDate,
+      });
+      if (!hit) continue;
+      if (!best || hit.price < best.price) {
+        best = {
+          origin,
+          price: hit.price,
+          airline: hit.airline,
+          stops: hit.stops,
+          selfTransfer: hit.selfTransfer,
+        };
+      }
+    } catch (err) {
+      if (err instanceof ScrappaUnavailableError) throw err;
+    }
+  }
+  if (!best) return null;
+  if (typeof best.stops === "number" && best.stops > maxStopsForDest(destCode)) {
+    return null;
+  }
+  if (m != null && best.price > m * POST_RATIO) return null;
+  const strike = deal.averagePrice ?? Math.round((m ?? best.price) * STRIKE_RATIO);
+  const displayOff = Math.round(((strike - best.price) / strike) * 100);
+  return {
+    ...deal,
+    id: `scrappa:${destCode}:${best.origin}:${outDate}:${best.origin}:${retDate}`,
+    price: Math.round(best.price),
+    discountPercent: displayOff,
+    airline: best.airline,
+    stops: best.stops,
+    selfTransfer: best.selfTransfer,
+    googleFlightsUrl: googleFlightsSearchUrl(
+      best.origin,
+      destCode,
+      outDate,
+      best.origin,
+      retDate,
+    ),
+    departureLabel: departureLabel(best.origin, best.origin),
+  };
+}
+
 export async function matchDestFromDb(
   admin: SupabaseClient,
   dest: ScrappaDestination,
 ): Promise<Deal[]> {
   const rows = await loadObservations(admin, dest.code);
-  return matchDestDeals(dest, rows);
+  const drafts = matchDestDeals(dest, rows);
+  const verified: Deal[] = [];
+  for (const deal of drafts) {
+    try {
+      const next = await verifyWithRoundTrip(deal, dest.code);
+      if (next) verified.push(next);
+    } catch (err) {
+      if (err instanceof ScrappaUnavailableError) break;
+      throw err;
+    }
+  }
+  return verified;
 }
 
 function destCodeFromDeal(deal: Deal) {
@@ -210,6 +323,7 @@ export async function publishDestShowcase(
 /** Tüm varışları yeniden eşleştirir */
 export async function publishAllShowcase(
   admin: SupabaseClient,
+  opts?: { notify?: boolean },
 ): Promise<{ ok: boolean; count: number; error?: string }> {
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
@@ -217,7 +331,9 @@ export async function publishAllShowcase(
   const taken = new Set(googleKept.map(tripKey));
   const all: Deal[] = [...googleKept];
   for (const dest of SCRAPPA_DESTINATIONS) {
-    for (const deal of await matchDestFromDb(admin, dest)) {
+    const fresh = await matchDestFromDb(admin, dest);
+    console.log(`rematch ${dest.code} scrappa=${fresh.length}`);
+    for (const deal of fresh) {
       const key = tripKey(deal);
       if (taken.has(key)) continue;
       taken.add(key);
@@ -227,6 +343,8 @@ export async function publishAllShowcase(
   const { payload, live, previousLive } = foldShowcase(board.deals, all);
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
-  await notifyNewDeals(admin, previousLive, live);
+  if (opts?.notify !== false) {
+    await notifyNewDeals(admin, previousLive, live);
+  }
   return { ok: true, count: live.length };
 }

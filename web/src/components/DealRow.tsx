@@ -1,5 +1,5 @@
 import type { Deal } from "@/lib/types";
-import { dealBookingUrl } from "@/lib/deal-display";
+import { dealBookingUrl, dealStopsLabel } from "@/lib/deal-display";
 
 function formatMoney(amount: number, currency: string) {
   try {
@@ -68,11 +68,7 @@ export function DealRow({
         <p className="deal-row__meta">
           {dates || "Esnek tarihler"}
           {deal.airline ? ` · ${deal.airline}` : ""}
-          {typeof deal.stops === "number"
-            ? deal.stops === 0
-              ? " · Direkt"
-              : ` · ${deal.stops} aktarma`
-            : ""}
+          {typeof deal.stops === "number" ? ` · ${dealStopsLabel(deal)}` : ""}
           {found ? ` · bulundu ${found}` : ""}
         </p>
       </div>

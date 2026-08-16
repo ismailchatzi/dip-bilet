@@ -3,7 +3,7 @@ import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
-import { turkeyTodayIso } from "@/lib/scan/trip-rules";
+import { maxStopsForDest, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -121,6 +121,10 @@ export async function runSerpapiDealsScan(
     if (!/^\d{4}-\d{2}-\d{2}$/.test(retDate)) continue;
     if (!Number.isFinite(price) || price <= 0) continue;
     if (outDate < today) continue;
+
+    if (typeof hit.stops === "number" && hit.stops > maxStopsForDest(dest.code)) {
+      continue;
+    }
 
     const origin = String(hit.departure_airport_code ?? "IST").toUpperCase();
     matched.push(

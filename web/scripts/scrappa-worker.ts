@@ -11,6 +11,8 @@ import {
   runScrappaTick,
   startScrappaWindow,
 } from "@/lib/scan/scrappa-tick";
+import { publishAllShowcase } from "@/lib/scan/scrappa-match";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 
 function loadEnv() {
@@ -91,7 +93,17 @@ async function main() {
     await drain();
     return;
   }
-  console.error("kullanım: start near|full  |  drain");
+  if (cmd === "rematch") {
+    const admin = createAdminClient();
+    if (!admin) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY yok");
+      process.exit(1);
+    }
+    const result = await publishAllShowcase(admin, { notify: false });
+    console.log("rematch done", result);
+    return;
+  }
+  console.error("kullanım: start near|full  |  drain  |  rematch");
   process.exit(1);
 }
 

@@ -4,6 +4,15 @@ export function stayRange(code: string): [number, number] {
   return LONG_HAUL.has(code) ? [7, 10] : [4, 10];
 }
 
+/** Bali / Phuket / Maldivler: 2 aktarma. Diğer şehirler: 1. */
+export function maxStopsForDest(code: string) {
+  return LONG_HAUL.has(code.toUpperCase()) ? 2 : 1;
+}
+
+export function scrappaMaxStopsParam(code: string) {
+  return maxStopsForDest(code) >= 2 ? "two_or_fewer" : "one_or_fewer";
+}
+
 export function nightsBetween(out: string, back: string) {
   const a = Date.parse(`${out}T12:00:00Z`);
   const b = Date.parse(`${back}T12:00:00Z`);

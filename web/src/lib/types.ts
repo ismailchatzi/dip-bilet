@@ -16,6 +16,8 @@ export type Deal = {
   googleFlightsUrl?: string;
   departureLabel: string;
   foundAt?: string;
+  /** Google: yolcu sorumluluğunda aktarma (ayrı bilet) */
+  selfTransfer?: boolean;
 };
 
 export type ScrappaJob = {

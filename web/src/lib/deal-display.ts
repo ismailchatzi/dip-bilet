@@ -1,4 +1,5 @@
 import type { Deal } from "@/lib/types";
+import { maxStopsForDest } from "@/lib/scan/trip-rules";
 
 const DEST_COUNTRY: Record<string, string> = {
   ATH: "Yunanistan",
@@ -132,20 +133,108 @@ export function dealRouteLine(deal: Deal) {
   return `İstanbul (${out}) → ${city}${dest ? ` (${dest})` : ""}`;
 }
 
-export function dealBookingUrl(deal: Deal) {
-  const stored = deal.googleFlightsUrl ?? "";
-  if (stored.includes("tfs=")) return stored;
+function pbVarint(n: number) {
+  const out: number[] = [];
+  let x = n >>> 0;
+  while (x > 0x7f) {
+    out.push((x & 0x7f) | 0x80);
+    x >>>= 7;
+  }
+  out.push(x);
+  return out;
+}
 
+function pbTag(field: number, wire: number) {
+  return pbVarint((field << 3) | wire);
+}
+
+function pbBytes(field: number, bytes: number[]) {
+  return [...pbTag(field, 2), ...pbVarint(bytes.length), ...bytes];
+}
+
+function pbString(field: number, value: string) {
+  return pbBytes(field, Array.from(new TextEncoder().encode(value)));
+}
+
+function pbVarintField(field: number, value: number) {
+  return [...pbTag(field, 0), ...pbVarint(value)];
+}
+
+function googleAirportBlob(code: string) {
+  return [...pbVarintField(1, 1), ...pbString(2, code.toUpperCase())];
+}
+
+function googleSegment(from: string, date: string, to: string) {
+  return [
+    ...pbBytes(13, googleAirportBlob(from)),
+    ...pbString(2, date),
+    ...pbBytes(14, googleAirportBlob(to)),
+  ];
+}
+
+function toBase64Url(bytes: number[]) {
+  const bin = String.fromCharCode(...bytes);
+  const b64 =
+    typeof btoa === "function"
+      ? btoa(bin)
+      : Buffer.from(bytes).toString("base64");
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+/** Temiz tfs + #flt. /search?q= ve tfu Google anasayfasına atıyor. */
+export function googleFlightsSearchUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDest: string,
+  retDate: string,
+) {
+  const passengers = [
+    ...pbTag(1, 0),
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0xff,
+    0x01,
+  ];
+  const body = [
+    ...pbVarintField(1, 28),
+    ...pbVarintField(2, 2),
+    ...pbBytes(3, googleSegment(outOrigin, outDate, dest)),
+    ...pbBytes(3, googleSegment(dest, retDate, retDest)),
+    ...pbVarintField(14, 1),
+    ...pbBytes(16, passengers),
+    ...pbVarintField(8, 1),
+    ...pbVarintField(9, 1),
+    ...pbVarintField(19, 1),
+  ];
+  const tfs = toBase64Url(body);
+  const flt = `${outOrigin}.${dest}.${outDate}*${dest}.${retDest}.${retDate}`;
+  return `https://www.google.com/travel/flights?hl=tr&gl=tr&curr=USD&tfs=${tfs}#flt=${flt}`;
+}
+
+export function dealBookingUrl(deal: Deal) {
   const out = dealOutOrigin(deal);
   const dest = dealDestCode(deal);
   const ret = dealReturnAirport(deal);
   const od = deal.outboundDate;
   const rd = deal.returnDate;
-  if (out && dest && od && rd) {
-    const q = `Flights from ${out} to ${dest} on ${od} returning ${rd} to ${ret}`;
-    return `https://www.google.com/travel/flights/search?hl=tr&gl=tr&curr=USD&q=${encodeURIComponent(q)}`;
+  if (
+    out &&
+    dest &&
+    od &&
+    rd &&
+    /^\d{4}-\d{2}-\d{2}$/.test(od) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(rd)
+  ) {
+    return googleFlightsSearchUrl(out, dest, od, ret, rd);
   }
-  return stored.includes("/travel/flights/search") ? stored : undefined;
+  return undefined;
 }
 
 export function cheapestDealPerCity(deals: Deal[]) {
@@ -197,8 +286,16 @@ export function dealCabin() {
   return "Ekonomi";
 }
 
+export function dealWithinStopLimit(deal: Deal) {
+  if (typeof deal.stops !== "number") return true;
+  return deal.stops <= maxStopsForDest(dealDestCode(deal));
+}
+
 export function dealStopsLabel(deal: Deal) {
   if (typeof deal.stops !== "number") return "Google’da kontrol et";
-  if (deal.stops === 0) return "Direkt";
-  return `${deal.stops} aktarma`;
+  const base = deal.stops === 0 ? "Direkt" : `${deal.stops} aktarma`;
+  if (deal.selfTransfer) {
+    return `${base} · yolcu sorumluluğunda aktarma`;
+  }
+  return base;
 }

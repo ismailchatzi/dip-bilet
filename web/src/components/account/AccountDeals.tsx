@@ -12,6 +12,7 @@ import {
   cheapestDealPerCity,
   dealMatchesDests,
   dealMatchesOrigins,
+  dealWithinStopLimit,
 } from "@/lib/deal-display";
 import { sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/client";
@@ -118,6 +119,7 @@ export function AccountDeals() {
             (d) =>
               dealMatchesOrigins(d, selectedOrigins) &&
               dealMatchesDests(d, selectedDests) &&
+              dealWithinStopLimit(d) &&
               d.price >= priceMin &&
               d.price <= priceMax,
           ),
