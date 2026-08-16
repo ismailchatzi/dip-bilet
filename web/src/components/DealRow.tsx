@@ -1,4 +1,5 @@
 import type { Deal } from "@/lib/types";
+import { dealBookingUrl } from "@/lib/deal-display";
 
 function formatMoney(amount: number, currency: string) {
   try {
@@ -99,10 +100,10 @@ export function DealRow({
 
       {isArchive ? (
         <span className="deal-row__stamp">Süresi doldu</span>
-      ) : deal.googleFlightsUrl ? (
+      ) : dealBookingUrl(deal) ? (
         <a
           className="deal-row__cta"
-          href={deal.googleFlightsUrl}
+          href={dealBookingUrl(deal)}
           target="_blank"
           rel="noopener noreferrer"
         >

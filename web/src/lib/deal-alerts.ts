@@ -1,3 +1,4 @@
+import { dealBookingUrl } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 
 export function dealKey(deal: Deal): string {
@@ -55,9 +56,8 @@ export function dealAlertEmailContent(deals: Deal[], panelUrl: string) {
         typeof d.discountPercent === "number"
           ? ` <span style="color:#0a7a4b">ort. %${d.discountPercent} altında</span>`
           : "";
-      const link = d.googleFlightsUrl
-        ? ` <a href="${d.googleFlightsUrl}">İncele</a>`
-        : "";
+      const book = dealBookingUrl(d);
+      const link = book ? ` <a href="${book}">İncele</a>` : "";
       return `<li style="margin:0 0 10px"><strong>${d.destination}</strong> — ${formatMoney(d.price, d.currency)}${discount}${link}</li>`;
     })
     .join("");

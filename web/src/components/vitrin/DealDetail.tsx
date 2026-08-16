@@ -8,6 +8,7 @@ import {
   dealDateRange,
   dealDateRangeShort,
   dealFoundLabel,
+  dealBookingUrl,
   dealDestCode,
   dealOutOrigin,
   dealReturnAirport,
@@ -26,6 +27,7 @@ export function DealDetail({ deal }: { deal: Deal }) {
   const dest = dealDestCode(deal);
   const out = dealOutOrigin(deal);
   const back = dealReturnAirport(deal);
+  const bookUrl = dealBookingUrl(deal);
 
   async function share() {
     const url = window.location.href;
@@ -157,10 +159,10 @@ export function DealDetail({ deal }: { deal: Deal }) {
           {typeof deal.discountPercent === "number" ? (
             <p className="deal-detail__saved">%{deal.discountPercent} tasarruf</p>
           ) : null}
-          {deal.googleFlightsUrl ? (
+          {bookUrl ? (
             <a
               className="deal-detail__book"
-              href={deal.googleFlightsUrl}
+              href={bookUrl}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -171,10 +173,10 @@ export function DealDetail({ deal }: { deal: Deal }) {
               Link yok
             </span>
           )}
-          {deal.googleFlightsUrl ? (
+          {bookUrl ? (
             <a
               className="deal-detail__alt"
-              href={deal.googleFlightsUrl}
+              href={bookUrl}
               target="_blank"
               rel="noopener noreferrer"
             >

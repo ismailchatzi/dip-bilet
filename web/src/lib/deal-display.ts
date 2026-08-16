@@ -132,7 +132,26 @@ export function dealRouteLine(deal: Deal) {
   return `İstanbul (${out}) → ${city}${dest ? ` (${dest})` : ""}`;
 }
 
-export function dealHref(deal: Deal) {
+export function dealBookingUrl(deal: Deal) {
+  const stored = deal.googleFlightsUrl ?? "";
+  if (stored.includes("tfs=") || stored.includes("/flights/search")) {
+    return stored;
+  }
+  const out = dealOutOrigin(deal);
+  const dest = dealDestCode(deal);
+  const ret = dealReturnAirport(deal);
+  const od = deal.outboundDate;
+  const rd = deal.returnDate;
+  if (out && dest && od && rd) {
+    const flt = `${out}.${dest}.${od}*${dest}.${ret}.${rd}`;
+    const q = `${out} to ${dest} ${od} ${dest} to ${ret} ${rd}`;
+    return `https://www.google.com/travel/flights/search?hl=tr&gl=tr&curr=USD&q=${encodeURIComponent(q)}#flt=${flt}`;
+  }
+  if (stored.includes("/travel/flights?")) {
+    return stored.replace("/travel/flights?", "/travel/flights/search?");
+  }
+  return stored || undefined;
+}
   return `/firsatlarim/${encodeURIComponent(deal.id)}`;
 }
 

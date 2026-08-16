@@ -44,7 +44,8 @@ function googleFlightsUrl(
   retDate: string,
 ) {
   const flt = `${outOrigin}.${dest}.${outDate}*${dest}.${retDest}.${retDate}`;
-  return `https://www.google.com/travel/flights?hl=tr&gl=tr&curr=USD#flt=${flt}`;
+  const q = `${outOrigin} to ${dest} ${outDate} ${dest} to ${retDest} ${retDate}`;
+  return `https://www.google.com/travel/flights/search?hl=tr&gl=tr&curr=USD&q=${encodeURIComponent(q)}#flt=${flt}`;
 }
 
 function departureLabel(outOrigin: string, retDest: string) {
