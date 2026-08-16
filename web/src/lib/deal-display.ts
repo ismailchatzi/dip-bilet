@@ -215,7 +215,7 @@ export function googleFlightsSearchUrl(
   ];
   const tfs = toBase64Url(body);
   const flt = `${outOrigin}.${dest}.${outDate}*${dest}.${retDest}.${retDate}`;
-  return `https://www.google.com/travel/flights?hl=tr&gl=tr&curr=USD&tfs=${tfs}#flt=${flt}`;
+  return `https://www.google.com/travel/flights?hl=tr&gl=tr&curr=USD&sort=2&tfs=${tfs}#flt=${flt}`;
 }
 
 export function dealBookingUrl(deal: Deal) {
@@ -284,6 +284,29 @@ export function dealMatchesDests(deal: Deal, dests: string[]) {
 
 export function dealCabin() {
   return "Ekonomi";
+}
+
+/** Kart altı soluk kod: D… Google Deals, S… Scrappa. */
+export function dealSourceCipher(deal: Deal) {
+  const prefix = deal.id.startsWith("gdeals:")
+    ? "D"
+    : deal.id.startsWith("scrappa:")
+      ? "S"
+      : null;
+  if (!prefix) return null;
+  const letters = "BCDFGHJKMNPQRTVWXZ";
+  let n = 2166136261;
+  for (const ch of deal.id) {
+    n ^= ch.charCodeAt(0);
+    n = Math.imul(n, 16777619);
+  }
+  let tail = "";
+  let x = n >>> 0;
+  for (let i = 0; i < 4; i++) {
+    tail += letters[x % letters.length];
+    x = Math.floor(x / letters.length);
+  }
+  return prefix + tail;
 }
 
 /** Tek yön IST+SAW toplamı; paket doğrulanmamış. Vitrine konmaz. */

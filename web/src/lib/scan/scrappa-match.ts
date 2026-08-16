@@ -261,7 +261,6 @@ async function verifyWithRoundTrip(deal: Deal, destCode: string): Promise<Deal |
     flightNumber: best.flightNumber,
   });
   best.price = booked.price;
-  if (booked.selfTransfer) best.selfTransfer = true;
   if (m != null && best.price > m * POST_RATIO) return null;
   const strike = deal.averagePrice ?? Math.round((m ?? best.price) * STRIKE_RATIO);
   const displayOff = Math.round(((strike - best.price) / strike) * 100);

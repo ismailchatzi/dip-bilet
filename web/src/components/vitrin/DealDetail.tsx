@@ -15,6 +15,7 @@ import {
   dealOutOrigin,
   dealReturnAirport,
   dealRouteLine,
+  dealSourceCipher,
   dealStopsLabel,
   formatDealMoney,
 } from "@/lib/deal-display";
@@ -36,6 +37,7 @@ export function DealDetail({
   const out = dealOutOrigin(deal);
   const back = dealReturnAirport(deal);
   const bookUrl = dealBookingUrl(deal);
+  const mark = dealSourceCipher(deal);
   const alts = otherCityDeals(deal, cityDeals);
 
   async function share() {
@@ -167,6 +169,11 @@ export function DealDetail({
           </p>
           {typeof deal.discountPercent === "number" ? (
             <p className="deal-detail__saved">%{deal.discountPercent} tasarruf</p>
+          ) : null}
+          {mark ? (
+            <span className="deal-detail__mark" aria-hidden="true">
+              {mark}
+            </span>
           ) : null}
           {bookUrl ? (
             <a

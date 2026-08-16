@@ -37,7 +37,7 @@ Aynı tarih çifti için 4 kombinasyonun **en ucuzu** (IST/SAW gidiş × IST/SAW
 Tek yön dönüş şişer; dönüş medyanı en fazla gidiş medyanı × 1.15.
 Sonra gidiş medyan + (tavanlı) dönüş medyan.
 
-Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** fiyatı basılır (`/round-trip`, `sort_by=cheapest`). Tek yön IST+SAW toplamı kart olmaz. Kazanan pakette +1 kredi: `/booking-details` ile satıcı min (Kiwi vb.); liste ile min alınır. Bileti incele = Google uçuş linki.
+Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** fiyatı basılır (`/round-trip`, `sort_by=cheapest`). Tek yön IST+SAW toplamı kart olmaz. Kazanan pakette +1 kredi: `/booking-details` yalnız **aynı uçuşun** satıcı toplamı (Google En ucuz: 95→91). Insights/dip/tek yön rakamı yok; listeye göre %15’ten fazla inmez. Bileti incele = Google En ucuz (`sort=2`).
 
 - **Gönderi açılsın mı:** paket fiyat ≤ `M × 0.80`
 - **Kartta üstü çizili:** `M × 1.10`

@@ -2813,6 +2813,22 @@ a {
   font-size: 0.78rem;
 }
 
+.vitrin-card__mark,
+.deal-detail__mark {
+  display: block;
+  margin: 0.55rem 0 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  color: #d4d4d4;
+  font-weight: 500;
+  user-select: none;
+  pointer-events: none;
+}
+
+.deal-detail__mark {
+  margin: 0.15rem 0 0.15rem;
+}
+
 .vitrin-card__meta svg,
 .deal-detail svg {
   width: 14px;

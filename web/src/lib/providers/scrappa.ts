@@ -152,36 +152,67 @@ function toFare(
   };
 }
 
-function walkPrices(node: unknown, into: number[]) {
-  if (typeof node === "number" && node > 0 && node < 50_000) {
-    into.push(node);
-    return;
-  }
-  if (Array.isArray(node)) {
-    for (const item of node) walkPrices(item, into);
-    return;
-  }
-  if (!node || typeof node !== "object") return;
-  for (const [key, value] of Object.entries(node)) {
-    if (/price|amount|total|fare/i.test(key)) walkPrices(value, into);
-    else if (value && typeof value === "object") walkPrices(value, into);
-  }
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null;
 }
 
-function fareLooksSelfTransfer(node: unknown) {
-  const blob = JSON.stringify(node).toLowerCase();
-  return (
-    blob.includes("kiwi") ||
-    blob.includes("edreams") ||
-    blob.includes("gotogate") ||
-    blob.includes("mytrip") ||
-    blob.includes("self_transfer") ||
-    blob.includes("self-transfer") ||
-    blob.includes("separate")
-  );
+function numPrice(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0 && v < 50_000) {
+    return v;
+  }
+  if (typeof v === "string" && /^\d+(\.\d+)?$/.test(v.trim())) {
+    const n = Number(v);
+    if (n > 0 && n < 50_000) return n;
+  }
+  return null;
 }
 
-/** Liste fiyatı yerine satıcı min (Kiwi vb.). +1 kredi. Başarısızsa liste kalır. */
+/** Sadece o uçuşun satıcı toplamı — dip/insights/tek yön rakamına dokunma. */
+function optionTotal(opt: unknown): number | null {
+  const o = asRecord(opt);
+  if (!o) return null;
+  const together = asRecord(o.together);
+  const booking = asRecord(o.booking);
+  for (const v of [
+    o.price,
+    o.total_price,
+    o.totalPrice,
+    together?.price,
+    together?.total_price,
+    booking?.price,
+  ]) {
+    const n = numPrice(v);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+function fareOptionTotals(fareOptions: unknown): number[] {
+  const lists: unknown[][] = [];
+  if (Array.isArray(fareOptions)) lists.push(fareOptions);
+  const rec = asRecord(fareOptions);
+  if (rec) {
+    for (const key of ["fare_options", "options", "bookings", "booking_options"]) {
+      const v = rec[key];
+      if (Array.isArray(v)) lists.push(v);
+    }
+  }
+  const out: number[] = [];
+  for (const list of lists) {
+    for (const item of list) {
+      const n = optionTotal(item);
+      if (n != null) out.push(n);
+    }
+  }
+  return out;
+}
+
+/**
+ * Google En ucuz = aynı uçuşun en ucuz satıcısı (95→91 Kiwi).
+ * JSON’daki 70$ “tipik/dip” değil. Listeye göre en fazla %15 altı.
+ */
 export async function scrappaCheapestBookingPrice(input: {
   origin: string;
   destination: string;
@@ -190,7 +221,7 @@ export async function scrappaCheapestBookingPrice(input: {
   bookingToken?: string;
   airlineCode?: string;
   flightNumber?: string;
-}): Promise<{ price: number; selfTransfer?: boolean }> {
+}): Promise<{ price: number }> {
   const apiKey = process.env.SCRAPPA_API_KEY?.trim();
   const token = input.bookingToken?.trim();
   const airline = input.airlineCode?.trim();
@@ -223,20 +254,14 @@ export async function scrappaCheapestBookingPrice(input: {
       },
     );
     if (!res.ok) return { price: input.listPrice };
-    const json = (await res.json()) as {
-      fare_options?: unknown;
-      price_insights?: unknown;
-    };
-    const prices: number[] = [];
-    walkPrices(json.fare_options ?? json, prices);
-    const floor = input.listPrice * 0.6;
-    const cheaper = prices.filter((p) => p >= floor && p < input.listPrice);
-    if (cheaper.length === 0) return { price: input.listPrice };
-    const min = Math.min(...cheaper);
-    return {
-      price: min,
-      selfTransfer: fareLooksSelfTransfer(json.fare_options) || undefined,
-    };
+    const json = (await res.json()) as { fare_options?: unknown };
+    const prices = fareOptionTotals(json.fare_options);
+    const floor = input.listPrice * 0.85;
+    const sellers = prices.filter(
+      (p) => p >= floor && p <= input.listPrice + 0.5,
+    );
+    if (sellers.length === 0) return { price: input.listPrice };
+    return { price: Math.min(...sellers) };
   } catch {
     return { price: input.listPrice };
   }
