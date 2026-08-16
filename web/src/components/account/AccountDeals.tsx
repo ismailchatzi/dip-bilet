@@ -13,6 +13,7 @@ import {
   dealMatchesDests,
   dealMatchesOrigins,
   dealWithinStopLimit,
+  isUnverifiedOneWaySum,
 } from "@/lib/deal-display";
 import { sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/client";
@@ -120,6 +121,7 @@ export function AccountDeals() {
               dealMatchesOrigins(d, selectedOrigins) &&
               dealMatchesDests(d, selectedDests) &&
               dealWithinStopLimit(d) &&
+              !isUnverifiedOneWaySum(d) &&
               d.price >= priceMin &&
               d.price <= priceMax,
           ),

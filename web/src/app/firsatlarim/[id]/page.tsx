@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { AccountShell } from "@/components/account/AccountShell";
 import { DealDetail } from "@/components/vitrin/DealDetail";
-import { dealCityTitle, dealDestCode, dealWithinStopLimit } from "@/lib/deal-display";
+import {
+  dealCityTitle,
+  dealDestCode,
+  dealWithinStopLimit,
+  isUnverifiedOneWaySum,
+} from "@/lib/deal-display";
 import { requireAuthOnboarding } from "@/lib/onboarding";
 import { readScanBoard } from "@/lib/scan/board";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
@@ -30,7 +35,8 @@ export default async function DealDetailPage({ params }: PageProps) {
 
   const board = await readScanBoard(supabase);
   const live = (board.deals?.deals ?? []).filter(
-    (d) => isLiveDeal(d) && dealWithinStopLimit(d),
+    (d) =>
+      isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
   );
   const deal = live.find((d) => d.id === id);
   if (!deal) notFound();

@@ -5,8 +5,9 @@ import {
   SCRAPPA_DESTINATIONS,
   type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
-import { googleFlightsSearchUrl } from "@/lib/deal-display";
+import { googleFlightsSearchUrl, isUnverifiedOneWaySum } from "@/lib/deal-display";
 import {
+  scrappaCheapestBookingPrice,
   scrappaRoundTrip,
   ScrappaUnavailableError,
 } from "@/lib/providers/scrappa";
@@ -217,6 +218,9 @@ async function verifyWithRoundTrip(deal: Deal, destCode: string): Promise<Deal |
     airline?: string;
     stops?: number;
     selfTransfer?: boolean;
+    bookingToken?: string;
+    airlineCode?: string;
+    flightNumber?: string;
   } | null = null;
   for (const origin of ["SAW", "IST"] as const) {
     try {
@@ -234,6 +238,9 @@ async function verifyWithRoundTrip(deal: Deal, destCode: string): Promise<Deal |
           airline: hit.airline,
           stops: hit.stops,
           selfTransfer: hit.selfTransfer,
+          bookingToken: hit.bookingToken,
+          airlineCode: hit.airlineCode,
+          flightNumber: hit.flightNumber,
         };
       }
     } catch (err) {
@@ -244,6 +251,17 @@ async function verifyWithRoundTrip(deal: Deal, destCode: string): Promise<Deal |
   if (typeof best.stops === "number" && best.stops > maxStopsForDest(destCode)) {
     return null;
   }
+  const booked = await scrappaCheapestBookingPrice({
+    origin: best.origin,
+    destination: destCode,
+    departureDate: outDate,
+    listPrice: best.price,
+    bookingToken: best.bookingToken,
+    airlineCode: best.airlineCode,
+    flightNumber: best.flightNumber,
+  });
+  best.price = booked.price;
+  if (booked.selfTransfer) best.selfTransfer = true;
   if (m != null && best.price > m * POST_RATIO) return null;
   const strike = deal.averagePrice ?? Math.round((m ?? best.price) * STRIKE_RATIO);
   const displayOff = Math.round(((strike - best.price) / strike) * 100);
@@ -309,7 +327,9 @@ export async function publishDestShowcase(
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
   const others = previous.filter(
-    (d) => isGoogleDeal(d) || destCodeFromDeal(d) !== dest.code,
+    (d) =>
+      !isUnverifiedOneWaySum(d) &&
+      (isGoogleDeal(d) || destCodeFromDeal(d) !== dest.code),
   );
   const taken = new Set(others.map(tripKey));
   const deals = [...others, ...fresh.filter((d) => !taken.has(tripKey(d)))];

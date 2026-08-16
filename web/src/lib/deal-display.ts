@@ -286,6 +286,12 @@ export function dealCabin() {
   return "Ekonomi";
 }
 
+/** Tek yön IST+SAW toplamı; paket doğrulanmamış. Vitrine konmaz. */
+export function isUnverifiedOneWaySum(deal: Deal) {
+  if (!deal.id.startsWith("scrappa:")) return false;
+  return dealOutOrigin(deal) !== dealReturnAirport(deal);
+}
+
 export function dealWithinStopLimit(deal: Deal) {
   if (typeof deal.stops !== "number") return true;
   return deal.stops <= maxStopsForDest(dealDestCode(deal));
