@@ -64,8 +64,8 @@ async function drain() {
     if ("paused" in result && result.paused) {
       const wait = pausedUntil
         ? Date.parse(pausedUntil) - Date.now()
-        : 15 * 60 * 1000;
-      await sleep(Math.max(30_000, wait));
+        : 20 * 1000;
+      await sleep(Math.max(5_000, wait));
       continue;
     }
     await sleep(250);

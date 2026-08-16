@@ -141,6 +141,9 @@ export async function runScrappaOneWayBatch(
     const msg = e instanceof Error ? e.message : "hata";
     errors.push(`${leg.origin}>${leg.destination} ${date}: ${msg}`);
     if (e instanceof ScrappaUnavailableError) {
+      const outage =
+        /cookie_session|request_exhausted/i.test(e.reason) ||
+        /cookie_session|request_exhausted/i.test(msg);
       return {
         ok: false,
         done: false,
@@ -152,7 +155,7 @@ export async function runScrappaOneWayBatch(
         matched: 0,
         errors: errors.slice(0, 20),
         lastError: msg,
-        pauseMs: 15 * 60 * 1000,
+        pauseMs: outage ? 2 * 60 * 1000 : 20 * 1000,
       };
     }
     scanned = 1;

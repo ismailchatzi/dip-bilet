@@ -42,7 +42,7 @@ function applyBatch(
       heartbeatAt: now,
       lastError: batch.lastError,
       pausedUntil: new Date(
-        Date.now() + (batch.pauseMs ?? 15 * 60 * 1000),
+        Date.now() + (batch.pauseMs ?? 20 * 1000),
       ).toISOString(),
     };
   }
