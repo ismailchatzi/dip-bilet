@@ -101,7 +101,7 @@ export function DealRow({
           className="deal-row__cta"
           href={dealBookingUrl(deal)}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener noreferrer sponsored"
         >
           İncele
         </a>

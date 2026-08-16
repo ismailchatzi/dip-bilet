@@ -279,7 +279,7 @@ export function DealDetail({
               }
               href={bookUrl}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener noreferrer sponsored"
               aria-disabled={live.status === "loading"}
               onClick={(e) => {
                 if (live.status === "loading") e.preventDefault();
@@ -292,16 +292,6 @@ export function DealDetail({
               Link yok
             </span>
           )}
-          {bookUrl ? (
-            <a
-              className="deal-detail__alt"
-              href={bookUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Diğer seçenekler
-            </a>
-          ) : null}
           <button type="button" className="deal-detail__alt" onClick={() => void share()}>
             Fırsatı paylaş
           </button>

@@ -218,10 +218,52 @@ export function googleFlightsSearchUrl(
   return `https://www.google.com/travel/flights?hl=tr&gl=tr&curr=USD&sort=2&tfs=${tfs}#flt=${flt}`;
 }
 
+/** Kiwi arama — tarih + rota dolu. */
+export function kiwiSearchUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+) {
+  const params = new URLSearchParams({
+    from: outOrigin.toUpperCase(),
+    to: dest.toUpperCase(),
+    departure: outDate,
+    return: retDate,
+    currency: "usd",
+  });
+  return `https://www.kiwi.com/deep?${params.toString()}`;
+}
+
+/**
+ * Travelpayouts üzerinden Kiwi. Marker yoksa link üretilmez.
+ * @see https://support.travelpayouts.com/hc/en-us/articles/360010109719-Kiwi-com-affiliate-links
+ */
+export function kiwiAffiliateUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+  subId?: string,
+) {
+  const marker = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_MARKER?.trim();
+  if (!marker) return undefined;
+  const deep = kiwiSearchUrl(outOrigin, dest, outDate, retDate);
+  const shmarker = subId ? `${marker}.${subId}` : marker;
+  const params = new URLSearchParams({
+    shmarker,
+    promo_id: "3791",
+    source_type: "customlink",
+    type: "click",
+    custom_url: deep,
+  });
+  return `https://c111.travelpayouts.com/click?${params.toString()}`;
+}
+
+/** Vitrin CTA — yalnız anlaşmalı OTA (Kiwi). Google yok. */
 export function dealBookingUrl(deal: Deal) {
   const out = dealOutOrigin(deal);
   const dest = dealDestCode(deal);
-  const ret = dealReturnAirport(deal);
   const od = deal.outboundDate;
   const rd = deal.returnDate;
   if (
@@ -232,7 +274,7 @@ export function dealBookingUrl(deal: Deal) {
     /^\d{4}-\d{2}-\d{2}$/.test(od) &&
     /^\d{4}-\d{2}-\d{2}$/.test(rd)
   ) {
-    return googleFlightsSearchUrl(out, dest, od, ret, rd);
+    return kiwiAffiliateUrl(out, dest, od, rd, dealDestCode(deal) || undefined);
   }
   return undefined;
 }
