@@ -1,3 +1,11 @@
+export type DealDateOption = {
+  outboundDate: string;
+  returnDate: string;
+  price: number;
+  airline?: string;
+  origin?: string;
+};
+
 export type Deal = {
   id: string;
   destination: string;
@@ -20,6 +28,8 @@ export type Deal = {
   photoUrl?: string;
   /** Google: yolcu sorumluluğunda aktarma (ayrı bilet) */
   selfTransfer?: boolean;
+  /** Aynı karttaki yakın tarih seçenekleri (kahraman tarih hariç) */
+  dateOptions?: DealDateOption[];
 };
 
 export type ScrappaJob = {

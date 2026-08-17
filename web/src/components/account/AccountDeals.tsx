@@ -9,11 +9,11 @@ import {
 } from "@/lib/departures";
 import { destinationByCode } from "@/lib/destinations";
 import {
-  cheapestDealPerCity,
   dealMatchesDests,
   dealMatchesOrigins,
   dealWithinStopLimit,
   isUnverifiedOneWaySum,
+  vitrinHeroDeals,
 } from "@/lib/deal-display";
 import { sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/client";
@@ -115,7 +115,7 @@ export function AccountDeals() {
   const visible = useMemo(
     () =>
       sortByFoundAt(
-        cheapestDealPerCity(
+        vitrinHeroDeals(
           deals.filter(
             (d) =>
               dealMatchesOrigins(d, selectedOrigins) &&

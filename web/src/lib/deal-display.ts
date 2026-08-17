@@ -260,7 +260,50 @@ export function kiwiAffiliateUrl(
   return `https://c111.travelpayouts.com/click?${params.toString()}`;
 }
 
-/** Vitrin CTA — yalnız anlaşmalı OTA (Kiwi). Google yok. */
+/** Aviasales arama — tarih + rota dolu. */
+export function aviasalesSearchUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+) {
+  const params = new URLSearchParams({
+    origin_iata: outOrigin.toUpperCase(),
+    destination_iata: dest.toUpperCase(),
+    depart_date: outDate,
+    return_date: retDate,
+    adults: "1",
+    currency: "usd",
+    locale: "en",
+  });
+  return `https://www.aviasales.com/?${params.toString()}`;
+}
+
+/**
+ * Travelpayouts Aviasales. p=4114 hesap link üretecinden.
+ * @see https://support.travelpayouts.com/hc/en-us/articles/5711895629714-Aviasales-affiliate-links
+ */
+export function aviasalesAffiliateUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+  subId?: string,
+) {
+  const marker = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_MARKER?.trim();
+  if (!marker) return undefined;
+  const deep = aviasalesSearchUrl(outOrigin, dest, outDate, retDate);
+  const params = new URLSearchParams({
+    campaign_id: "100",
+    marker: subId ? `${marker}.${subId}` : marker,
+    p: "4114",
+    trs: "560475",
+    u: deep,
+  });
+  return `https://tp.media/r?${params.toString()}`;
+}
+
+/** Vitrin CTA — Google kartları Aviasales, Scrappa Kiwi. */
 export function dealBookingUrl(deal: Deal) {
   const out = dealOutOrigin(deal);
   const dest = dealDestCode(deal);
@@ -274,7 +317,11 @@ export function dealBookingUrl(deal: Deal) {
     /^\d{4}-\d{2}-\d{2}$/.test(od) &&
     /^\d{4}-\d{2}-\d{2}$/.test(rd)
   ) {
-    return kiwiAffiliateUrl(out, dest, od, rd, dealDestCode(deal) || undefined);
+    const sub = dealDestCode(deal) || undefined;
+    if (deal.id.startsWith("gdeals:")) {
+      return aviasalesAffiliateUrl(out, dest, od, rd, sub);
+    }
+    return kiwiAffiliateUrl(out, dest, od, rd, sub);
   }
   return undefined;
 }
@@ -292,16 +339,117 @@ export function cheapestDealPerCity(deals: Deal[]) {
   });
 }
 
+/** Gidiş ±7 gün = aynı fırsat kümesi (vitrinde tek kart). */
+export const DATE_CLUSTER_DAYS = 7;
+
+function outboundDaysApart(a?: string, b?: string) {
+  if (!a || !b) return Infinity;
+  const ms = Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`);
+  if (!Number.isFinite(ms)) return Infinity;
+  return Math.abs(Math.round(ms / 86_400_000));
+}
+
+export function sameDateCluster(a: Deal, b: Deal) {
+  return outboundDaysApart(a.outboundDate, b.outboundDate) <= DATE_CLUSTER_DAYS;
+}
+
+/** Şehir başına en fazla 2 kart; yakın tarihler tek kahramanda birleşir. */
+export function vitrinHeroDeals(deals: Deal[]) {
+  const byCity = new Map<string, Deal[]>();
+  for (const deal of deals) {
+    const key = dealDestCode(deal) || deal.destination;
+    const list = byCity.get(key) ?? [];
+    list.push(deal);
+    byCity.set(key, list);
+  }
+  const heroes: Deal[] = [];
+  for (const group of byCity.values()) {
+    const sorted = [...group].sort(
+      (a, b) =>
+        a.price - b.price || (b.discountPercent ?? 0) - (a.discountPercent ?? 0),
+    );
+    const used = new Set<string>();
+    let taken = 0;
+    for (const deal of sorted) {
+      if (used.has(deal.id)) continue;
+      heroes.push(deal);
+      taken += 1;
+      used.add(deal.id);
+      for (const other of sorted) {
+        if (used.has(other.id)) continue;
+        if (sameDateCluster(deal, other)) used.add(other.id);
+      }
+      if (taken >= 2) break;
+    }
+  }
+  return heroes;
+}
+
 export function otherCityDeals(current: Deal, all: Deal[]) {
   const code = dealDestCode(current);
   if (!code) return [];
   return all
-    .filter((d) => d.id !== current.id && dealDestCode(d) === code)
+    .filter(
+      (d) =>
+        d.id !== current.id &&
+        dealDestCode(d) === code &&
+        sameDateCluster(current, d) &&
+        d.price === current.price,
+    )
     .sort(
       (a, b) =>
         (a.outboundDate ?? "").localeCompare(b.outboundDate ?? "") ||
         a.price - b.price,
     );
+}
+
+export type DealDateChoice = {
+  outboundDate: string;
+  returnDate: string;
+  price: number;
+  airline?: string;
+  origin?: string;
+};
+
+export function dealDateChoices(deal: Deal): DealDateChoice[] {
+  const origin = dealOutOrigin(deal);
+  const head: DealDateChoice[] =
+    deal.outboundDate && deal.returnDate
+      ? [
+          {
+            outboundDate: deal.outboundDate,
+            returnDate: deal.returnDate,
+            price: deal.price,
+            airline: deal.airline,
+            origin,
+          },
+        ]
+      : [];
+  const extra = (deal.dateOptions ?? []).filter(
+    (o) =>
+      o.outboundDate &&
+      o.returnDate &&
+      `${o.outboundDate}|${o.returnDate}` !==
+        `${deal.outboundDate}|${deal.returnDate}`,
+  );
+  return [...head, ...extra];
+}
+
+export function dealWithDateChoice(deal: Deal, choice: DealDateChoice): Deal {
+  const dest = dealDestCode(deal);
+  const origin = (choice.origin || dealOutOrigin(deal)).toUpperCase();
+  const prefix = deal.id.startsWith("gdeals:") ? "gdeals" : "scrappa";
+  return {
+    ...deal,
+    price: choice.price,
+    outboundDate: choice.outboundDate,
+    returnDate: choice.returnDate,
+    airline: choice.airline || deal.airline,
+    departureLabel: `İstanbul (${origin})`,
+    id: dest
+      ? `${prefix}:${dest}:${origin}:${choice.outboundDate}:${origin}:${choice.returnDate}`
+      : deal.id,
+  };
 }
 
 export function dealHref(deal: Deal) {

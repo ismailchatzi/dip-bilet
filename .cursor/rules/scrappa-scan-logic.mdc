@@ -43,7 +43,10 @@ Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** f
 - **6 ay (daha uzak):** paket ≤ `M × 0.75` (%25 altı)
 - **Kartta üstü çizili:** `M × 1.10`
 - **Detay “Fiyat Eşiği”:** `M × 0.90`
-- Şehir başına en fazla 2 dip kart + 6 ayın **en ucuz ayından 1 taban kart** (yüzde şartı yok; Madrid Ocak $200 örneği). Taslak; otomatik yayın yok.
+- Şehir başına en fazla **2 dip kart**. Kapıdan geçen yoksa o şehir boş. Taban kart yok.
+- Medyan **o ayın** medyanı; Ekim’i Ocak’la eleyerek düşürme.
+- Gidiş **7 gün** içindeyse aynı kart. Listeye yalnız **en ucuz ve aynı fiyat** tarihler; daha pahalısı ne kart ne alternatif.
+- Google: gerçekten altı (avg ≥ %20 + varsa M × 0.70/0.75); kapıdan geçmeyen `gdeals:` düşer.
 
 Örn. M=150, bilet=113 (%25 altı → 6 ay gönderi)
 Kart: ~~165~~ **113**

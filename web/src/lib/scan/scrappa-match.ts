@@ -5,7 +5,7 @@ import {
   SCRAPPA_DESTINATIONS,
   type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
-import { googleFlightsSearchUrl, isUnverifiedOneWaySum } from "@/lib/deal-display";
+import { googleFlightsSearchUrl, isUnverifiedOneWaySum, dealOutOrigin } from "@/lib/deal-display";
 import {
   scrappaCheapestBookingPrice,
   scrappaRoundTrip,
@@ -23,6 +23,10 @@ const STRIKE_RATIO = 1.1;
 const THRESHOLD_RATIO = 0.9;
 const MIN_MEDIAN_SAMPLES = 3;
 const MAX_DIP_DEALS = 2;
+/** Gidiş tarihi bu kadar gün içindeyse aynı kart + “farklı tarih” listesi. */
+const CLUSTER_OUT_DAYS = 7;
+/** Küme başına doğrulanacak tarih tavanı (kredi). */
+const MAX_DATES_PER_CLUSTER = 4;
 
 type Obs = {
   route_key: string;
@@ -212,17 +216,6 @@ function comboFromPair(
   };
 }
 
-function monthMedian(
-  outDaily: Map<string, { price: number; season: string }>,
-  inDaily: Map<string, { price: number; season: string }>,
-  season: string,
-): number | null {
-  const outMed = cityMonthlyMedian(outDaily, season);
-  const inRaw = cityMonthlyMedian(inDaily, season);
-  if (outMed == null || inRaw == null) return null;
-  return outMed + Math.min(inRaw, outMed * 1.15);
-}
-
 function pairMonthM(
   outDaily: Map<string, { price: number; season: string }>,
   inDaily: Map<string, { price: number; season: string }>,
@@ -263,45 +256,6 @@ function collectPairs(
   return { pairs: [...cheapestPair.values()], outDaily, inDaily };
 }
 
-function cheapestMonthFloor(
-  dest: ScrappaDestination,
-  pairs: Pair[],
-  outDaily: ReturnType<typeof cityDailyMins>,
-  inDaily: ReturnType<typeof cityDailyMins>,
-  foundAt: string,
-): Draft | null {
-  const seasons = new Set<string>();
-  for (const p of pairs) seasons.add(p.out.season_key);
-  let cheapSeason: string | null = null;
-  let cheapM = Infinity;
-  for (const season of seasons) {
-    const m = monthMedian(outDaily, inDaily, season);
-    if (m == null || m >= cheapM) continue;
-    cheapM = m;
-    cheapSeason = season;
-  }
-  if (!cheapSeason) return null;
-  const inMonth = pairs.filter(
-    (p) =>
-      p.out.season_key === cheapSeason && p.ret.season_key === cheapSeason,
-  );
-  const pool = inMonth.length > 0 ? inMonth : pairs.filter((p) => p.out.season_key === cheapSeason);
-  let best: Pair | null = null;
-  for (const p of pool) {
-    if (!best || p.total < best.total) best = p;
-  }
-  if (!best) return null;
-  const m = pairMonthM(outDaily, inDaily, best.out, best.ret);
-  if (m == null || m <= 0) return null;
-  return comboFromPair(
-    dest,
-    best,
-    m,
-    foundAt,
-    postRatioForOutbound(best.out.outbound_date),
-  );
-}
-
 export function matchDestDeals(
   dest: ScrappaDestination,
   rows: Obs[],
@@ -312,29 +266,61 @@ export function matchDestDeals(
   );
 }
 
-/** Dip + taban taslakları (paket doğrulaması yok). */
+/** Dip taslakları (paket doğrulaması yok). */
 export function matchDestDraftDeals(
   dest: ScrappaDestination,
   rows: Obs[],
   foundAt = new Date().toISOString(),
 ): Deal[] {
-  const { dips, floor } = matchDestDrafts(dest, rows, foundAt);
-  const out = dips.map(({ realDiscount: _r, postRatio: _p, ...deal }) => deal);
-  if (floor) {
-    const key = `${floor.outboundDate}|${floor.returnDate}`;
-    if (!out.some((d) => `${d.outboundDate}|${d.returnDate}` === key)) {
-      const { realDiscount: _r, postRatio: _p, ...deal } = floor;
-      out.push(deal);
+  const { dipClusters } = matchDestDrafts(dest, rows, foundAt);
+  return dipClusters.flatMap((cluster) =>
+    cluster.map(({ realDiscount: _r, postRatio: _p, ...deal }) => deal),
+  );
+}
+
+function outDaysApart(a?: string, b?: string) {
+  if (!a || !b) return Infinity;
+  const n = nightsBetween(a, b);
+  return n < 0 ? -n : n;
+}
+
+/** En dip kahramanlar; yakın gidişler aynı kümeye alınır. */
+function clusterDipDrafts(drafts: Draft[]): Draft[][] {
+  const sorted = [...drafts].sort(
+    (a, b) => b.realDiscount - a.realDiscount || a.price - b.price,
+  );
+  const used = new Set<string>();
+  const clusters: Draft[][] = [];
+  for (const hero of sorted) {
+    const heroKey = `${hero.outboundDate}|${hero.returnDate}`;
+    if (used.has(heroKey)) continue;
+    const cluster: Draft[] = [hero];
+    used.add(heroKey);
+    for (const other of sorted) {
+      const key = `${other.outboundDate}|${other.returnDate}`;
+      if (used.has(key)) continue;
+      if (outDaysApart(hero.outboundDate, other.outboundDate) > CLUSTER_OUT_DAYS) {
+        continue;
+      }
+      if (other.price !== hero.price) {
+        used.add(key);
+        continue;
+      }
+      cluster.push(other);
+      used.add(key);
+      if (cluster.length >= MAX_DATES_PER_CLUSTER) break;
     }
+    clusters.push(cluster);
+    if (clusters.length >= MAX_DIP_DEALS) break;
   }
-  return out;
+  return clusters;
 }
 
 function matchDestDrafts(
   dest: ScrappaDestination,
   rows: Obs[],
   foundAt: string,
-): { dips: Draft[]; floor: Draft | null } {
+): { dips: Draft[]; dipClusters: Draft[][] } {
   const { pairs, outDaily, inDaily } = collectPairs(dest, rows);
   const combos: Draft[] = [];
   for (const pair of pairs) {
@@ -349,11 +335,9 @@ function matchDestDrafts(
     const prev = bestById.get(c.id);
     if (!prev || c.price < prev.price) bestById.set(c.id, c);
   }
-  const dips = [...bestById.values()]
-    .sort((a, b) => b.realDiscount - a.realDiscount || a.price - b.price)
-    .slice(0, MAX_DIP_DEALS);
-  const floor = cheapestMonthFloor(dest, pairs, outDaily, inDaily, foundAt);
-  return { dips, floor };
+  const dipClusters = clusterDipDrafts([...bestById.values()]);
+  const dips = dipClusters.map((c) => c[0]!);
+  return { dips, dipClusters };
 }
 
 function toDeal(draft: Draft): Deal {
@@ -364,7 +348,7 @@ function toDeal(draft: Draft): Deal {
 async function verifyWithRoundTrip(
   deal: Deal,
   destCode: string,
-  opts: { postRatio: number; skipGate?: boolean },
+  opts: { postRatio: number },
 ): Promise<Deal | null> {
   const outDate = deal.outboundDate;
   const retDate = deal.returnDate;
@@ -422,9 +406,7 @@ async function verifyWithRoundTrip(
     flightNumber: best.flightNumber,
   });
   best.price = booked.price;
-  if (opts.skipGate) {
-    if (m != null && best.price > m) return null;
-  } else if (m != null && best.price > m * opts.postRatio) {
+  if (m != null && best.price > m * opts.postRatio) {
     return null;
   }
   const strike = deal.averagePrice ?? Math.round((m ?? best.price) * STRIKE_RATIO);
@@ -453,28 +435,38 @@ export async function matchDestFromDb(
   dest: ScrappaDestination,
 ): Promise<Deal[]> {
   const rows = await loadObservations(admin, dest.code);
-  const { dips, floor } = matchDestDrafts(dest, rows, new Date().toISOString());
+  const { dipClusters } = matchDestDrafts(
+    dest,
+    rows,
+    new Date().toISOString(),
+  );
   const verified: Deal[] = [];
   const seen = new Set<string>();
-  for (const draft of dips) {
-    const next = await verifyWithRoundTrip(toDeal(draft), dest.code, {
-      postRatio: draft.postRatio,
-    });
-    if (!next) continue;
-    const key = `${next.outboundDate}|${next.returnDate}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    verified.push(next);
-  }
-  if (floor) {
-    const floorKey = `${floor.outboundDate}|${floor.returnDate}`;
-    if (!seen.has(floorKey)) {
-      const next = await verifyWithRoundTrip(toDeal(floor), dest.code, {
-        postRatio: floor.postRatio,
-        skipGate: true,
+  for (const cluster of dipClusters) {
+    const hits: Deal[] = [];
+    for (const draft of cluster) {
+      const next = await verifyWithRoundTrip(toDeal(draft), dest.code, {
+        postRatio: draft.postRatio,
       });
-      if (next) verified.push(next);
+      if (!next) continue;
+      const key = `${next.outboundDate}|${next.returnDate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      hits.push(next);
     }
+    if (hits.length === 0) continue;
+    hits.sort((a, b) => a.price - b.price);
+    const cheapest = hits[0]!.price;
+    const keep = hits.filter((d) => d.price === cheapest);
+    const hero = keep[0]!;
+    hero.dateOptions = keep.slice(1).map((d) => ({
+      outboundDate: d.outboundDate ?? "",
+      returnDate: d.returnDate ?? "",
+      price: d.price,
+      airline: d.airline,
+      origin: dealOutOrigin(d),
+    }));
+    verified.push(hero);
   }
   return verified;
 }

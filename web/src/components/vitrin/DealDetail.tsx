@@ -9,6 +9,8 @@ import {
   dealDateRangeShort,
   dealFoundLabel,
   dealBookingUrl,
+  dealDateChoices,
+  dealWithDateChoice,
   dealHref,
   otherCityDeals,
   dealDestCode,
@@ -21,7 +23,7 @@ import {
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export function DealDetail({
   deal,
@@ -31,14 +33,40 @@ export function DealDetail({
   cityDeals?: Deal[];
 }) {
   const [copied, setCopied] = useState(false);
+  const [pickedKey, setPickedKey] = useState(
+    `${deal.outboundDate ?? ""}|${deal.returnDate ?? ""}`,
+  );
   const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
   const dest = dealDestCode(deal);
-  const out = dealOutOrigin(deal);
-  const back = dealReturnAirport(deal);
-  const bookUrl = dealBookingUrl(deal);
+  const choices = dealDateChoices(deal);
+  const cityAlts = otherCityDeals(deal, cityDeals);
+  const selected =
+    choices.find((c) => `${c.outboundDate}|${c.returnDate}` === pickedKey) ??
+    choices[0];
+  const view = selected ? dealWithDateChoice(deal, selected) : deal;
+  const out = dealOutOrigin(view);
+  const back = dealReturnAirport(view);
+  const bookUrl = dealBookingUrl(view);
   const mark = dealSourceCipher(deal);
-  const alts = otherCityDeals(deal, cityDeals);
+  const altRows = useMemo(() => {
+    if (choices.length > 1) {
+      return choices.map((c) => ({
+        key: `${c.outboundDate}|${c.returnDate}`,
+        label: dealDateRangeShort(dealWithDateChoice(deal, c)),
+        price: formatDealMoney(c.price, deal.currency),
+        href: null as string | null,
+        choice: c,
+      }));
+    }
+    return cityAlts.map((d) => ({
+      key: d.id,
+      label: dealDateRangeShort(d),
+      price: formatDealMoney(d.price, d.currency),
+      href: dealHref(d),
+      choice: null,
+    }));
+  }, [choices, cityAlts, deal]);
 
   async function share() {
     const url = window.location.href;
@@ -67,7 +95,7 @@ export function DealDetail({
             <Link href="/firsatlarim">← Vitrine dön</Link>
           </p>
           <h2>{title}</h2>
-          <p className="deal-detail__dates">{dealDateRange(deal)}</p>
+          <p className="deal-detail__dates">{dealDateRange(view)}</p>
         </div>
         <div className="deal-detail__head-actions">
           <Link href="/hedef-destinasyonlar" className="deal-detail__ghost">
@@ -87,7 +115,7 @@ export function DealDetail({
         imageUrl={deal.photoUrl}
       />
 
-      <h3 className="deal-detail__route">{dealRouteLine(deal)}</h3>
+      <h3 className="deal-detail__route">{dealRouteLine(view)}</h3>
       {out !== back ? (
         <p className="deal-detail__mix">
           Gidiş {out}, dönüş {back}
@@ -103,7 +131,7 @@ export function DealDetail({
               <li>
                 <TagIcon />
                 <span>Bu fırsat</span>
-                <strong>{formatDealMoney(deal.price, deal.currency)}</strong>
+                <strong>{formatDealMoney(view.price, view.currency)}</strong>
               </li>
               <li>
                 <GlobeIcon />
@@ -136,7 +164,7 @@ export function DealDetail({
               <li>
                 <PlaneIcon />
                 <span>Havayolu</span>
-                <strong>{deal.airline || "—"}</strong>
+                <strong>{view.airline || "—"}</strong>
               </li>
               <li>
                 <PathIcon />
@@ -151,7 +179,7 @@ export function DealDetail({
               <li>
                 <ClockIcon />
                 <span>Tarihler</span>
-                <strong>{dealDateRangeShort(deal)}</strong>
+                <strong>{dealDateRangeShort(view)}</strong>
               </li>
               {found ? (
                 <li>
@@ -166,13 +194,13 @@ export function DealDetail({
 
         <aside className="deal-detail__buy">
           <p className="deal-detail__from">
-            {formatDealMoney(deal.price, deal.currency)}
-            {typeof deal.averagePrice === "number" ? (
-              <s>{formatDealMoney(deal.averagePrice, deal.currency)}</s>
+            {formatDealMoney(view.price, view.currency)}
+            {typeof view.averagePrice === "number" ? (
+              <s>{formatDealMoney(view.averagePrice, view.currency)}</s>
             ) : null}
           </p>
-          {typeof deal.discountPercent === "number" ? (
-            <p className="deal-detail__saved">%{deal.discountPercent} tasarruf</p>
+          {typeof view.discountPercent === "number" ? (
+            <p className="deal-detail__saved">%{view.discountPercent} tasarruf</p>
           ) : null}
           {mark ? (
             <span className="deal-detail__mark" aria-hidden="true">
@@ -199,16 +227,31 @@ export function DealDetail({
         </aside>
       </div>
 
-      {alts.length > 0 ? (
+      {altRows.length > 0 ? (
         <section className="deal-alts">
           <h3>Farklı Tarihli Dip Fiyatlar</h3>
           <ul>
-            {alts.map((d) => (
-              <li key={d.id}>
-                <Link href={dealHref(d)}>
-                  <span>{dealDateRangeShort(d)}</span>
-                  <strong>{formatDealMoney(d.price, d.currency)}</strong>
-                </Link>
+            {altRows.map((row) => (
+              <li key={row.key}>
+                {row.href ? (
+                  <Link href={row.href}>
+                    <span>{row.label}</span>
+                    <strong>{row.price}</strong>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className={
+                      pickedKey === row.key
+                        ? "deal-alts__pick deal-alts__pick--on"
+                        : "deal-alts__pick"
+                    }
+                    onClick={() => row.choice && setPickedKey(row.key)}
+                  >
+                    <span>{row.label}</span>
+                    <strong>{row.price}</strong>
+                  </button>
+                )}
               </li>
             ))}
           </ul>

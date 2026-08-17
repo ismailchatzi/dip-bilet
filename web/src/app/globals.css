@@ -3163,6 +3163,26 @@ a {
   color: #0a5c8a;
 }
 
+.deal-alts__pick {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.55rem 0;
+  border: 0;
+  border-bottom: 1px solid #f1f1f1;
+  background: transparent;
+  color: #111;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.deal-alts__pick:hover,
+.deal-alts__pick--on {
+  color: #0a5c8a;
+}
+
 .photo-viewer {
   position: fixed;
   inset: 0;
