@@ -29,6 +29,9 @@ type Obs = {
   season_key: string;
   price: number;
   outbound_date: string;
+  airline?: string;
+  stops?: number;
+  self_transfer?: boolean;
 };
 
 function median(nums: number[]) {
@@ -92,23 +95,54 @@ async function loadObservations(
   admin: SupabaseClient,
   destCode: string,
 ): Promise<Obs[]> {
-  const { data, error } = await admin
+  const full = await admin
     .from("price_observations")
-    .select("route_key, season_key, price, outbound_date")
+    .select(
+      "route_key, season_key, price, outbound_date, airline, stops, self_transfer",
+    )
     .eq("destination_code", destCode)
     .eq("source", "scrappa_oneway")
     .not("outbound_date", "is", null)
     .order("outbound_date", { ascending: true })
     .limit(8000);
 
+  const { data, error } =
+    full.error && /airline|stops|self_transfer|schema cache/i.test(full.error.message)
+      ? await admin
+          .from("price_observations")
+          .select("route_key, season_key, price, outbound_date")
+          .eq("destination_code", destCode)
+          .eq("source", "scrappa_oneway")
+          .not("outbound_date", "is", null)
+          .order("outbound_date", { ascending: true })
+          .limit(8000)
+      : full;
+
   if (error || !data) return [];
   return data
-    .map((r) => ({
-      route_key: String(r.route_key),
-      season_key: String(r.season_key),
-      price: Number(r.price),
-      outbound_date: String(r.outbound_date),
-    }))
+    .map((r) => {
+      const row = r as {
+        route_key: unknown;
+        season_key: unknown;
+        price: unknown;
+        outbound_date: unknown;
+        airline?: unknown;
+        stops?: unknown;
+        self_transfer?: unknown;
+      };
+      return {
+        route_key: String(row.route_key),
+        season_key: String(row.season_key),
+        price: Number(row.price),
+        outbound_date: String(row.outbound_date),
+        airline:
+          typeof row.airline === "string" && row.airline.trim()
+            ? row.airline.trim()
+            : undefined,
+        stops: typeof row.stops === "number" ? row.stops : undefined,
+        self_transfer: row.self_transfer === true ? true : undefined,
+      };
+    })
     .filter(
       (r) =>
         r.route_key.includes(">") &&
@@ -145,6 +179,12 @@ function comboFromPair(
   const threshold = Math.round(m * THRESHOLD_RATIO);
   const displayOff = Math.round(((strike - total) / strike) * 100);
   const realOff = Math.round(((m - total) / m) * 100);
+  const stops =
+    typeof out.stops === "number" || typeof ret.stops === "number"
+      ? Math.max(out.stops ?? 0, ret.stops ?? 0)
+      : undefined;
+  const airline = out.airline || ret.airline;
+  const selfTransfer = Boolean(out.self_transfer || ret.self_transfer);
   return {
     id: `scrappa:${dest.code}:${outOrigin}:${out.outbound_date}:${retDest}:${ret.outbound_date}`,
     destination: `${dest.name} (${dest.code})`,
@@ -155,6 +195,9 @@ function comboFromPair(
     currency: "USD",
     outboundDate: out.outbound_date,
     returnDate: ret.outbound_date,
+    airline,
+    stops,
+    selfTransfer: selfTransfer || undefined,
     googleFlightsUrl: googleFlightsSearchUrl(
       outOrigin,
       dest.code,
@@ -267,6 +310,24 @@ export function matchDestDeals(
   return matchDestDrafts(dest, rows, foundAt).dips.map(
     ({ realDiscount: _r, postRatio: _p, ...deal }) => deal,
   );
+}
+
+/** Dip + taban taslakları (paket doğrulaması yok). */
+export function matchDestDraftDeals(
+  dest: ScrappaDestination,
+  rows: Obs[],
+  foundAt = new Date().toISOString(),
+): Deal[] {
+  const { dips, floor } = matchDestDrafts(dest, rows, foundAt);
+  const out = dips.map(({ realDiscount: _r, postRatio: _p, ...deal }) => deal);
+  if (floor) {
+    const key = `${floor.outboundDate}|${floor.returnDate}`;
+    if (!out.some((d) => `${d.outboundDate}|${d.returnDate}` === key)) {
+      const { realDiscount: _r, postRatio: _p, ...deal } = floor;
+      out.push(deal);
+    }
+  }
+  return out;
 }
 
 function matchDestDrafts(
@@ -396,35 +457,23 @@ export async function matchDestFromDb(
   const verified: Deal[] = [];
   const seen = new Set<string>();
   for (const draft of dips) {
-    try {
-      const next = await verifyWithRoundTrip(toDeal(draft), dest.code, {
-        postRatio: draft.postRatio,
-      });
-      if (!next) continue;
-      const key = `${next.outboundDate}|${next.returnDate}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      verified.push(next);
-    } catch (err) {
-      if (err instanceof ScrappaUnavailableError) break;
-      throw err;
-    }
+    const next = await verifyWithRoundTrip(toDeal(draft), dest.code, {
+      postRatio: draft.postRatio,
+    });
+    if (!next) continue;
+    const key = `${next.outboundDate}|${next.returnDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    verified.push(next);
   }
   if (floor) {
     const floorKey = `${floor.outboundDate}|${floor.returnDate}`;
     if (!seen.has(floorKey)) {
-      try {
-        const next = await verifyWithRoundTrip(toDeal(floor), dest.code, {
-          postRatio: floor.postRatio,
-          skipGate: true,
-        });
-        if (next) verified.push(next);
-      } catch (err) {
-        if (err instanceof ScrappaUnavailableError) {
-          return verified;
-        }
-        throw err;
-      }
+      const next = await verifyWithRoundTrip(toDeal(floor), dest.code, {
+        postRatio: floor.postRatio,
+        skipGate: true,
+      });
+      if (next) verified.push(next);
     }
   }
   return verified;
@@ -450,7 +499,15 @@ export async function publishDestShowcase(
   admin: SupabaseClient,
   dest: ScrappaDestination,
 ): Promise<{ ok: boolean; count: number; error?: string }> {
-  const fresh = await matchDestFromDb(admin, dest);
+  let fresh: Deal[];
+  try {
+    fresh = await matchDestFromDb(admin, dest);
+  } catch (err) {
+    if (err instanceof ScrappaUnavailableError) {
+      return { ok: false, count: 0, error: err.message };
+    }
+    throw err;
+  }
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
   const others = previous.filter(
@@ -478,8 +535,20 @@ export async function publishAllShowcase(
   const taken = new Set(googleKept.map(tripKey));
   const all: Deal[] = [...googleKept];
   for (const dest of SCRAPPA_DESTINATIONS) {
-    const fresh = await matchDestFromDb(admin, dest);
-    console.log(`rematch ${dest.code} scrappa=${fresh.length}`);
+    let fresh: Deal[];
+    try {
+      fresh = await matchDestFromDb(admin, dest);
+      console.log(`rematch ${dest.code} scrappa=${fresh.length}`);
+    } catch (err) {
+      if (!(err instanceof ScrappaUnavailableError)) throw err;
+      // Oturum yokken boş liste yazma — mevcut Scrappa kartlarını koru.
+      fresh = previous.filter(
+        (d) => !isGoogleDeal(d) && destCodeFromDeal(d) === dest.code,
+      );
+      console.log(
+        `rematch ${dest.code} keep=${fresh.length} (scrappa unavailable)`,
+      );
+    }
     for (const deal of fresh) {
       const key = tripKey(deal);
       if (taken.has(key)) continue;

@@ -1,6 +1,6 @@
 import { startScrappaWindow } from "../lib/trigger-scrappa";
 
-/** TR 14:00 = UTC 11:00 — yakın 17 gün. */
+/** TR 15:00 = UTC 12:00 — yakın 17 gün. */
 export default async () => {
   await startScrappaWindow("near");
 };

@@ -1,0 +1,14 @@
+---
+description: Scrappa Google paketi açılınca otomatik rematch
+alwaysApply: true
+---
+
+# Scrappa oturum / rematch
+
+Kullanıcı Scrappa’da **Google paketinin açıldığını / oturumun geldiğini** söylerse (ör. “scrappa açıldı”, “paketi açtım”, “google oturumu var”):
+
+1. Ayrı “doğrulanmış fiyatları çek” demesini **bekleme**.
+2. Hemen `web` içinde `npx tsx scripts/scrappa-worker.ts rematch` çalıştır.
+3. Vitrindeki Scrappa kartlarını canlı paket fiyatıyla yenile; sonucu kısaca bildir.
+
+Kart silme / soft restore sonrası da aynı: oturum haberi = rematch.

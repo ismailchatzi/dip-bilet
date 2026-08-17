@@ -135,6 +135,9 @@ export async function runScrappaOneWayBatch(
         source: "scrappa_oneway",
         discount_percent: null,
         average_price: null,
+        airline: fare.airline ?? null,
+        stops: typeof fare.stops === "number" ? fare.stops : null,
+        self_transfer: fare.selfTransfer === true ? true : null,
       });
     }
   } catch (e) {
@@ -189,9 +192,13 @@ export async function runScrappaOneWayBatch(
         else matched = pub.count;
       }
     } catch (e) {
-      errors.push(
-        `vitrin: ${e instanceof Error ? e.message : "eşleştirme hatası"}`,
-      );
+      if (e instanceof ScrappaUnavailableError) {
+        errors.push(`vitrin: ${e.message}`);
+      } else {
+        errors.push(
+          `vitrin: ${e instanceof Error ? e.message : "eşleştirme hatası"}`,
+        );
+      }
     }
   }
 

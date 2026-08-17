@@ -3,8 +3,18 @@
 import { destPhotoUrls } from "@/lib/destination-photos";
 import { useEffect, useState } from "react";
 
-export function DestGallery({ dest, alt }: { dest: string; alt: string }) {
-  const photos = destPhotoUrls(dest);
+export function DestGallery({
+  dest,
+  alt,
+  imageUrl,
+}: {
+  dest: string;
+  alt: string;
+  imageUrl?: string;
+}) {
+  const local = destPhotoUrls(dest);
+  const fallback = imageUrl?.trim() ? [imageUrl.trim()] : [];
+  const photos = local.length > 0 ? local : fallback;
   const [open, setOpen] = useState<number | null>(null);
 
   useEffect(() => {

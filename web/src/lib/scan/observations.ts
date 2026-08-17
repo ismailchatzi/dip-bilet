@@ -15,6 +15,9 @@ export type ObservationRow = {
   source: string;
   discount_percent: number | null;
   average_price: number | null;
+  airline?: string | null;
+  stops?: number | null;
+  self_transfer?: boolean | null;
 };
 
 export function dealToObservation(
@@ -59,8 +62,17 @@ export async function insertObservations(
 ): Promise<{ ok: boolean; error?: string }> {
   if (rows.length === 0) return { ok: true };
   const { error } = await admin.from("price_observations").insert(rows);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  if (!error) return { ok: true };
+  // Kolonlar yoksa (eski şema) alanları düşürüp yeniden dene.
+  if (/airline|stops|self_transfer|schema cache/i.test(error.message)) {
+    const slim = rows.map(
+      ({ airline: _a, stops: _s, self_transfer: _t, ...rest }) => rest,
+    );
+    const retry = await admin.from("price_observations").insert(slim);
+    if (!retry.error) return { ok: true };
+    return { ok: false, error: retry.error.message };
+  }
+  return { ok: false, error: error.message };
 }
 
 /** Rota+sezon ortalaması; en az minSamples gözlem */

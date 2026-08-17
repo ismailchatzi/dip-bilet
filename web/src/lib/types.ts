@@ -16,6 +16,8 @@ export type Deal = {
   googleFlightsUrl?: string;
   departureLabel: string;
   foundAt?: string;
+  /** Google Deals / harici: şehir görseli */
+  photoUrl?: string;
   /** Google: yolcu sorumluluğunda aktarma (ayrı bilet) */
   selfTransfer?: boolean;
 };

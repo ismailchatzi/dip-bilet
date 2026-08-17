@@ -1,7 +1,11 @@
 /**
  * Netlify dışı Scrappa taraması. VPS'te (Hetzner CX22 yeter):
  *   cd web && npm i && npx tsx scripts/scrappa-worker.ts start near
- * Saatler (Europe/Istanbul): 07:00 start full | 14:00 ve 22:00 start near
+ * Saatler (Europe/Istanbul): 07:00 start full | 15:00 ve 22:00 start near
+ * Crontab örneği (TZ=Europe/Istanbul):
+ *   0 7 * * *  cd /path/web && npx tsx scripts/scrappa-worker.ts start full
+ *   0 15 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
+ *   0 22 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  * Netlify scrappa cron'ları VPS ayağa kalkınca kapat (çift tarama olmasın).
  */

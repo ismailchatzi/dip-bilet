@@ -11,9 +11,9 @@ Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda ekle.
 - Tek yön IST + SAW, gidiş + dönüş ayrı; 21 varış (en işlek havalimanı).
 - Eşleştirerek gidiş-dönüş fırsat üret. Yayınlanan fırsatı zam diye kaldırma.
 - **Gün 1–4:** tarama yok
-- **Gün 5–21 (17 gün):** **07:00, 14:00, 22:00** (TR)
+- **Gün 5–21 (17 gün):** **07:00, 15:00, 22:00** (TR) — 15:00, full’ün 14:00’a yetişmemesi için
 - **Kalan 6 ay:** sadece **07:00**
-- Cron: `scrappa-0700/1400/2200-background` (UTC 04 / 11 / 19) işi kuyruğa alır; `scrappa-tick` her 5 dk kaldığı yerden 4 paket (~240 istek) yapar. Defter `scan_board.deals.scrappaJob`.
+- Cron: `scrappa-0700/1500/2200-background` (UTC 04 / 12 / 19) işi kuyruğa alır; `scrappa-tick` her 5 dk kaldığı yerden 4 paket (~240 istek) yapar. Defter `scan_board.deals.scrappaJob`. VPS crontab: `0 7,15,22 * * *` Europe/Istanbul (`full` yalnız 07, `near` 15+22).
 - Scrappa’da 1M **inactive** ise harcama 33K’dan düşer; paketi aktif et
 - `sort_by=cheapest`. Kota: gidiş+dönüş ≈ **17.900/gün → ~537K/ay**
 - Vitrin aktarma: Avrupa vb. **en fazla 1**; Bali / Phuket / Maldivler **en fazla 2**. Yolcu sorumluluğunda aktarma gösterilir, etiketlenir.
@@ -37,7 +37,7 @@ Aynı tarih çifti için 4 kombinasyonun **en ucuzu** (IST/SAW gidiş × IST/SAW
 Tek yön dönüş şişer; dönüş medyanı en fazla gidiş medyanı × 1.15.
 Sonra gidiş medyan + (tavanlı) dönüş medyan.
 
-Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** fiyatı basılır (`/round-trip`, `sort_by=cheapest`). Tek yön IST+SAW toplamı kart olmaz. Kazanan pakette +1 kredi: `/booking-details` yalnız **aynı uçuşun** satıcı toplamı (Google En ucuz: 95→91). Insights/dip/tek yön rakamı yok; listeye göre %15’ten fazla inmez. Bileti incele = **Kiwi Travelpayouts** deep link (`NEXT_PUBLIC_TRAVELPAYOUTS_MARKER`); Google’a gitmez.
+Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** fiyatı basılır (`/round-trip`, `sort_by=cheapest`). Tek yön IST+SAW toplamı kart olmaz. Kazanan pakette +1 kredi: `/booking-details` yalnız **aynı uçuşun** satıcı toplamı (Google En ucuz: 95→91). Insights/dip/tek yön rakamı yok; listeye göre %15’ten fazla inmez. Bileti incele = **Kiwi Travelpayouts** deep link (`NEXT_PUBLIC_TRAVELPAYOUTS_MARKER`); Google’a gitmez. Kart altı kod: `D` Google / `S` Scrappa + 4 harf + **eklenme saati HHMM TR** (örn. `S…0235`).
 
 - **3 hafta (gidiş ≤ 21 gün):** paket ≤ `M × 0.70` (%30 altı)
 - **6 ay (daha uzak):** paket ≤ `M × 0.75` (%25 altı)
@@ -51,11 +51,12 @@ Detay Fiyat Eşiği: **135**
 
 ## Google Deals (SerpAPI, 250/ay)
 - Günde 8 tarama (TR): 01, 03, 07, 12, 14, 17, 19, 22. `IST,SAW` tek istek Google’dan boş; taramalar IST / SAW nöbetleşe. `trip_length=4,10` yoksa kart gelmiyor.
-- Google’ın döndürdüğü tüm geçerli fırsatlar vitrine girer (21 ile sınırlama yok). Görsel yoksa kart yine çıkar; foto sonra eklenir.
+- Vitrine girmek için **üç kapı**: (1) Google `average_price` zorunlu + fiyat ortalama ≥ **%20** altı; (2) tavan USD: Avrupa/yakın **450**, DPS/HKT/MLE **800**; (3) Scrappa şehir medyanı `M` varsa paket ≤ `M × 0.70` (yakın) / `M × 0.75` (uzak). Kapıdan geçmeyen yeni ve eski `gdeals:` kartları düşer.
+- Google’ın döndürdüğü tüm ham sonuçlar değil, kapıyı geçenler vitrine girer (21 ile sınırlama yok). Görsel: `thumbnail` → `photoUrl`; yerel foto varsa o öncelikli.
 - Bildirim (e-posta/SMS) yalnız kullanıcının hedef destinasyonlarındaki şehirler için.
 - Kart tarzı aynı (üstü çizili = Google avg × 1.10, Fiyat Eşiği = avg × 0.90).
-- Aynı rota (şehir + gidiş tarihi + dönüş tarihi) vitrinde varsa tekrar koyma.
-- Scrappa vitrini güncellerken `gdeals:` kartlarını silme.
+- Aynı rota (şehir + gidiş tarihi + dönüş tarihi) vitrinde varsa tekrar koyma; eksik görsel/havayolu doldurulabilir.
+- Scrappa vitrini güncellerken `gdeals:` kartlarını silme (kapı temizliği Deals taramasında).
 - `serpapi_flight_link` kullanma (ayrı hak). Google `flight_link` yeter.
 
 ## Eski kart / anasayfa

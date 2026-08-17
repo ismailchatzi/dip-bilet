@@ -13,6 +13,7 @@ export type SerpapiDealHit = {
   arrival_airport_code?: string;
   stops?: number;
   airline?: string;
+  thumbnail?: string;
 };
 
 type SerpapiDealsJson = {

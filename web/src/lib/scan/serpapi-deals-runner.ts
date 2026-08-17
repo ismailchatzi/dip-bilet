@@ -2,6 +2,10 @@ import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
+import {
+  passesGoogleDealGates,
+  scrappaCityPackageMedian,
+} from "@/lib/scan/google-deals-gates";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import { maxStopsForDest, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal } from "@/lib/types";
@@ -16,6 +20,7 @@ export type SerpapiDealsScanResult = {
   matched: number;
   added: number;
   skippedDup: number;
+  skippedGate: number;
   error?: string;
 };
 
@@ -50,6 +55,7 @@ function toShowcaseDeal(
     origin: string;
     stops?: number;
     airline?: string;
+    thumbnail?: string;
   },
   dest: { code: string; name: string },
   foundAt: string,
@@ -79,6 +85,7 @@ function toShowcaseDeal(
     returnDate: hit.retDate,
     airline: hit.airline,
     stops: hit.stops,
+    photoUrl: hit.thumbnail?.trim() || undefined,
     googleFlightsUrl: hit.link,
     departureLabel: departureLabel(hit.origin),
     foundAt,
@@ -88,6 +95,24 @@ function toShowcaseDeal(
 function originForThisScan(now = new Date()): "IST" | "SAW" {
   const hour = new Date(now.getTime() + 3 * 60 * 60 * 1000).getUTCHours();
   return hour % 2 === 0 ? "IST" : "SAW";
+}
+
+function isGoogleDeal(deal: Deal) {
+  return deal.id.startsWith("gdeals:");
+}
+
+function googleAvgFromDeal(deal: Deal) {
+  if (typeof deal.averagePrice !== "number" || deal.averagePrice <= 0) {
+    return undefined;
+  }
+  return deal.averagePrice / STRIKE_RATIO;
+}
+
+function destCodeFromDeal(deal: Deal) {
+  if (deal.id.startsWith("gdeals:") || deal.id.startsWith("scrappa:")) {
+    return deal.id.split(":")[1] ?? "";
+  }
+  return deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ?? "";
 }
 
 export async function runSerpapiDealsScan(
@@ -103,12 +128,25 @@ export async function runSerpapiDealsScan(
       matched: 0,
       added: 0,
       skippedDup: 0,
+      skippedGate: 0,
       error: fetched.error,
     };
   }
 
   const foundAt = new Date().toISOString();
+  const medianCache = new Map<string, number | null>();
   const matched: Deal[] = [];
+  let skippedGate = 0;
+
+  async function medianFor(destCode: string, outDate: string) {
+    if (!admin) return null;
+    const season = outDate.slice(0, 7);
+    const key = `${destCode}|${season}`;
+    if (medianCache.has(key)) return medianCache.get(key) ?? null;
+    const m = await scrappaCityPackageMedian(admin, destCode, season);
+    medianCache.set(key, m);
+    return m;
+  }
 
   for (const hit of fetched.deals) {
     const dest = destFromHit(hit);
@@ -126,19 +164,34 @@ export async function runSerpapiDealsScan(
       continue;
     }
 
-    const origin = String(hit.departure_airport_code ?? "IST").toUpperCase();
+    const average = Number(hit.average_price) || undefined;
+    const scrappaM = await medianFor(dest.code, outDate);
+    const gate = passesGoogleDealGates({
+      price,
+      average,
+      destCode: dest.code,
+      outDate,
+      scrappaM,
+    });
+    if (!gate.ok) {
+      skippedGate += 1;
+      continue;
+    }
+
+    const hitOrigin = String(hit.departure_airport_code ?? "IST").toUpperCase();
     matched.push(
       toShowcaseDeal(
         {
           price,
-          average: Number(hit.average_price) || undefined,
+          average,
           discount: Number(hit.discount_percentage) || undefined,
           link: hit.flight_link,
           outDate,
           retDate,
-          origin: origin === "SAW" ? "SAW" : "IST",
+          origin: hitOrigin === "SAW" ? "SAW" : "IST",
           stops: typeof hit.stops === "number" ? hit.stops : undefined,
           airline: hit.airline,
+          thumbnail: hit.thumbnail,
         },
         dest,
         foundAt,
@@ -153,6 +206,7 @@ export async function runSerpapiDealsScan(
       matched: matched.length,
       added: 0,
       skippedDup: 0,
+      skippedGate,
       error: "Supabase yok",
     };
   }
@@ -161,23 +215,58 @@ export async function runSerpapiDealsScan(
   const existingLive = (board.deals?.deals ?? []).filter((d) =>
     isLiveDeal(d, today),
   );
-  const seen = new Set(existingLive.map(archiveTripKey));
+
+  // Eski Google kartlarını da aynı kapıdan geçir (saçma $1988 vb. temizlensin).
+  const keptExisting: Deal[] = [];
+  for (const deal of existingLive) {
+    if (!isGoogleDeal(deal)) {
+      keptExisting.push(deal);
+      continue;
+    }
+    const code = destCodeFromDeal(deal);
+    const outDate = deal.outboundDate ?? "";
+    if (!code || !/^\d{4}-\d{2}-\d{2}$/.test(outDate)) {
+      skippedGate += 1;
+      continue;
+    }
+    const gate = passesGoogleDealGates({
+      price: deal.price,
+      average: googleAvgFromDeal(deal),
+      destCode: code,
+      outDate,
+      scrappaM: await medianFor(code, outDate),
+    });
+    if (!gate.ok) {
+      skippedGate += 1;
+      continue;
+    }
+    keptExisting.push(deal);
+  }
+
+  const byTrip = new Map(keptExisting.map((d) => [archiveTripKey(d), d]));
   const fresh: Deal[] = [];
   let skippedDup = 0;
 
   for (const deal of matched) {
     const key = archiveTripKey(deal);
-    if (seen.has(key)) {
+    const prev = byTrip.get(key);
+    if (prev) {
       skippedDup += 1;
+      byTrip.set(key, {
+        ...prev,
+        photoUrl: prev.photoUrl || deal.photoUrl,
+        airline: prev.airline || deal.airline,
+        stops: typeof prev.stops === "number" ? prev.stops : deal.stops,
+      });
       continue;
     }
-    seen.add(key);
+    byTrip.set(key, deal);
     fresh.push(deal);
   }
 
   const { payload, live, previousLive } = foldShowcase(
     board.deals,
-    [...existingLive, ...fresh],
+    [...byTrip.values()],
     foundAt,
     today,
   );
@@ -189,6 +278,7 @@ export async function runSerpapiDealsScan(
       matched: matched.length,
       added: 0,
       skippedDup,
+      skippedGate,
       error: saved.error,
     };
   }
@@ -201,5 +291,6 @@ export async function runSerpapiDealsScan(
     matched: matched.length,
     added: fresh.length,
     skippedDup,
+    skippedGate,
   };
 }

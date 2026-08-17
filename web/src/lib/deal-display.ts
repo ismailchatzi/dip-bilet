@@ -328,7 +328,7 @@ export function dealCabin() {
   return "Ekonomi";
 }
 
-/** Kart altı soluk kod: D… Google Deals, S… Scrappa. */
+/** Kart altı soluk kod: D… Google / S… Scrappa + 4 harf + eklenme saati HHMM (TR). */
 export function dealSourceCipher(deal: Deal) {
   const prefix = deal.id.startsWith("gdeals:")
     ? "D"
@@ -348,7 +348,25 @@ export function dealSourceCipher(deal: Deal) {
     tail += letters[x % letters.length];
     x = Math.floor(x / letters.length);
   }
-  return prefix + tail;
+  const hhmm = foundAtHhmmTr(deal.foundAt);
+  return hhmm ? `${prefix}${tail}${hhmm}` : `${prefix}${tail}`;
+}
+
+/** foundAt → TR saati HHMM (örn. 02:35 → 0235). */
+function foundAtHhmmTr(foundAt?: string) {
+  if (!foundAt) return null;
+  const t = Date.parse(foundAt);
+  if (!Number.isFinite(t)) return null;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Istanbul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(t));
+  const hour = parts.find((p) => p.type === "hour")?.value;
+  const minute = parts.find((p) => p.type === "minute")?.value;
+  if (!hour || !minute) return null;
+  return `${hour}${minute}`;
 }
 
 /** Tek yön IST+SAW toplamı; paket doğrulanmamış. Vitrine konmaz. */
@@ -363,7 +381,7 @@ export function dealWithinStopLimit(deal: Deal) {
 }
 
 export function dealStopsLabel(deal: Deal) {
-  if (typeof deal.stops !== "number") return "Google’da kontrol et";
+  if (typeof deal.stops !== "number") return "—";
   const base = deal.stops === 0 ? "Direkt" : `${deal.stops} aktarma`;
   if (deal.selfTransfer) {
     return `${base} · yolcu sorumluluğunda aktarma`;

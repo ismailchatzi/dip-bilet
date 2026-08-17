@@ -14,6 +14,9 @@ create table if not exists public.price_observations (
   source text not null,
   discount_percent numeric,
   average_price numeric,
+  airline text,
+  stops integer,
+  self_transfer boolean,
   observed_at timestamptz not null default now()
 );
 

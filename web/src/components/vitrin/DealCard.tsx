@@ -19,7 +19,12 @@ export function DealCard({ deal }: { deal: Deal }) {
   const mark = dealSourceCipher(deal);
   return (
     <Link href={dealHref(deal)} className="vitrin-card">
-      <DestPhoto dest={dest} alt={dealCityTitle(deal)} className="vitrin-card__photo" />
+      <DestPhoto
+        dest={dest}
+        alt={dealCityTitle(deal)}
+        className="vitrin-card__photo"
+        imageUrl={deal.photoUrl}
+      />
       <div className="vitrin-card__body">
         <h3 className="vitrin-card__title">{dealCityTitle(deal)}</h3>
         <p className="vitrin-card__prices">

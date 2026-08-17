@@ -1,7 +1,7 @@
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 
 /** Dosya adları (Linux büyük/küçük harf ayırır) */
-const FILES: Record<string, [string, string, string]> = {
+const FILES: Record<string, string[]> = {
   ATH: ["athens1.jpg", "athens2.jpg", "athens3.jpg"],
   BUD: ["budapest1.jpg", "budapest2.jpg", "budapest3.jpg"],
   VIE: ["vienna1.jpg", "vienna2.jpg", "vienna3.jpg"],
@@ -23,6 +23,11 @@ const FILES: Record<string, [string, string, string]> = {
   DPS: ["bali1.jpg", "bali2.jpg", "bali3.jpg"],
   HKT: ["phuket1.jpg", "phuket2.jpg", "phuket3.jpg"],
   MLE: ["maldives1.jpg", "maldives2.jpg", "maldives3.jpg"],
+  BHX: ["birmingham1.jpg", "birmingham2.jpg", "birmingham3.jpg"],
+  FRA: ["frankfurt1.jpg", "frankfurt2.jpg", "frankfurt3.jpg"],
+  DLM: ["dalaman1.jpg", "dalaman2.jpg", "dalaman3.jpg"],
+  KYA: ["konya1.jpg", "konya2.jpg", "konya3.jpg"],
+  ALG: ["algeria1.jpg", "algeria2.jpg"],
 };
 
 const NAME_TO_CODE: Record<string, string> = {
@@ -64,6 +69,15 @@ const NAME_TO_CODE: Record<string, string> = {
   phuket: "HKT",
   maldives: "MLE",
   maldivler: "MLE",
+  birmingham: "BHX",
+  frankfurt: "FRA",
+  frankurt: "FRA",
+  dalaman: "DLM",
+  konya: "KYA",
+  cezayir: "ALG",
+  algeria: "ALG",
+  algiers: "ALG",
+  alger: "ALG",
 };
 
 for (const dest of SCRAPPA_DESTINATIONS) {

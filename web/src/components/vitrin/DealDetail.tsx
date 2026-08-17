@@ -21,12 +21,7 @@ import {
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-
-type LiveCheck = {
-  status: "loading" | "ok" | "fail";
-  livePrice: number | null;
-};
+import { useState } from "react";
 
 export function DealDetail({
   deal,
@@ -36,10 +31,6 @@ export function DealDetail({
   cityDeals?: Deal[];
 }) {
   const [copied, setCopied] = useState(false);
-  const [live, setLive] = useState<LiveCheck>({
-    status: "loading",
-    livePrice: null,
-  });
   const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
   const dest = dealDestCode(deal);
@@ -48,59 +39,6 @@ export function DealDetail({
   const bookUrl = dealBookingUrl(deal);
   const mark = dealSourceCipher(deal);
   const alts = otherCityDeals(deal, cityDeals);
-
-  useEffect(() => {
-    if (!dest || !out || !deal.outboundDate || !deal.returnDate) {
-      setLive({ status: "fail", livePrice: null });
-      return;
-    }
-    const ac = new AbortController();
-    setLive({ status: "loading", livePrice: null });
-    void fetch("/api/deals/live", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        origin: out,
-        destination: dest,
-        outboundDate: deal.outboundDate,
-        returnDate: deal.returnDate,
-      }),
-      signal: ac.signal,
-    })
-      .then(async (res) => {
-        const json = (await res.json()) as {
-          livePrice?: number | null;
-          error?: string;
-        };
-        if (!res.ok || json.error) {
-          setLive({ status: "fail", livePrice: null });
-          return;
-        }
-        setLive({
-          status: "ok",
-          livePrice:
-            typeof json.livePrice === "number" ? json.livePrice : null,
-        });
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setLive({ status: "fail", livePrice: null });
-      });
-    return () => ac.abort();
-  }, [deal.id, deal.outboundDate, deal.returnDate, dest, out]);
-
-  const shownPrice =
-    live.status === "ok" && live.livePrice != null
-      ? live.livePrice
-      : deal.price;
-  const jumped =
-    live.status === "ok" &&
-    live.livePrice != null &&
-    live.livePrice > deal.price + 3;
-  const dropped =
-    live.status === "ok" &&
-    live.livePrice != null &&
-    live.livePrice < deal.price - 3;
 
   async function share() {
     const url = window.location.href;
@@ -143,38 +81,11 @@ export function DealDetail({
         </div>
       </div>
 
-      <DestGallery dest={dest || dealCityName(deal)} alt={title} />
-
-      <div className="deal-fresh" aria-live="polite">
-        {live.status === "loading" ? (
-          <>
-            <span className="deal-fresh__spin" aria-hidden="true" />
-            <p>Güncel fiyat kontrol ediliyor…</p>
-            <span className="deal-fresh__bar" aria-hidden="true" />
-          </>
-        ) : live.status === "fail" || live.livePrice == null ? (
-          <p className="deal-fresh__done">
-            Kontrol tamamlanamadı. Google’daki anlık fiyata bak.
-          </p>
-        ) : jumped ? (
-          <p className="deal-fresh__done">
-            Yakalandığında {formatDealMoney(deal.price, deal.currency)} · şimdi{" "}
-            {formatDealMoney(live.livePrice, deal.currency)}
-          </p>
-        ) : dropped ? (
-          <p className="deal-fresh__done">
-            Şimdi daha ucuz: {formatDealMoney(live.livePrice, deal.currency)}
-            <span>
-              {" "}
-              (yakalanma {formatDealMoney(deal.price, deal.currency)})
-            </span>
-          </p>
-        ) : (
-          <p className="deal-fresh__done">
-            Fiyat duruyor: {formatDealMoney(live.livePrice, deal.currency)}
-          </p>
-        )}
-      </div>
+      <DestGallery
+        dest={dest || dealCityName(deal)}
+        alt={title}
+        imageUrl={deal.photoUrl}
+      />
 
       <h3 className="deal-detail__route">{dealRouteLine(deal)}</h3>
       {out !== back ? (
@@ -192,7 +103,7 @@ export function DealDetail({
               <li>
                 <TagIcon />
                 <span>Bu fırsat</span>
-                <strong>{formatDealMoney(shownPrice, deal.currency)}</strong>
+                <strong>{formatDealMoney(deal.price, deal.currency)}</strong>
               </li>
               <li>
                 <GlobeIcon />
@@ -225,7 +136,7 @@ export function DealDetail({
               <li>
                 <PlaneIcon />
                 <span>Havayolu</span>
-                <strong>{deal.airline || "Google’da gör"}</strong>
+                <strong>{deal.airline || "—"}</strong>
               </li>
               <li>
                 <PathIcon />
@@ -255,10 +166,8 @@ export function DealDetail({
 
         <aside className="deal-detail__buy">
           <p className="deal-detail__from">
-            {formatDealMoney(shownPrice, deal.currency)}
-            {jumped ? (
-              <s>{formatDealMoney(deal.price, deal.currency)}</s>
-            ) : typeof deal.averagePrice === "number" ? (
+            {formatDealMoney(deal.price, deal.currency)}
+            {typeof deal.averagePrice === "number" ? (
               <s>{formatDealMoney(deal.averagePrice, deal.currency)}</s>
             ) : null}
           </p>
@@ -272,20 +181,12 @@ export function DealDetail({
           ) : null}
           {bookUrl ? (
             <a
-              className={
-                live.status === "loading"
-                  ? "deal-detail__book deal-detail__book--wait"
-                  : "deal-detail__book"
-              }
+              className="deal-detail__book"
               href={bookUrl}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              aria-disabled={live.status === "loading"}
-              onClick={(e) => {
-                if (live.status === "loading") e.preventDefault();
-              }}
             >
-              {live.status === "loading" ? "Kontrol ediliyor…" : "Bileti incele"}
+              Bileti incele
             </a>
           ) : (
             <span className="deal-detail__book deal-detail__book--disabled">
