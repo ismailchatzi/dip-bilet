@@ -8,6 +8,7 @@ import {
   dealHref,
   dealOutOrigin,
   dealSourceCipher,
+  displayDealPrice,
   formatDealMoney,
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
@@ -17,6 +18,7 @@ export function DealCard({ deal }: { deal: Deal }) {
   const dest = dealDestCode(deal) || dealCityName(deal);
   const found = dealFoundLabel(deal);
   const mark = dealSourceCipher(deal);
+  const shownPrice = displayDealPrice(deal.price);
   return (
     <Link href={dealHref(deal)} className="vitrin-card">
       <DestPhoto
@@ -28,7 +30,7 @@ export function DealCard({ deal }: { deal: Deal }) {
       <div className="vitrin-card__body">
         <h3 className="vitrin-card__title">{dealCityTitle(deal)}</h3>
         <p className="vitrin-card__prices">
-          <strong>{formatDealMoney(deal.price, deal.currency)}</strong>
+          <strong>{formatDealMoney(shownPrice, deal.currency)}</strong>
           {typeof deal.averagePrice === "number" ? (
             <s>{formatDealMoney(deal.averagePrice, deal.currency)}</s>
           ) : null}

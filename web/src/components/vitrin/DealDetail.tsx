@@ -19,6 +19,8 @@ import {
   dealRouteLine,
   dealSourceCipher,
   dealStopsLabel,
+  displayDealDiscountPercent,
+  displayDealPrice,
   formatDealMoney,
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
@@ -45,6 +47,8 @@ export function DealDetail({
     choices.find((c) => `${c.outboundDate}|${c.returnDate}` === pickedKey) ??
     choices[0];
   const view = selected ? dealWithDateChoice(deal, selected) : deal;
+  const shownPrice = displayDealPrice(view.price);
+  const shownOff = displayDealDiscountPercent(view);
   const out = dealOutOrigin(view);
   const back = dealReturnAirport(view);
   const bookUrl = dealBookingUrl(view);
@@ -54,7 +58,7 @@ export function DealDetail({
       return choices.map((c) => ({
         key: `${c.outboundDate}|${c.returnDate}`,
         label: dealDateRangeShort(dealWithDateChoice(deal, c)),
-        price: formatDealMoney(c.price, deal.currency),
+        price: formatDealMoney(displayDealPrice(c.price), deal.currency),
         href: null as string | null,
         choice: c,
       }));
@@ -62,7 +66,7 @@ export function DealDetail({
     return cityAlts.map((d) => ({
       key: d.id,
       label: dealDateRangeShort(d),
-      price: formatDealMoney(d.price, d.currency),
+      price: formatDealMoney(displayDealPrice(d.price), d.currency),
       href: dealHref(d),
       choice: null,
     }));
@@ -131,7 +135,7 @@ export function DealDetail({
               <li>
                 <TagIcon />
                 <span>Bu fırsat</span>
-                <strong>{formatDealMoney(view.price, view.currency)}</strong>
+                <strong>{formatDealMoney(shownPrice, view.currency)}</strong>
               </li>
               <li>
                 <GlobeIcon />
@@ -194,13 +198,13 @@ export function DealDetail({
 
         <aside className="deal-detail__buy">
           <p className="deal-detail__from">
-            {formatDealMoney(view.price, view.currency)}
+            {formatDealMoney(shownPrice, view.currency)}
             {typeof view.averagePrice === "number" ? (
               <s>{formatDealMoney(view.averagePrice, view.currency)}</s>
             ) : null}
           </p>
-          {typeof view.discountPercent === "number" ? (
-            <p className="deal-detail__saved">%{view.discountPercent} tasarruf</p>
+          {typeof shownOff === "number" ? (
+            <p className="deal-detail__saved">%{shownOff} tasarruf</p>
           ) : null}
           {mark ? (
             <span className="deal-detail__mark" aria-hidden="true">

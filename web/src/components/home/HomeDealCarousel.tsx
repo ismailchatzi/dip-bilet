@@ -1,7 +1,11 @@
 "use client";
 
 import { DestPhoto } from "@/components/vitrin/DestPhoto";
-import { dealFoundLabel } from "@/lib/deal-display";
+import {
+  dealFoundLabel,
+  displayDealDiscountPercent,
+  displayDealPrice,
+} from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import { useRef } from "react";
 
@@ -47,7 +51,10 @@ export function HomeDealCarousel({ deals }: { deals: Deal[] }) {
       </div>
 
       <div className="home-deals__track" ref={scrollerRef}>
-        {deals.map((deal) => (
+        {deals.map((deal) => {
+          const shownPrice = displayDealPrice(deal.price);
+          const shownOff = displayDealDiscountPercent(deal);
+          return (
           <article key={deal.id} className="deal-card">
             <DestPhoto
               dest={deal.destination}
@@ -59,13 +66,13 @@ export function HomeDealCarousel({ deals }: { deals: Deal[] }) {
                 {deal.departureLabel} → {deal.destination}
               </p>
               <p className="deal-card__price">
-                <strong>{formatMoney(deal.price, deal.currency)}</strong>
+                <strong>{formatMoney(shownPrice, deal.currency)}</strong>
                 {typeof deal.averagePrice === "number" ? (
                   <s>{formatMoney(deal.averagePrice, deal.currency)}</s>
                 ) : null}
               </p>
-              {typeof deal.discountPercent === "number" ? (
-                <p className="deal-card__off">%{deal.discountPercent} altında</p>
+              {typeof shownOff === "number" ? (
+                <p className="deal-card__off">%{shownOff} altında</p>
               ) : null}
               {dealFoundLabel(deal) ? (
                 <p className="deal-card__found">{dealFoundLabel(deal)}</p>
@@ -75,7 +82,8 @@ export function HomeDealCarousel({ deals }: { deals: Deal[] }) {
               </a>
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

@@ -25,6 +25,27 @@ const DEST_COUNTRY: Record<string, string> = {
   MLE: "Maldivler",
 };
 
+/** Bileti incele (Aviasales) vitrin fiyatından ~%3 düşük; yalnızca ekran. */
+export const BOOKING_DISPLAY_FACTOR = 0.97;
+
+export function displayDealPrice(amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) return amount;
+  return Math.floor(amount * BOOKING_DISPLAY_FACTOR);
+}
+
+export function displayDealDiscountPercent(deal: {
+  price: number;
+  averagePrice?: number;
+  discountPercent?: number;
+}) {
+  const avg = deal.averagePrice;
+  if (typeof avg === "number" && avg > 0) {
+    const shown = displayDealPrice(deal.price);
+    return Math.max(0, Math.round(((avg - shown) / avg) * 100));
+  }
+  return deal.discountPercent;
+}
+
 export function formatDealMoney(amount: number, currency: string) {
   if (currency === "USD") {
     return `$${Math.round(amount).toLocaleString("en-US")}`;

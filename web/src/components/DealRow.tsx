@@ -1,5 +1,10 @@
 import type { Deal } from "@/lib/types";
-import { dealBookingUrl, dealStopsLabel } from "@/lib/deal-display";
+import {
+  dealBookingUrl,
+  dealStopsLabel,
+  displayDealDiscountPercent,
+  displayDealPrice,
+} from "@/lib/deal-display";
 
 function formatMoney(amount: number, currency: string) {
   try {
@@ -49,6 +54,8 @@ export function DealRow({
   const found = formatFoundAt(deal.foundAt);
 
   const isArchive = mode === "archive";
+  const shownPrice = displayDealPrice(deal.price);
+  const shownOff = displayDealDiscountPercent(deal);
 
   return (
     <article
@@ -74,13 +81,13 @@ export function DealRow({
       </div>
 
       <div className="deal-row__pricing">
-        {typeof deal.discountPercent === "number" ? (
+        {typeof shownOff === "number" ? (
           <span className="deal-row__badge">
-            ortalamanın %{deal.discountPercent} altında!
+            ortalamanın %{shownOff} altında!
           </span>
         ) : null}
         <p className="deal-row__price">
-          {formatMoney(deal.price, deal.currency)}
+          {formatMoney(shownPrice, deal.currency)}
         </p>
         {typeof deal.averagePrice === "number" ? (
           <p className="deal-row__avg">
