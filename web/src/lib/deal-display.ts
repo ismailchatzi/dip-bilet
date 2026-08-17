@@ -260,23 +260,41 @@ export function kiwiAffiliateUrl(
   return `https://c111.travelpayouts.com/click?${params.toString()}`;
 }
 
-/** Aviasales arama — tarih + rota dolu. */
+function aviasalesSearchSlug(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+) {
+  const [, om, od] = outDate.split("-");
+  const [, rm, rd] = retDate.split("-");
+  return `${outOrigin.toUpperCase()}${od}${om}${dest.toUpperCase()}${rd}${rm}1`;
+}
+
+/** Aviasales arama — /search slug otomatik tarar; anasayfa query otomatik başlamıyor. */
 export function aviasalesSearchUrl(
   outOrigin: string,
   dest: string,
   outDate: string,
   retDate: string,
 ) {
+  const slug = aviasalesSearchSlug(outOrigin, dest, outDate, retDate);
   const params = new URLSearchParams({
     origin_iata: outOrigin.toUpperCase(),
     destination_iata: dest.toUpperCase(),
     depart_date: outDate,
     return_date: retDate,
     adults: "1",
+    children: "0",
+    infants: "0",
+    trip_class: "0",
     currency: "usd",
     locale: "en",
+    with_request: "true",
   });
-  return `https://www.aviasales.com/?${params.toString()}`;
+  const marker = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_MARKER?.trim();
+  if (marker) params.set("marker", marker);
+  return `https://www.aviasales.com/search/${slug}?${params.toString()}`;
 }
 
 /**
@@ -303,7 +321,54 @@ export function aviasalesAffiliateUrl(
   return `https://tp.media/r?${params.toString()}`;
 }
 
-/** Vitrin CTA — Google kartları Aviasales, Scrappa Kiwi. */
+/** Trip.com şehir kodu — İstanbul tek şehir; Roma/Paris havalimanı değil şehir. */
+const TRIPCOM_CITY: Record<string, string> = {
+  IST: "IST",
+  SAW: "IST",
+  FCO: "ROM",
+  CIA: "ROM",
+  CDG: "PAR",
+  ORY: "PAR",
+};
+
+function tripcomCity(iata: string) {
+  const code = iata.toUpperCase();
+  return TRIPCOM_CITY[code] ?? code;
+}
+
+/**
+ * Trip.com gidiş-dönüş. Allianceid/SID yoksa link yok.
+ * @see Account → Affiliate Link (Flights)
+ */
+export function tripcomAffiliateUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+  subId?: string,
+) {
+  const alliance = process.env.TRIPCOM_ALLIANCE_ID?.trim();
+  const sid = process.env.TRIPCOM_SID?.trim();
+  if (!alliance || !sid) return undefined;
+  const dcity = tripcomCity(outOrigin);
+  const acity = tripcomCity(dest);
+  const params = new URLSearchParams({
+    flighttype: "D",
+    dcity,
+    acity,
+    ddate: outDate,
+    adate: retDate,
+    Allianceid: alliance,
+    SID: sid,
+  });
+  const sub1 = subId?.trim();
+  if (sub1) params.set("trip_sub1", sub1);
+  const sub3 = process.env.TRIPCOM_TRIP_SUB3?.trim();
+  if (sub3) params.set("trip_sub3", sub3);
+  return `https://www.trip.com/flights/tickets-${dcity}-${acity}?${params.toString()}`;
+}
+
+/** Vitrin CTA — tıklanınca Kiwi vs Aviasales, ucuz olan (yoksa Trip.com / Aviasales). */
 export function dealBookingUrl(deal: Deal) {
   const out = dealOutOrigin(deal);
   const dest = dealDestCode(deal);
@@ -317,11 +382,16 @@ export function dealBookingUrl(deal: Deal) {
     /^\d{4}-\d{2}-\d{2}$/.test(od) &&
     /^\d{4}-\d{2}-\d{2}$/.test(rd)
   ) {
-    const sub = dealDestCode(deal) || undefined;
-    if (deal.id.startsWith("gdeals:")) {
-      return aviasalesAffiliateUrl(out, dest, od, rd, sub);
-    }
-    return kiwiAffiliateUrl(out, dest, od, rd, sub);
+    const params = new URLSearchParams({
+      o: out,
+      d: dest,
+      out: od,
+      ret: rd,
+    });
+    const sub = dealDestCode(deal);
+    if (sub) params.set("sub", sub);
+    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "";
+    return `${base}/api/deals/book?${params.toString()}`;
   }
   return undefined;
 }

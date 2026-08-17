@@ -11,6 +11,7 @@ import {
 import { requireAuthOnboarding } from "@/lib/onboarding";
 import { readScanBoard } from "@/lib/scan/board";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
+import { dropFailedScrappaDipsOnLocalhost } from "@/lib/scan/dip-gate";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -34,9 +35,11 @@ export default async function DealDetailPage({ params }: PageProps) {
   if (!supabase) notFound();
 
   const board = await readScanBoard(supabase);
-  const live = (board.deals?.deals ?? []).filter(
-    (d) =>
-      isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
+  const live = dropFailedScrappaDipsOnLocalhost(
+    (board.deals?.deals ?? []).filter(
+      (d) =>
+        isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
+    ),
   );
   const deal = live.find((d) => d.id === id);
   if (!deal) notFound();
