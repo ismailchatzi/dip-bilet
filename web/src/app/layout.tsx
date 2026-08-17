@@ -45,6 +45,12 @@ export default function RootLayout({
       className={`${display.variable} ${body.variable} ${graffiti.variable} ${slab.variable} h-full`}
     >
       <head>
+        {/* Impact — Skyscanner site sahipliği (value = Impact’in beklediği alan) */}
+        <meta
+          name="impact-site-verification"
+          content="9d9c3fee-8d91-4467-a252-41372572f366"
+          {...{ value: "9d9c3fee-8d91-4467-a252-41372572f366" }}
+        />
         {/* Travelpayouts Drive — doğrulama ham HTML'de bu URL'yi arıyor */}
         <script
           async

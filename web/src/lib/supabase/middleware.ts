@@ -29,7 +29,16 @@ export async function updateSession(request: NextRequest) {
       },
     });
 
-    await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // Oturum geçerliyse pazarlama ana sayfası yerine vitrin
+    if (user && request.nextUrl.pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/firsatlarim";
+      return NextResponse.redirect(url);
+    }
   } catch (err) {
     console.error("middleware auth:", err);
   }
