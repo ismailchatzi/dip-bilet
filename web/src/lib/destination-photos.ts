@@ -106,10 +106,20 @@ export function destPhotoCode(input: string) {
   return NAME_TO_CODE[first] ?? null;
 }
 
-export function destPhotoUrls(codeOrName: string): string[] {
+export type DestPhotoSet = { card: string; full: string };
+
+export function destPhotoSets(codeOrName: string): DestPhotoSet[] {
   const code = destPhotoCode(codeOrName);
   if (!code) return [];
-  return (FILES[code] ?? []).map((file) => `/destinations/${file}`);
+  return (FILES[code] ?? []).map((file) => ({
+    card: `/destinations/card/${file}`,
+    full: `/destinations/full/${file}`,
+  }));
+}
+
+/** Kart / küçük önizleme */
+export function destPhotoUrls(codeOrName: string): string[] {
+  return destPhotoSets(codeOrName).map((p) => p.card);
 }
 
 export function shufflePhotos(codeOrName: string): string[] {

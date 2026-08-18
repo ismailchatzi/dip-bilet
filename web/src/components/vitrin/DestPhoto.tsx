@@ -38,7 +38,13 @@ export function DestPhoto({
 
   return (
     <div className={className}>
-      <img src={src} alt={alt} className="dest-photo__img" />
+      <img
+        src={src}
+        alt={alt}
+        className="dest-photo__img"
+        loading="lazy"
+        decoding="async"
+      />
       {children}
     </div>
   );

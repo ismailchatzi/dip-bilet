@@ -1,6 +1,6 @@
 "use client";
 
-import { destPhotoUrls } from "@/lib/destination-photos";
+import { destPhotoSets } from "@/lib/destination-photos";
 import { useEffect, useState } from "react";
 
 export function DestGallery({
@@ -12,8 +12,10 @@ export function DestGallery({
   alt: string;
   imageUrl?: string;
 }) {
-  const local = destPhotoUrls(dest);
-  const fallback = imageUrl?.trim() ? [imageUrl.trim()] : [];
+  const local = destPhotoSets(dest);
+  const fallback = imageUrl?.trim()
+    ? [{ card: imageUrl.trim(), full: imageUrl.trim() }]
+    : [];
   const photos = local.length > 0 ? local : fallback;
   const [open, setOpen] = useState<number | null>(null);
 
@@ -49,7 +51,7 @@ export function DestGallery({
       <div className="deal-detail__gallery">
         {photos.map((src, i) => (
           <button
-            key={src}
+            key={src.card}
             type="button"
             className={
               i === 0
@@ -59,7 +61,13 @@ export function DestGallery({
             onClick={() => setOpen(i)}
             aria-label={`${alt} fotoğraf ${i + 1}`}
           >
-            <img src={src} alt={i === 0 ? alt : ""} className="dest-photo__img" />
+            <img
+              src={src.card}
+              alt={i === 0 ? alt : ""}
+              className="dest-photo__img"
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
           </button>
         ))}
       </div>
@@ -106,7 +114,7 @@ export function DestGallery({
             </>
           ) : null}
           <figure className="photo-viewer__frame">
-            <img src={photos[open]} alt={alt} />
+            <img src={photos[open].full} alt={alt} />
           </figure>
         </div>
       ) : null}
