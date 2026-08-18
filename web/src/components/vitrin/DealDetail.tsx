@@ -32,14 +32,21 @@ import { useMemo, useState } from "react";
 export function DealDetail({
   deal,
   cityDeals = [],
+  focusId,
 }: {
   deal: Deal;
   cityDeals?: Deal[];
+  focusId?: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const [pickedKey, setPickedKey] = useState(
-    `${deal.outboundDate ?? ""}|${deal.returnDate ?? ""}`,
-  );
+  const [pickedKey, setPickedKey] = useState(() => {
+    const choices = dealDateChoices(deal);
+    const focused = focusId
+      ? choices.find((c) => dealWithDateChoice(deal, c).id === focusId)
+      : null;
+    const start = focused ?? choices[0];
+    return `${start?.outboundDate ?? deal.outboundDate ?? ""}|${start?.returnDate ?? deal.returnDate ?? ""}`;
+  });
   const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
   const dest = dealDestCode(deal);

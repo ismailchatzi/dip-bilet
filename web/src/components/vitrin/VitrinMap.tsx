@@ -2,6 +2,7 @@
 
 import { airportCoord } from "@/lib/airport-coords";
 import {
+  dealCityKey,
   dealCityTitle,
   dealDestCode,
   dealHref,
@@ -37,9 +38,10 @@ function pinsFromDeals(deals: Deal[]): Pin[] {
   const seen = new Set<string>();
   for (const deal of deals) {
     const code = dealDestCode(deal);
-    const pos = airportCoord(code);
-    if (!pos || seen.has(code)) continue;
-    seen.add(code);
+    const city = dealCityKey(deal) || code;
+    const pos = airportCoord(code) ?? airportCoord(city);
+    if (!pos || seen.has(city)) continue;
+    seen.add(city);
     out.push({
       id: deal.id,
       href: dealHref(deal),

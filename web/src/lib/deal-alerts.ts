@@ -1,4 +1,11 @@
-import { dealBookingUrl } from "@/lib/deal-display";
+import {
+  dealAbsoluteHref,
+  dealDateRange,
+  displayDealDiscountPercent,
+  displayDealPrice,
+  formatDealMoney,
+  siteOrigin,
+} from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 
 export function dealKey(deal: Deal): string {
@@ -10,31 +17,24 @@ export function dealKey(deal: Deal): string {
   ].join("|");
 }
 
-function formatMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("tr-TR", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${amount.toLocaleString("tr-TR")} ${currency}`;
-  }
+function shownMoney(deal: Deal) {
+  return formatDealMoney(displayDealPrice(deal.price), deal.currency);
 }
 
-export function dealAlertEmailContent(deals: Deal[], panelUrl: string) {
+export function dealAlertEmailContent(deals: Deal[]) {
   const top = deals.slice(0, 8);
   const subject =
     top.length === 1
-      ? `Yeni dip: ${top[0].destination} — ${formatMoney(top[0].price, top[0].currency)}`
+      ? `Yeni dip: ${top[0].destination} — ${shownMoney(top[0])}`
       : `${top.length} yeni dip fırsat yakalandı — Dip Bilet`;
 
   const lines = top.map((d) => {
+    const pct = displayDealDiscountPercent(d);
     const discount =
-      typeof d.discountPercent === "number"
-        ? ` (ort. %${d.discountPercent} altında)`
-        : "";
-    return `• ${d.departureLabel} → ${d.destination}: ${formatMoney(d.price, d.currency)}${discount}`;
+      typeof pct === "number" ? ` (ort. %${pct} altında)` : "";
+    const dates = dealDateRange(d);
+    const href = dealAbsoluteHref(d);
+    return `• ${d.destination}: ${shownMoney(d)}${discount} (${dates})\n  Bileti incele: ${href}`;
   });
 
   const text = [
@@ -44,21 +44,20 @@ export function dealAlertEmailContent(deals: Deal[], panelUrl: string) {
     "",
     ...lines,
     "",
-    `Panele git: ${panelUrl}`,
-    "",
     "Sevgiler,",
     "Dip Bilet",
   ].join("\n");
 
   const rows = top
     .map((d) => {
+      const pct = displayDealDiscountPercent(d);
       const discount =
-        typeof d.discountPercent === "number"
-          ? ` <span style="color:#0a7a4b">ort. %${d.discountPercent} altında</span>`
+        typeof pct === "number"
+          ? ` <span style="color:#0a7a4b">ort. %${pct} altında</span>`
           : "";
-      const book = dealBookingUrl(d);
-      const link = book ? ` <a href="${book}">İncele</a>` : "";
-      return `<li style="margin:0 0 10px"><strong>${d.destination}</strong> — ${formatMoney(d.price, d.currency)}${discount}${link}</li>`;
+      const dates = dealDateRange(d);
+      const href = dealAbsoluteHref(d);
+      return `<li style="margin:0 0 10px"><strong>${d.destination}</strong> — ${shownMoney(d)}${discount}<br/>${dates}<br/><a href="${href}">Bileti incele</a></li>`;
     })
     .join("");
 
@@ -67,7 +66,6 @@ export function dealAlertEmailContent(deals: Deal[], panelUrl: string) {
       <p>Merhaba,</p>
       <p><strong>Yeni dip fırsat(lar) yakalandı.</strong></p>
       <ul style="padding-left:18px">${rows}</ul>
-      <p><a href="${panelUrl}">Panele git</a></p>
       <p style="margin-top:28px">Sevgiler,<br/>Dip Bilet</p>
     </div>
   `.trim();
@@ -75,16 +73,19 @@ export function dealAlertEmailContent(deals: Deal[], panelUrl: string) {
   return { subject, text, html };
 }
 
-export function dealAlertSmsContent(deals: Deal[], panelUrl: string) {
+export function dealAlertSmsContent(deals: Deal[]) {
   const top = deals.slice(0, 2);
   const bits = top.map((d) => {
     const name = d.destination.replace(/\s*\([A-Z]{3}\)\s*$/, "").trim();
-    return `${name} ${formatMoney(d.price, d.currency)}`;
+    return `${name} ${shownMoney(d)}`;
   });
   const extra = deals.length > 2 ? ` +${deals.length - 2}` : "";
-  const shortUrl = panelUrl.replace(/^https?:\/\//, "");
+  const link =
+    deals.length === 1
+      ? dealAbsoluteHref(deals[0]).replace(/^https?:\/\//, "")
+      : siteOrigin().replace(/^https?:\/\//, "") + "/firsatlarim";
   if (deals.length === 1) {
-    return `Dip Bilet: ${bits[0]}. ${shortUrl}`;
+    return `Dip Bilet: ${bits[0]}. ${link}`;
   }
-  return `Dip Bilet: ${deals.length} yeni dip. ${bits.join(", ")}${extra}. ${shortUrl}`;
+  return `Dip Bilet: ${deals.length} yeni dip. ${bits.join(", ")}${extra}. ${link}`;
 }

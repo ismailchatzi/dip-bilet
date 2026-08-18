@@ -1,4 +1,5 @@
 import type { Deal, DealDateOption } from "@/lib/types";
+import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import {
   maxStopsForDest,
   nightsBetween,
@@ -138,6 +139,25 @@ export function dealDestCode(deal: Deal) {
   const parts = showcaseParts(deal);
   if (parts) return parts[1] ?? "";
   return deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ?? "";
+}
+
+/** Paris = CDG+ORY, Roma = FCO+CIA — vitrin/bildirimde tek şehir. */
+export function canonicalDestCode(code: string) {
+  const u = code.trim().toUpperCase();
+  return findTrackedDestination(u)?.code ?? u;
+}
+
+export function dealCityKey(deal: Deal) {
+  return canonicalDestCode(dealDestCode(deal));
+}
+
+export function siteOrigin() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://dipbilet.com";
+  return raw.replace(/\/$/, "");
+}
+
+export function dealAbsoluteHref(deal: Deal) {
+  return `${siteOrigin()}${dealHref(deal)}`;
 }
 
 export function dealOutOrigin(deal: Deal) {
@@ -456,12 +476,12 @@ export function dealBookingUrl(deal: Deal) {
 export function cheapestDealPerCity(deals: Deal[]) {
   const best = new Map<string, Deal>();
   for (const deal of deals) {
-    const key = dealDestCode(deal) || deal.destination;
+    const key = dealCityKey(deal) || deal.destination;
     const cur = best.get(key);
     if (!cur || deal.price < cur.price) best.set(key, deal);
   }
   return deals.filter((deal) => {
-    const key = dealDestCode(deal) || deal.destination;
+    const key = dealCityKey(deal) || deal.destination;
     return best.get(key)?.id === deal.id;
   });
 }
@@ -546,7 +566,7 @@ function capDateOptions(opts: DealDateOption[]): DealDateOption[] {
 export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   const byCity = new Map<string, Deal[]>();
   for (const deal of deals) {
-    const key = dealDestCode(deal) || deal.destination;
+    const key = dealCityKey(deal) || deal.destination;
     const list = byCity.get(key) ?? [];
     list.push(deal);
     byCity.set(key, list);
@@ -654,6 +674,20 @@ export function dealWithDateChoice(deal: Deal, choice: DealDateChoice): Deal {
   };
 }
 
+/** Kart + diğer tarihler: her tarih çifti ayrı fırsat. */
+export function showcaseTripDeals(deals: Deal[]): Deal[] {
+  const best = new Map<string, Deal>();
+  for (const deal of deals) {
+    for (const choice of dealDateChoices(deal)) {
+      const trip = dealWithDateChoice(deal, choice);
+      const key = `${dealCityKey(trip)}|${trip.outboundDate}|${trip.returnDate}`;
+      const prev = best.get(key);
+      if (!prev || trip.price < prev.price) best.set(key, trip);
+    }
+  }
+  return [...best.values()];
+}
+
 export function dealHref(deal: Deal) {
   return `/firsatlarim/${encodeURIComponent(deal.id)}`;
 }
@@ -671,7 +705,8 @@ export function dealMatchesOrigins(deal: Deal, origins: string[]) {
 
 export function dealMatchesDests(deal: Deal, dests: string[]) {
   if (dests.length === 0) return true;
-  return dests.includes(dealDestCode(deal));
+  const city = dealCityKey(deal);
+  return dests.some((code) => canonicalDestCode(code) === city);
 }
 
 const TURKEY_IATA = new Set([
