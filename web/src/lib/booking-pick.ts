@@ -1,6 +1,7 @@
 import {
   aviasalesAffiliateUrl,
   kiwiAffiliateUrl,
+  kiwiSearchUrl,
   tripcomAffiliateUrl,
 } from "@/lib/deal-display";
 
@@ -12,8 +13,16 @@ export type BookingPickInput = {
   subId?: string;
 };
 
-type Partner = "kiwi" | "aviasales" | "tripcom";
-type Quote = { partner: "kiwi" | "aviasales"; price: number };
+type AviaRow = {
+  price?: number;
+  departure_at?: string;
+  return_at?: string;
+};
+
+type AviaLookup =
+  | { kind: "fare"; origin: string }
+  | { kind: "empty" }
+  | { kind: "unknown" };
 
 const cache = new Map<string, { at: number; url: string }>();
 const CACHE_MS = 10 * 60 * 1000;
@@ -22,39 +31,29 @@ function cacheKey(input: BookingPickInput) {
   return `${input.origin}|${input.dest}|${input.outDate}|${input.retDate}`;
 }
 
-function kiwiDate(iso: string) {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
+function istanbulPair(origin: string): string[] {
+  const o = origin.toUpperCase();
+  if (o === "IST" || o === "SAW") return ["IST", "SAW"];
+  return [o];
 }
 
-async function jsonGet(url: string, headers?: Record<string, string>) {
-  const res = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(6000),
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as unknown;
+function sameDay(iso: string | undefined, ymd: string) {
+  return typeof iso === "string" && iso.slice(0, 10) === ymd;
 }
 
-function num(v: unknown): number | null {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-async function aviasalesQuote(
+async function aviasalesFetch(
   origin: string,
   dest: string,
-  outDate: string,
-  retDate: string,
-): Promise<Quote | null> {
+  departureAt: string,
+  returnAt: string,
+): Promise<{ ok: boolean; rows: AviaRow[] }> {
   const token = process.env.TRAVELPAYOUTS_TOKEN?.trim();
-  if (!token) return null;
+  if (!token) return { ok: false, rows: [] };
   const params = new URLSearchParams({
     origin: origin.toUpperCase(),
     destination: dest.toUpperCase(),
-    departure_at: outDate,
-    return_at: retDate,
+    departure_at: departureAt,
+    return_at: returnAt,
     one_way: "false",
     sorting: "price",
     currency: "usd",
@@ -62,93 +61,130 @@ async function aviasalesQuote(
     unique: "false",
     token,
   });
-  const body = await jsonGet(
-    `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?${params}`,
-  );
-  if (!body || typeof body !== "object") return null;
-  const data = (body as { data?: unknown }).data;
-  const rows = Array.isArray(data) ? data : [];
-  let best: number | null = null;
-  for (const row of rows) {
-    if (!row || typeof row !== "object") continue;
-    const r = row as { price?: unknown; departure_at?: unknown };
-    const price = num(r.price);
-    if (price == null) continue;
-    const dep = String(r.departure_at ?? "");
-    if (dep && !dep.startsWith(outDate)) continue;
-    if (best == null || price < best) best = price;
+  try {
+    const res = await fetch(
+      `https://api.travelpayouts.com/aviasales/v3/prices_for_dates?${params}`,
+      { signal: AbortSignal.timeout(6000), cache: "no-store" },
+    );
+    if (!res.ok) return { ok: false, rows: [] };
+    const body = (await res.json()) as { success?: boolean; data?: AviaRow[] };
+    if (!body.success || !Array.isArray(body.data)) return { ok: false, rows: [] };
+    return { ok: true, rows: body.data };
+  } catch {
+    return { ok: false, rows: [] };
   }
-  return best == null ? null : { partner: "aviasales", price: best };
 }
 
-async function kiwiQuote(
+function cheapestOnDates(
+  rows: AviaRow[],
+  outDate: string,
+  retDate: string,
+): number | null {
+  const prices = rows
+    .filter(
+      (row) =>
+        sameDay(row.departure_at, outDate) &&
+        sameDay(row.return_at, retDate) &&
+        typeof row.price === "number" &&
+        row.price > 0,
+    )
+    .map((row) => row.price as number);
+  return prices.length ? Math.min(...prices) : null;
+}
+
+/** IST+SAW ayrı. Kesin tarih yoksa o ay envanteri var mı bakılır (Şam yok, Paris var). */
+async function aviasalesLookup(
   origin: string,
   dest: string,
   outDate: string,
   retDate: string,
-): Promise<Quote | null> {
-  const key = process.env.KIWI_API_KEY?.trim();
-  if (!key) return null;
-  const params = new URLSearchParams({
-    fly_from: origin.toUpperCase(),
-    fly_to: dest.toUpperCase(),
-    date_from: kiwiDate(outDate),
-    date_to: kiwiDate(outDate),
-    return_from: kiwiDate(retDate),
-    return_to: kiwiDate(retDate),
-    curr: "USD",
-    limit: "1",
-    sort: "price",
-    max_stopovers: "2",
-  });
-  const body = await jsonGet(
-    `https://api.tequila.kiwi.com/v2/search?${params}`,
-    { apikey: key },
+): Promise<AviaLookup> {
+  const origins = istanbulPair(origin);
+  const exact = await Promise.all(
+    origins.map(async (code) => {
+      const fetched = await aviasalesFetch(code, dest, outDate, retDate);
+      return {
+        code,
+        fetched,
+        price: fetched.ok ? cheapestOnDates(fetched.rows, outDate, retDate) : null,
+      };
+    }),
   );
-  if (!body || typeof body !== "object") return null;
-  const data = (body as { data?: unknown }).data;
-  const first = Array.isArray(data) ? data[0] : null;
-  if (!first || typeof first !== "object") return null;
-  const price = num((first as { price?: unknown }).price);
-  return price == null ? null : { partner: "kiwi", price };
+
+  const cardFare = exact.find(
+    (q) => q.code === origin.toUpperCase() && q.price != null,
+  );
+  if (cardFare) return { kind: "fare", origin: cardFare.code };
+  const otherFare = exact.find((q) => q.price != null);
+  if (otherFare) return { kind: "fare", origin: otherFare.code };
+
+  if (exact.some((q) => !q.fetched.ok)) return { kind: "unknown" };
+
+  const monthOut = outDate.slice(0, 7);
+  const monthRet = retDate.slice(0, 7);
+  const months = await Promise.all(
+    origins.map((code) => aviasalesFetch(code, dest, monthOut, monthRet)),
+  );
+  if (months.some((m) => !m.ok)) return { kind: "unknown" };
+  if (months.some((m) => m.rows.length > 0)) {
+    return { kind: "fare", origin: origin.toUpperCase() };
+  }
+  return { kind: "empty" };
 }
 
-function affiliateUrl(partner: Partner, input: BookingPickInput) {
-  const fn =
-    partner === "kiwi"
-      ? kiwiAffiliateUrl
-      : partner === "aviasales"
-        ? aviasalesAffiliateUrl
-        : tripcomAffiliateUrl;
-  return fn(input.origin, input.dest, input.outDate, input.retDate, input.subId);
+function aviasalesUrl(input: BookingPickInput, origin = input.origin) {
+  return aviasalesAffiliateUrl(
+    origin,
+    input.dest,
+    input.outDate,
+    input.retDate,
+    input.subId,
+  );
 }
 
-/** Fiyatı bilinenlerin ucuzu. İkisi de yoksa Trip.com, o da yoksa Aviasales. */
-export async function pickBookingUrl(input: BookingPickInput): Promise<string | undefined> {
-  const kiwiUrl = affiliateUrl("kiwi", input);
-  const aviaUrl = affiliateUrl("aviasales", input);
-  const tripUrl = affiliateUrl("tripcom", input);
-  if (!kiwiUrl && !aviaUrl && !tripUrl) return undefined;
+function fallbackUrl(input: BookingPickInput) {
+  return (
+    tripcomAffiliateUrl(
+      input.origin,
+      input.dest,
+      input.outDate,
+      input.retDate,
+      input.subId,
+    ) ??
+    kiwiAffiliateUrl(
+      input.origin,
+      input.dest,
+      input.outDate,
+      input.retDate,
+      input.subId,
+    ) ??
+    kiwiSearchUrl(input.origin, input.dest, input.outDate, input.retDate)
+  );
+}
 
+/**
+ * Çalışan Aviasales kartları aynı kalır.
+ * Trip.com / Kiwi yalnız rotada o ay Aviasales envanteri yoksa (Şam).
+ */
+export async function pickBookingUrl(
+  input: BookingPickInput,
+): Promise<string | undefined> {
   const key = cacheKey(input);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.url;
 
-  const [avia, kiwi] = await Promise.all([
-    aviasalesQuote(input.origin, input.dest, input.outDate, input.retDate),
-    kiwiQuote(input.origin, input.dest, input.outDate, input.retDate),
-  ]);
-
-  let url: string | undefined;
-  if (avia && kiwi) {
-    url = (kiwi.price < avia.price ? kiwiUrl : aviaUrl) ?? kiwiUrl ?? aviaUrl;
-  } else if (avia) {
-    url = aviaUrl ?? kiwiUrl;
-  } else if (kiwi) {
-    url = kiwiUrl ?? aviaUrl;
-  } else {
-    url = tripUrl ?? aviaUrl ?? kiwiUrl;
-  }
+  const lookup = await aviasalesLookup(
+    input.origin,
+    input.dest,
+    input.outDate,
+    input.retDate,
+  );
+  const url =
+    lookup.kind === "empty"
+      ? fallbackUrl(input)
+      : (lookup.kind === "fare"
+          ? aviasalesUrl(input, lookup.origin)
+          : aviasalesUrl(input)) ?? fallbackUrl(input);
 
   if (url) cache.set(key, { at: Date.now(), url });
   return url;

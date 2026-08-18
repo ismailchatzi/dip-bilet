@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { dealWithinStopLimit, isUnverifiedOneWaySum } from "@/lib/deal-display";
 import { emptyDealsPayload, readScanBoard } from "@/lib/scan/board";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
-import { dropFailedScrappaDipsOnLocalhost } from "@/lib/scan/dip-gate";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +23,9 @@ export async function GET() {
 
   const board = await readScanBoard(supabase);
   const payload = board.deals ?? emptyDealsPayload();
-  const deals = dropFailedScrappaDipsOnLocalhost(
-    (payload.deals ?? []).filter(
-      (d) =>
-        isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
-    ),
+  const deals = (payload.deals ?? []).filter(
+    (d) =>
+      isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
   );
 
   return NextResponse.json({

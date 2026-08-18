@@ -1,5 +1,9 @@
-import type { Deal } from "@/lib/types";
-import { maxStopsForDest } from "@/lib/scan/trip-rules";
+import type { Deal, DealDateOption } from "@/lib/types";
+import {
+  maxStopsForDest,
+  nightsBetween,
+  turkeyTodayIso,
+} from "@/lib/scan/trip-rules";
 
 const DEST_COUNTRY: Record<string, string> = {
   ATH: "Yunanistan",
@@ -95,6 +99,32 @@ export function formatFoundDate(iso?: string) {
 export function dealFoundLabel(deal: Deal) {
   const day = formatFoundDate(deal.foundAt);
   return day ? `${day}’da yakalandı` : null;
+}
+
+/** Yakalanma günü (TR takvimi). */
+export function dealFoundDateTr(foundAt?: string) {
+  if (!foundAt) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(foundAt)) return foundAt;
+  const t = Date.parse(foundAt);
+  if (!Number.isFinite(t)) return null;
+  return new Date(t + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Eski fırsat damgası: yakalanma, bugünden en az 3 gün önce.
+ * Örn. 18’inde 17 ve 16 damgasız; 15 ve eskisi damgalı.
+ */
+export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
+  const day = dealFoundDateTr(deal.foundAt);
+  if (!day) return false;
+  return nightsBetween(day, today) >= 3;
+}
+
+/** Diğer tarihler satırı: yakalanma 2 gün veya daha eski. */
+export function isOldDateOption(foundAt?: string, today = turkeyTodayIso()) {
+  const day = dealFoundDateTr(foundAt);
+  if (!day) return false;
+  return nightsBetween(day, today) >= 2;
 }
 
 function showcaseParts(deal: Deal) {
@@ -342,7 +372,7 @@ export function aviasalesAffiliateUrl(
   return `https://tp.media/r?${params.toString()}`;
 }
 
-/** Trip.com şehir kodu — İstanbul tek şehir; Roma/Paris havalimanı değil şehir. */
+/** Trip.com şehir kodu — havalimanı değil şehir (IST/PAR/ROM). */
 const TRIPCOM_CITY: Record<string, string> = {
   IST: "IST",
   SAW: "IST",
@@ -350,6 +380,10 @@ const TRIPCOM_CITY: Record<string, string> = {
   CIA: "ROM",
   CDG: "PAR",
   ORY: "PAR",
+  TSF: "VCE",
+  BGY: "MIL",
+  MXP: "MIL",
+  LIN: "MIL",
 };
 
 function tripcomCity(iata: string) {
@@ -358,8 +392,8 @@ function tripcomCity(iata: string) {
 }
 
 /**
- * Trip.com gidiş-dönüş. Allianceid/SID yoksa link yok.
- * @see Account → Affiliate Link (Flights)
+ * Trip.com gidiş-dönüş arama. `/flights/tickets-IST-PAR` 404 verir;
+ * affiliate arama sayfası `showfarefirst` + `rdate` + `triptype=rt`.
  */
 export function tripcomAffiliateUrl(
   outOrigin: string,
@@ -371,14 +405,16 @@ export function tripcomAffiliateUrl(
   const alliance = process.env.TRIPCOM_ALLIANCE_ID?.trim();
   const sid = process.env.TRIPCOM_SID?.trim();
   if (!alliance || !sid) return undefined;
-  const dcity = tripcomCity(outOrigin);
-  const acity = tripcomCity(dest);
+  const dcity = tripcomCity(outOrigin).toLowerCase();
+  const acity = tripcomCity(dest).toLowerCase();
   const params = new URLSearchParams({
-    flighttype: "D",
     dcity,
     acity,
     ddate: outDate,
-    adate: retDate,
+    rdate: retDate,
+    triptype: "rt",
+    class: "y",
+    quantity: "1",
     Allianceid: alliance,
     SID: sid,
   });
@@ -386,7 +422,7 @@ export function tripcomAffiliateUrl(
   if (sub1) params.set("trip_sub1", sub1);
   const sub3 = process.env.TRIPCOM_TRIP_SUB3?.trim();
   if (sub3) params.set("trip_sub3", sub3);
-  return `https://www.trip.com/flights/tickets-${dcity}-${acity}?${params.toString()}`;
+  return `https://www.trip.com/flights/showfarefirst?${params.toString()}`;
 }
 
 /** Vitrin CTA — tıklanınca Kiwi vs Aviasales, ucuz olan (yoksa Trip.com / Aviasales). */
@@ -444,8 +480,70 @@ export function sameDateCluster(a: Deal, b: Deal) {
   return outboundDaysApart(a.outboundDate, b.outboundDate) <= DATE_CLUSTER_DAYS;
 }
 
-/** Şehir başına en fazla 2 kart; yakın tarihler tek kahramanda birleşir. */
-export function vitrinHeroDeals(deals: Deal[]) {
+export const MAX_DATE_OPTIONS = 3;
+
+function dealSourcePrefix(deal: Deal): "gdeals" | "scrappa" {
+  return deal.id.startsWith("gdeals:") ? "gdeals" : "scrappa";
+}
+
+function optionTripKey(opt: Pick<DealDateOption, "outboundDate" | "returnDate">) {
+  return `${opt.outboundDate}|${opt.returnDate}`;
+}
+
+function dealToDateOption(deal: Deal): DealDateOption | null {
+  if (!deal.outboundDate || !deal.returnDate) return null;
+  return {
+    outboundDate: deal.outboundDate,
+    returnDate: deal.returnDate,
+    price: deal.price,
+    airline: deal.airline,
+    origin: dealOutOrigin(deal),
+    foundAt: deal.foundAt,
+    source: dealSourcePrefix(deal),
+  };
+}
+
+function flattenDateOptions(deal: Deal): DealDateOption[] {
+  const head = dealToDateOption(deal);
+  const extra = (deal.dateOptions ?? []).filter(
+    (o) => o.outboundDate && o.returnDate,
+  );
+  return head ? [head, ...extra] : extra;
+}
+
+function applyDateOption(template: Deal, opt: DealDateOption): Deal {
+  const dest = dealDestCode(template);
+  const origin = (opt.origin || dealOutOrigin(template)).toUpperCase();
+  const prefix = opt.source ?? dealSourcePrefix(template);
+  return {
+    ...template,
+    price: opt.price,
+    outboundDate: opt.outboundDate,
+    returnDate: opt.returnDate,
+    airline: opt.airline || template.airline,
+    foundAt: opt.foundAt || template.foundAt,
+    departureLabel: `İstanbul (${origin})`,
+    id: dest
+      ? `${prefix}:${dest}:${origin}:${opt.outboundDate}:${origin}:${opt.returnDate}`
+      : template.id,
+    dateOptions: undefined,
+  };
+}
+
+function capDateOptions(opts: DealDateOption[]): DealDateOption[] {
+  if (opts.length <= MAX_DATE_OPTIONS) return opts;
+  return [...opts]
+    .sort((a, b) => {
+      const fa = a.foundAt ?? "";
+      const fb = b.foundAt ?? "";
+      if (fa !== fb) return fb.localeCompare(fa);
+      return a.price - b.price;
+    })
+    .slice(0, MAX_DATE_OPTIONS);
+}
+
+/** Şehir başına 1 kart (en ucuz). Diğer eşiğe uyan tarihler max 3, en yeni kalsın. */
+export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   const byCity = new Map<string, Deal[]>();
   for (const deal of deals) {
     const key = dealDestCode(deal) || deal.destination;
@@ -455,25 +553,33 @@ export function vitrinHeroDeals(deals: Deal[]) {
   }
   const heroes: Deal[] = [];
   for (const group of byCity.values()) {
-    const sorted = [...group].sort(
-      (a, b) =>
-        a.price - b.price || (b.discountPercent ?? 0) - (a.discountPercent ?? 0),
-    );
-    const used = new Set<string>();
-    let taken = 0;
-    for (const deal of sorted) {
-      if (used.has(deal.id)) continue;
-      heroes.push(deal);
-      taken += 1;
-      used.add(deal.id);
-      for (const other of sorted) {
-        if (used.has(other.id)) continue;
-        if (sameDateCluster(deal, other)) used.add(other.id);
+    const best = new Map<string, { opt: DealDateOption; template: Deal }>();
+    for (const deal of group) {
+      for (const opt of flattenDateOptions(deal)) {
+        const k = optionTripKey(opt);
+        const prev = best.get(k);
+        if (!prev || opt.price < prev.opt.price) {
+          best.set(k, { opt, template: deal });
+        }
       }
-      if (taken >= 2) break;
     }
+    const unique = [...best.values()].sort(
+      (a, b) =>
+        a.opt.price - b.opt.price ||
+        (a.opt.foundAt ?? "").localeCompare(b.opt.foundAt ?? ""),
+    );
+    const head = unique[0];
+    if (!head) continue;
+    const hero = applyDateOption(head.template, head.opt);
+    hero.dateOptions = capDateOptions(unique.slice(1).map((x) => x.opt));
+    heroes.push(hero);
   }
   return heroes;
+}
+
+/** Şehir başına 1 kart; yakın tarihler tek kahramanda birleşir. */
+export function vitrinHeroDeals(deals: Deal[]) {
+  return foldOneCardPerCity(deals);
 }
 
 export function otherCityDeals(current: Deal, all: Deal[]) {
@@ -500,6 +606,8 @@ export type DealDateChoice = {
   price: number;
   airline?: string;
   origin?: string;
+  foundAt?: string;
+  source?: "gdeals" | "scrappa";
 };
 
 export function dealDateChoices(deal: Deal): DealDateChoice[] {
@@ -513,6 +621,8 @@ export function dealDateChoices(deal: Deal): DealDateChoice[] {
             price: deal.price,
             airline: deal.airline,
             origin,
+            foundAt: deal.foundAt,
+            source: dealSourcePrefix(deal),
           },
         ]
       : [];
@@ -529,13 +639,14 @@ export function dealDateChoices(deal: Deal): DealDateChoice[] {
 export function dealWithDateChoice(deal: Deal, choice: DealDateChoice): Deal {
   const dest = dealDestCode(deal);
   const origin = (choice.origin || dealOutOrigin(deal)).toUpperCase();
-  const prefix = deal.id.startsWith("gdeals:") ? "gdeals" : "scrappa";
+  const prefix = choice.source ?? dealSourcePrefix(deal);
   return {
     ...deal,
     price: choice.price,
     outboundDate: choice.outboundDate,
     returnDate: choice.returnDate,
     airline: choice.airline || deal.airline,
+    foundAt: choice.foundAt || deal.foundAt,
     departureLabel: `İstanbul (${origin})`,
     id: dest
       ? `${prefix}:${dest}:${origin}:${choice.outboundDate}:${origin}:${choice.returnDate}`
@@ -561,6 +672,74 @@ export function dealMatchesOrigins(deal: Deal, origins: string[]) {
 export function dealMatchesDests(deal: Deal, dests: string[]) {
   if (dests.length === 0) return true;
   return dests.includes(dealDestCode(deal));
+}
+
+const TURKEY_IATA = new Set([
+  "IST",
+  "SAW",
+  "ESB",
+  "ADB",
+  "AYT",
+  "BJV",
+  "DLM",
+  "TZX",
+  "ASR",
+  "ADA",
+  "GZT",
+  "VAN",
+  "DIY",
+  "EZS",
+  "SZF",
+  "NAV",
+  "KSY",
+  "KYA",
+  "IGD",
+  "BAL",
+  "EDO",
+  "YEI",
+  "OGU",
+  "TEQ",
+  "MQM",
+  "KCM",
+  "GNY",
+  "SFQ",
+  "VAS",
+  "ERZ",
+  "ERC",
+  "AJI",
+  "BZI",
+  "DNZ",
+  "USQ",
+  "ISE",
+  "NOP",
+  "ONQ",
+  "CII",
+  "KZR",
+  "ADF",
+  "MQF",
+  "NKT",
+  "SXZ",
+  "TJK",
+  "AOE",
+]);
+
+export type FlightTypeFilter = "domestic" | "international";
+
+export function isDomesticDeal(deal: Deal) {
+  const code = dealDestCode(deal).toUpperCase();
+  if (TURKEY_IATA.has(code)) return true;
+  const country = deal.country?.trim().toLocaleLowerCase("tr-TR") ?? "";
+  return country === "türkiye" || country === "turkiye" || country === "turkey";
+}
+
+/** Hiçbiri veya ikisi seçiliyse tüm uçuşlar. */
+export function dealMatchesFlightTypes(
+  deal: Deal,
+  types: FlightTypeFilter[],
+) {
+  if (types.length === 0 || types.length === 2) return true;
+  if (types[0] === "domestic") return isDomesticDeal(deal);
+  return !isDomesticDeal(deal);
 }
 
 export function dealCabin() {

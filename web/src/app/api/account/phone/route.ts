@@ -17,25 +17,26 @@ export async function DELETE() {
     return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
   }
 
-  const { error } = await supabase.from("profiles").upsert(
-    {
-      id: user.id,
-      email: user.email ?? "",
+  const admin = createAdminClient();
+  if (!admin) {
+    return NextResponse.json({ error: "Sunucu ayarı eksik." }, { status: 500 });
+  }
+
+  const { error } = await admin
+    .from("profiles")
+    .update({
       phone: null,
       phone_verified: false,
       sms_alerts: false,
       updated_at: new Date().toISOString(),
-    },
-    { onConflict: "id" },
-  );
+    })
+    .eq("id", user.id);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("account/phone delete:", error.message);
+    return NextResponse.json({ error: "Telefon kaldırılamadı." }, { status: 500 });
   }
 
-  const admin = createAdminClient();
-  if (admin) {
-    await admin.from("phone_otps").delete().eq("user_id", user.id);
-  }
+  await admin.from("phone_otps").delete().eq("user_id", user.id);
 
   return NextResponse.json({ ok: true });
 }

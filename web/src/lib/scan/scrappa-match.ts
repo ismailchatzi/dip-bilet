@@ -5,28 +5,23 @@ import {
   SCRAPPA_DESTINATIONS,
   type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
-import { googleFlightsSearchUrl, isUnverifiedOneWaySum, dealOutOrigin } from "@/lib/deal-display";
+import { googleFlightsSearchUrl, isUnverifiedOneWaySum, dealOutOrigin, foldOneCardPerCity } from "@/lib/deal-display";
 import {
   scrappaCheapestBookingPrice,
   scrappaRoundTrip,
   ScrappaUnavailableError,
 } from "@/lib/providers/scrappa";
-import { nightsBetween, stayRange, maxStopsForDest, turkeyTodayIso, addDaysIso } from "@/lib/scan/trip-rules";
-import type { Deal } from "@/lib/types";
+import { nightsBetween, stayRange, maxStopsForDest, postRatioForOutbound } from "@/lib/scan/trip-rules";
+import type { Deal, DealDateOption } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** 3 hafta: paket ≤ M × 0.70 (%30 altı). 6 ay: ≤ M × 0.75 (%25 altı). */
-const POST_NEAR = 0.7;
-const POST_FAR = 0.75;
-const NEAR_DAYS = 21;
 const STRIKE_RATIO = 1.1;
 const THRESHOLD_RATIO = 0.9;
 const MIN_MEDIAN_SAMPLES = 3;
-const MAX_DIP_DEALS = 2;
-/** Gidiş tarihi bu kadar gün içindeyse aynı kart + “farklı tarih” listesi. */
-const CLUSTER_OUT_DAYS = 7;
-/** Küme başına doğrulanacak tarih tavanı (kredi). */
-const MAX_DATES_PER_CLUSTER = 4;
+/** Kahraman + diğer tarihler. */
+const MAX_KEEP = 4;
+/** Paket doğrulama denemesi tavanı (kredi). */
+const MAX_VERIFY = 8;
 
 type Obs = {
   route_key: string;
@@ -156,11 +151,6 @@ async function loadObservations(
     );
 }
 
-function postRatioForOutbound(outDate: string, today = turkeyTodayIso()) {
-  const nearEnd = addDaysIso(today, NEAR_DAYS);
-  return outDate <= nearEnd ? POST_NEAR : POST_FAR;
-}
-
 type Pair = {
   total: number;
   out: Obs;
@@ -261,72 +251,22 @@ export function matchDestDeals(
   rows: Obs[],
   foundAt = new Date().toISOString(),
 ): Deal[] {
-  return matchDestDrafts(dest, rows, foundAt).dips.map(
+  return matchDestDrafts(dest, rows, foundAt).map(
     ({ realDiscount: _r, postRatio: _p, ...deal }) => deal,
   );
-}
-
-/** Dip taslakları (paket doğrulaması yok). */
-export function matchDestDraftDeals(
-  dest: ScrappaDestination,
-  rows: Obs[],
-  foundAt = new Date().toISOString(),
-): Deal[] {
-  const { dipClusters } = matchDestDrafts(dest, rows, foundAt);
-  return dipClusters.flatMap((cluster) =>
-    cluster.map(({ realDiscount: _r, postRatio: _p, ...deal }) => deal),
-  );
-}
-
-function outDaysApart(a?: string, b?: string) {
-  if (!a || !b) return Infinity;
-  const n = nightsBetween(a, b);
-  return n < 0 ? -n : n;
-}
-
-/** En dip kahramanlar; yakın gidişler aynı kümeye alınır. */
-function clusterDipDrafts(drafts: Draft[]): Draft[][] {
-  const sorted = [...drafts].sort(
-    (a, b) => b.realDiscount - a.realDiscount || a.price - b.price,
-  );
-  const used = new Set<string>();
-  const clusters: Draft[][] = [];
-  for (const hero of sorted) {
-    const heroKey = `${hero.outboundDate}|${hero.returnDate}`;
-    if (used.has(heroKey)) continue;
-    const cluster: Draft[] = [hero];
-    used.add(heroKey);
-    for (const other of sorted) {
-      const key = `${other.outboundDate}|${other.returnDate}`;
-      if (used.has(key)) continue;
-      if (outDaysApart(hero.outboundDate, other.outboundDate) > CLUSTER_OUT_DAYS) {
-        continue;
-      }
-      if (other.price !== hero.price) {
-        used.add(key);
-        continue;
-      }
-      cluster.push(other);
-      used.add(key);
-      if (cluster.length >= MAX_DATES_PER_CLUSTER) break;
-    }
-    clusters.push(cluster);
-    if (clusters.length >= MAX_DIP_DEALS) break;
-  }
-  return clusters;
 }
 
 function matchDestDrafts(
   dest: ScrappaDestination,
   rows: Obs[],
   foundAt: string,
-): { dips: Draft[]; dipClusters: Draft[][] } {
+): Draft[] {
   const { pairs, outDaily, inDaily } = collectPairs(dest, rows);
   const combos: Draft[] = [];
   for (const pair of pairs) {
     const m = pairMonthM(outDaily, inDaily, pair.out, pair.ret);
     if (m == null || m <= 0) continue;
-    const ratio = postRatioForOutbound(pair.out.outbound_date);
+    const ratio = postRatioForOutbound(pair.out.outbound_date, dest.code);
     if (pair.total > m * ratio) continue;
     combos.push(comboFromPair(dest, pair, m, foundAt, ratio));
   }
@@ -335,14 +275,26 @@ function matchDestDrafts(
     const prev = bestById.get(c.id);
     if (!prev || c.price < prev.price) bestById.set(c.id, c);
   }
-  const dipClusters = clusterDipDrafts([...bestById.values()]);
-  const dips = dipClusters.map((c) => c[0]!);
-  return { dips, dipClusters };
+  return [...bestById.values()].sort(
+    (a, b) => a.price - b.price || b.realDiscount - a.realDiscount,
+  );
 }
 
 function toDeal(draft: Draft): Deal {
   const { realDiscount: _r, postRatio: _p, ...deal } = draft;
   return deal;
+}
+
+function toDateOption(deal: Deal): DealDateOption {
+  return {
+    outboundDate: deal.outboundDate ?? "",
+    returnDate: deal.returnDate ?? "",
+    price: deal.price,
+    airline: deal.airline,
+    origin: dealOutOrigin(deal),
+    foundAt: deal.foundAt,
+    source: "scrappa",
+  };
 }
 
 async function verifyWithRoundTrip(
@@ -435,40 +387,28 @@ export async function matchDestFromDb(
   dest: ScrappaDestination,
 ): Promise<Deal[]> {
   const rows = await loadObservations(admin, dest.code);
-  const { dipClusters } = matchDestDrafts(
-    dest,
-    rows,
-    new Date().toISOString(),
-  );
+  const drafts = matchDestDrafts(dest, rows, new Date().toISOString());
   const verified: Deal[] = [];
   const seen = new Set<string>();
-  for (const cluster of dipClusters) {
-    const hits: Deal[] = [];
-    for (const draft of cluster) {
-      const next = await verifyWithRoundTrip(toDeal(draft), dest.code, {
-        postRatio: draft.postRatio,
-      });
-      if (!next) continue;
-      const key = `${next.outboundDate}|${next.returnDate}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      hits.push(next);
-    }
-    if (hits.length === 0) continue;
-    hits.sort((a, b) => a.price - b.price);
-    const cheapest = hits[0]!.price;
-    const keep = hits.filter((d) => d.price === cheapest);
-    const hero = keep[0]!;
-    hero.dateOptions = keep.slice(1).map((d) => ({
-      outboundDate: d.outboundDate ?? "",
-      returnDate: d.returnDate ?? "",
-      price: d.price,
-      airline: d.airline,
-      origin: dealOutOrigin(d),
-    }));
-    verified.push(hero);
+  let attempts = 0;
+  for (const draft of drafts) {
+    if (verified.length >= MAX_KEEP) break;
+    if (attempts >= MAX_VERIFY) break;
+    attempts += 1;
+    const next = await verifyWithRoundTrip(toDeal(draft), dest.code, {
+      postRatio: draft.postRatio,
+    });
+    if (!next) continue;
+    const key = `${next.outboundDate}|${next.returnDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    verified.push(next);
   }
-  return verified;
+  if (verified.length === 0) return [];
+  verified.sort((a, b) => a.price - b.price);
+  const hero = verified[0]!;
+  hero.dateOptions = verified.slice(1).map(toDateOption);
+  return [hero];
 }
 
 function destCodeFromDeal(deal: Deal) {
@@ -480,10 +420,6 @@ function destCodeFromDeal(deal: Deal) {
 
 function isGoogleDeal(deal: Deal) {
   return deal.id.startsWith("gdeals:");
-}
-
-function tripKey(deal: Deal) {
-  return `${destCodeFromDeal(deal)}|${deal.outboundDate ?? ""}|${deal.returnDate ?? ""}`;
 }
 
 /** Bir varışın vitrin kartlarını günceller, diğer şehirleri korur */
@@ -502,13 +438,12 @@ export async function publishDestShowcase(
   }
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
-  const others = previous.filter(
-    (d) =>
-      !isUnverifiedOneWaySum(d) &&
-      (isGoogleDeal(d) || destCodeFromDeal(d) !== dest.code),
-  );
-  const taken = new Set(others.map(tripKey));
-  const deals = [...others, ...fresh.filter((d) => !taken.has(tripKey(d)))];
+  const others = previous.filter((d) => destCodeFromDeal(d) !== dest.code);
+  const cityPrev = previous.filter((d) => destCodeFromDeal(d) === dest.code);
+  const deals = [
+    ...others.filter((d) => !isUnverifiedOneWaySum(d)),
+    ...foldOneCardPerCity([...cityPrev, ...fresh]),
+  ];
   const { payload, live, previousLive } = foldShowcase(board.deals, deals);
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
@@ -524,7 +459,6 @@ export async function publishAllShowcase(
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
   const googleKept = previous.filter(isGoogleDeal);
-  const taken = new Set(googleKept.map(tripKey));
   const all: Deal[] = [...googleKept];
   for (const dest of SCRAPPA_DESTINATIONS) {
     let fresh: Deal[];
@@ -542,13 +476,11 @@ export async function publishAllShowcase(
       );
     }
     for (const deal of fresh) {
-      const key = tripKey(deal);
-      if (taken.has(key)) continue;
-      taken.add(key);
       all.push(deal);
     }
   }
-  const { payload, live, previousLive } = foldShowcase(board.deals, all);
+  const collapsed = foldOneCardPerCity(all.filter((d) => !isUnverifiedOneWaySum(d)));
+  const { payload, live, previousLive } = foldShowcase(board.deals, collapsed);
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
   if (opts?.notify !== false) {

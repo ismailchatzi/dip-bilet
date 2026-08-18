@@ -1,4 +1,5 @@
 import { DestPhoto } from "@/components/vitrin/DestPhoto";
+import { OldDealStamp } from "@/components/vitrin/OldDealStamp";
 import {
   dealCabin,
   dealCityName,
@@ -10,6 +11,7 @@ import {
   dealSourceCipher,
   displayDealPrice,
   formatDealMoney,
+  isOldShowcaseDeal,
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
@@ -19,6 +21,7 @@ export function DealCard({ deal }: { deal: Deal }) {
   const found = dealFoundLabel(deal);
   const mark = dealSourceCipher(deal);
   const shownPrice = displayDealPrice(deal.price);
+  const oldDeal = isOldShowcaseDeal(deal);
   return (
     <Link href={dealHref(deal)} className="vitrin-card">
       <DestPhoto
@@ -27,6 +30,7 @@ export function DealCard({ deal }: { deal: Deal }) {
         className="vitrin-card__photo"
         imageUrl={deal.photoUrl}
       />
+        {oldDeal ? <OldDealStamp deal={deal} /> : null}
       <div className="vitrin-card__body">
         <h3 className="vitrin-card__title">{dealCityTitle(deal)}</h3>
         <p className="vitrin-card__prices">

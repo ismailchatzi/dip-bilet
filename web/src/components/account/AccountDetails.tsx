@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PhoneVerify } from "@/components/account/PhoneVerify";
+import { MIN_PASSWORD_LENGTH, newPasswordError } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 
 export function AccountDetails() {
@@ -79,12 +80,13 @@ export function AccountDetails() {
   async function savePassword() {
     setError(null);
     setMsg(null);
-    if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalı.");
-      return;
-    }
     if (password !== password2) {
       setError("Şifreler eşleşmiyor.");
+      return;
+    }
+    const pwdError = await newPasswordError(password);
+    if (pwdError) {
+      setError(pwdError);
       return;
     }
     setLoading(true);
@@ -138,7 +140,8 @@ export function AccountDetails() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="new-password"
-          placeholder="En az 6 karakter"
+          minLength={MIN_PASSWORD_LENGTH}
+          placeholder={`En az ${MIN_PASSWORD_LENGTH} karakter`}
         />
       </label>
       <label className="account-field">
@@ -149,11 +152,12 @@ export function AccountDetails() {
             value={password2}
             onChange={(e) => setPassword2(e.target.value)}
             autoComplete="new-password"
+            minLength={MIN_PASSWORD_LENGTH}
           />
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={savePassword}
+            onClick={() => void savePassword()}
             disabled={loading}
           >
             Güncelle

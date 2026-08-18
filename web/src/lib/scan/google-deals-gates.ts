@@ -1,12 +1,8 @@
-import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
+import { isLongHaulDest, postRatioForOutbound } from "@/lib/scan/trip-rules";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const MIN_MEDIAN_SAMPLES = 3;
 const MIN_AVG_DISCOUNT = 0.2;
-const POST_NEAR = 0.7;
-const POST_FAR = 0.75;
-const NEAR_DAYS = 21;
-const LONG_HAUL = new Set(["DPS", "HKT", "MLE"]);
 
 function median(nums: number[]) {
   const s = [...nums].sort((a, b) => a - b);
@@ -20,19 +16,14 @@ function isIstanbul(code: string) {
 
 /** USD tavan — Avrupa/yakın vs uzak. */
 export function googleDealPriceCeilingUsd(destCode: string) {
-  if (LONG_HAUL.has(destCode.toUpperCase())) return 800;
+  if (isLongHaulDest(destCode)) return 800;
   return 450;
-}
-
-function postRatioForOutbound(outDate: string, today = turkeyTodayIso()) {
-  const nearEnd = addDaysIso(today, NEAR_DAYS);
-  return outDate <= nearEnd ? POST_NEAR : POST_FAR;
 }
 
 /**
  * 1) Google avg şart + en az %20 altı
  * 2) Tavan fiyat
- * 3) Scrappa şehir medyanı M varsa paket ≤ M × (0.70 yakın / 0.75 uzak)
+ * 3) Scrappa şehir medyanı M varsa paket ≤ M × kapı (uzak doğu 0.90/0.95, diğer 0.70/0.75)
  */
 export function passesGoogleDealGates(input: {
   price: number;
@@ -59,7 +50,7 @@ export function passesGoogleDealGates(input: {
 
   const m = input.scrappaM;
   if (m != null && Number.isFinite(m) && m > 0) {
-    const ratio = postRatioForOutbound(input.outDate);
+    const ratio = postRatioForOutbound(input.outDate, input.destCode);
     if (input.price > m * ratio) {
       return { ok: false, reason: "scrappa_medyan" };
     }

@@ -4,14 +4,16 @@ import { AccountShell } from "@/components/account/AccountShell";
 import { DealDetail } from "@/components/vitrin/DealDetail";
 import {
   dealCityTitle,
+  dealDateChoices,
   dealDestCode,
+  dealWithDateChoice,
   dealWithinStopLimit,
+  foldOneCardPerCity,
   isUnverifiedOneWaySum,
 } from "@/lib/deal-display";
 import { requireAuthOnboarding } from "@/lib/onboarding";
 import { readScanBoard } from "@/lib/scan/board";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
-import { dropFailedScrappaDipsOnLocalhost } from "@/lib/scan/dip-gate";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +37,17 @@ export default async function DealDetailPage({ params }: PageProps) {
   if (!supabase) notFound();
 
   const board = await readScanBoard(supabase);
-  const live = dropFailedScrappaDipsOnLocalhost(
+  const live = foldOneCardPerCity(
     (board.deals?.deals ?? []).filter(
       (d) =>
         isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
     ),
   );
-  const deal = live.find((d) => d.id === id);
+  const deal =
+    live.find((d) => d.id === id) ??
+    live.find((d) =>
+      dealDateChoices(d).some((c) => dealWithDateChoice(d, c).id === id),
+    );
   if (!deal) notFound();
   const dest = dealDestCode(deal);
   const cityDeals = live.filter((d) => dealDestCode(d) === dest);

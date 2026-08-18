@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { DepartureAirport } from "@/lib/departures";
+import type { FlightTypeFilter } from "@/lib/deal-display";
 
-type OpenKey = "origin" | "price" | "dest" | null;
+type OpenKey = "origin" | "price" | "dest" | "type" | null;
 
 export function VitrinFilters({
   airports,
@@ -13,6 +14,8 @@ export function VitrinFilters({
   dests,
   selectedDests,
   onDestsChange,
+  selectedFlightTypes,
+  onFlightTypesChange,
   priceMin,
   priceMax,
   boundMin,
@@ -27,6 +30,8 @@ export function VitrinFilters({
   dests: { code: string; name: string }[];
   selectedDests: string[];
   onDestsChange: (codes: string[]) => void;
+  selectedFlightTypes: FlightTypeFilter[];
+  onFlightTypesChange: (types: FlightTypeFilter[]) => void;
   priceMin: number;
   priceMax: number;
   boundMin: number;
@@ -67,6 +72,14 @@ export function VitrinFilters({
       selectedDests.includes(code)
         ? selectedDests.filter((c) => c !== code)
         : [...selectedDests, code],
+    );
+  }
+
+  function toggleFlightType(type: FlightTypeFilter) {
+    onFlightTypesChange(
+      selectedFlightTypes.includes(type)
+        ? selectedFlightTypes.filter((t) => t !== type)
+        : [...selectedFlightTypes, type],
     );
   }
 
@@ -253,6 +266,50 @@ export function VitrinFilters({
               >
                 Ekle / Düzenle
               </Link>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="vitrin-filter">
+          <button
+            type="button"
+            className={
+              open === "type"
+                ? "vitrin-filter__btn vitrin-filter__btn--open"
+                : "vitrin-filter__btn"
+            }
+            aria-expanded={open === "type"}
+            onClick={() => setOpen(open === "type" ? null : "type")}
+          >
+            Uçuş Tipi
+            <Chevron />
+          </button>
+          {open === "type" ? (
+            <div className="vitrin-filter__panel" role="dialog" aria-label="Uçuş Tipi">
+              <ul className="vitrin-filter__list">
+                <li>
+                  <label className="vitrin-filter__row">
+                    <span>Yurt İçi</span>
+                    <input
+                      type="checkbox"
+                      className="vitrin-check"
+                      checked={selectedFlightTypes.includes("domestic")}
+                      onChange={() => toggleFlightType("domestic")}
+                    />
+                  </label>
+                </li>
+                <li>
+                  <label className="vitrin-filter__row">
+                    <span>Yurt Dışı</span>
+                    <input
+                      type="checkbox"
+                      className="vitrin-check"
+                      checked={selectedFlightTypes.includes("international")}
+                      onChange={() => toggleFlightType("international")}
+                    />
+                  </label>
+                </li>
+              </ul>
             </div>
           ) : null}
         </div>

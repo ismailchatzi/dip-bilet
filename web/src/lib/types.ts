@@ -4,6 +4,9 @@ export type DealDateOption = {
   price: number;
   airline?: string;
   origin?: string;
+  /** Kuyruğa eklenme zamanı — FIFO ve “eski fırsat” notu. */
+  foundAt?: string;
+  source?: "gdeals" | "scrappa";
 };
 
 export type Deal = {
@@ -28,7 +31,7 @@ export type Deal = {
   photoUrl?: string;
   /** Google: yolcu sorumluluğunda aktarma (ayrı bilet) */
   selfTransfer?: boolean;
-  /** Aynı karttaki yakın tarih seçenekleri (kahraman tarih hariç) */
+  /** Aynı karttaki diğer tarihler (en fazla 3; kahraman hariç) */
   dateOptions?: DealDateOption[];
 };
 

@@ -22,6 +22,8 @@ import {
   displayDealDiscountPercent,
   displayDealPrice,
   formatDealMoney,
+  isOldShowcaseDeal,
+  isOldDateOption,
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
@@ -53,24 +55,28 @@ export function DealDetail({
   const back = dealReturnAirport(view);
   const bookUrl = dealBookingUrl(view);
   const mark = dealSourceCipher(deal);
+  const oldDeal = isOldShowcaseDeal(deal);
   const altRows = useMemo(() => {
-    if (choices.length > 1) {
-      return choices.map((c) => ({
+    const fromChoices = choices
+      .filter((c) => `${c.outboundDate}|${c.returnDate}` !== pickedKey)
+      .map((c) => ({
         key: `${c.outboundDate}|${c.returnDate}`,
         label: dealDateRangeShort(dealWithDateChoice(deal, c)),
         price: formatDealMoney(displayDealPrice(c.price), deal.currency),
         href: null as string | null,
         choice: c,
+        old: isOldDateOption(c.foundAt),
       }));
-    }
+    if (fromChoices.length > 0) return fromChoices;
     return cityAlts.map((d) => ({
       key: d.id,
       label: dealDateRangeShort(d),
       price: formatDealMoney(displayDealPrice(d.price), d.currency),
       href: dealHref(d),
       choice: null,
+      old: isOldDateOption(d.foundAt),
     }));
-  }, [choices, cityAlts, deal]);
+  }, [choices, cityAlts, deal, pickedKey]);
 
   async function share() {
     const url = window.location.href;
@@ -100,6 +106,7 @@ export function DealDetail({
           </p>
           <h2>{title}</h2>
           <p className="deal-detail__dates">{dealDateRange(view)}</p>
+          {oldDeal ? <p className="deal-detail__old-label">Eski fırsat</p> : null}
         </div>
         <div className="deal-detail__head-actions">
           <Link href="/hedef-destinasyonlar" className="deal-detail__ghost">
@@ -233,13 +240,18 @@ export function DealDetail({
 
       {altRows.length > 0 ? (
         <section className="deal-alts">
-          <h3>Farklı Tarihli Dip Fiyatlar</h3>
+          <h3>Diğer tarihler</h3>
           <ul>
             {altRows.map((row) => (
               <li key={row.key}>
                 {row.href ? (
                   <Link href={row.href}>
-                    <span>{row.label}</span>
+                    <span className="deal-alts__when">
+                      <span>{row.label}</span>
+                      {row.old ? (
+                        <em className="deal-alts__old">Eski fırsat</em>
+                      ) : null}
+                    </span>
                     <strong>{row.price}</strong>
                   </Link>
                 ) : (
@@ -252,7 +264,12 @@ export function DealDetail({
                     }
                     onClick={() => row.choice && setPickedKey(row.key)}
                   >
-                    <span>{row.label}</span>
+                    <span className="deal-alts__when">
+                      <span>{row.label}</span>
+                      {row.old ? (
+                        <em className="deal-alts__old">Eski fırsat</em>
+                      ) : null}
+                    </span>
                     <strong>{row.price}</strong>
                   </button>
                 )}

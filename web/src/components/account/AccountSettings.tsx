@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { PhoneVerify } from "@/components/account/PhoneVerify";
+import { MIN_PASSWORD_LENGTH, newPasswordError } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 
 export function AccountSettings() {
@@ -81,12 +82,13 @@ export function AccountSettings() {
   async function savePassword() {
     setError(null);
     setMsg(null);
-    if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalı.");
-      return;
-    }
     if (password !== password2) {
       setError("Şifreler eşleşmiyor.");
+      return;
+    }
+    const pwdError = await newPasswordError(password);
+    if (pwdError) {
+      setError(pwdError);
       return;
     }
     setLoading(true);
@@ -255,8 +257,9 @@ export function AccountSettings() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Yeni şifre"
+                  placeholder={`Yeni şifre (en az ${MIN_PASSWORD_LENGTH} karakter)`}
                   autoComplete="new-password"
+                  minLength={MIN_PASSWORD_LENGTH}
                 />
                 <input
                   type="password"
@@ -264,6 +267,7 @@ export function AccountSettings() {
                   onChange={(e) => setPassword2(e.target.value)}
                   placeholder="Şifre tekrar"
                   autoComplete="new-password"
+                  minLength={MIN_PASSWORD_LENGTH}
                 />
                 <button
                   type="button"

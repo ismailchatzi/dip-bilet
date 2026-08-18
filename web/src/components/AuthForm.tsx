@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
+import { newPasswordError, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient, isAuthConfigured } from "@/lib/supabase/client";
 
 type Mode = "signup" | "login";
@@ -70,9 +71,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalı.");
-      return;
+    if (mode === "signup") {
+      const pwdError = await newPasswordError(password);
+      if (pwdError) {
+        setError(pwdError);
+        return;
+      }
     }
 
     if (mode === "signup" && password !== password2) {
@@ -178,10 +182,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
               mode === "signup" ? "new-password" : "current-password"
             }
             required
-            minLength={6}
+            minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : 1}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="En az 6 karakter"
+            placeholder={
+              mode === "signup"
+                ? `En az ${MIN_PASSWORD_LENGTH} karakter`
+                : "Şifre"
+            }
           />
         </label>
 
@@ -192,7 +200,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               type="password"
               autoComplete="new-password"
               required
-              minLength={6}
+              minLength={MIN_PASSWORD_LENGTH}
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
               placeholder="Şifreyi tekrar yaz"

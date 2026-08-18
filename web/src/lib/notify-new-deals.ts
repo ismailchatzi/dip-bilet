@@ -1,5 +1,5 @@
 import { dealAlertEmailContent, dealAlertSmsContent } from "@/lib/deal-alerts";
-import { dealDestCode } from "@/lib/deal-display";
+import { dealDestCode, foldOneCardPerCity } from "@/lib/deal-display";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import type { Deal } from "@/lib/types";
@@ -16,6 +16,28 @@ function relevantForUser(deals: Deal[], destCodes: string[] | null) {
   return deals.filter((d) => set.has(dealDestCode(d).toUpperCase()));
 }
 
+function heroByDest(deals: Deal[]) {
+  const map = new Map<string, Deal>();
+  for (const deal of foldOneCardPerCity(deals)) {
+    const code = dealDestCode(deal).toUpperCase();
+    if (!code) continue;
+    map.set(code, deal);
+  }
+  return map;
+}
+
+/** Yeni şehir kartı veya aynı şehirde daha ucuz kahraman. */
+export function dealsToNotify(previous: Deal[], next: Deal[]): Deal[] {
+  const prevMap = heroByDest(previous);
+  const nextMap = heroByDest(next);
+  const alerts: Deal[] = [];
+  for (const [code, deal] of nextMap) {
+    const was = prevMap.get(code);
+    if (!was || deal.price < was.price) alerts.push(deal);
+  }
+  return alerts;
+}
+
 export async function notifyNewDeals(
   admin: SupabaseClient,
   previous: Deal[],
@@ -25,8 +47,7 @@ export async function notifyNewDeals(
     return { emailed: 0, smsed: 0, skipped: "cold-start" };
   }
 
-  const prevIds = new Set(previous.map((d) => d.id));
-  const fresh = next.filter((d) => !prevIds.has(d.id));
+  const fresh = dealsToNotify(previous, next);
   if (fresh.length === 0) {
     return { emailed: 0, smsed: 0, skipped: "no-new" };
   }

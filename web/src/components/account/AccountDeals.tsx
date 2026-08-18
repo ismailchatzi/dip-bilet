@@ -1,8 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { VitrinFilters } from "@/components/vitrin/VitrinFilters";
 import { DealCard } from "@/components/vitrin/DealCard";
+import { airportCoord } from "@/lib/airport-coords";
 import {
   airportsFromDepartureCode,
   type DepartureAirport,
@@ -10,14 +12,25 @@ import {
 import { destinationByCode } from "@/lib/destinations";
 import {
   dealMatchesDests,
+  dealMatchesFlightTypes,
   dealMatchesOrigins,
   dealWithinStopLimit,
+  dealDestCode,
   isUnverifiedOneWaySum,
   vitrinHeroDeals,
+  type FlightTypeFilter,
 } from "@/lib/deal-display";
 import { sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/client";
 import type { Deal, DealsPayload } from "@/lib/types";
+
+const VitrinMap = dynamic(
+  () => import("@/components/vitrin/VitrinMap").then((m) => m.VitrinMap),
+  {
+    ssr: false,
+    loading: () => <div className="vitrin-map" aria-hidden="true" />,
+  },
+);
 
 export function AccountDeals() {
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -31,6 +44,9 @@ export function AccountDeals() {
     airportsFromDepartureCode("IST").map((a) => a.code),
   );
   const [selectedDests, setSelectedDests] = useState<string[]>([]);
+  const [selectedFlightTypes, setSelectedFlightTypes] = useState<
+    FlightTypeFilter[]
+  >([]);
   const [priceMin, setPriceMin] = useState(0);
   const [priceMax, setPriceMax] = useState(0);
   const [boundMin, setBoundMin] = useState(0);
@@ -120,6 +136,7 @@ export function AccountDeals() {
             (d) =>
               dealMatchesOrigins(d, selectedOrigins) &&
               dealMatchesDests(d, selectedDests) &&
+              dealMatchesFlightTypes(d, selectedFlightTypes) &&
               dealWithinStopLimit(d) &&
               !isUnverifiedOneWaySum(d) &&
               d.price >= priceMin &&
@@ -127,7 +144,7 @@ export function AccountDeals() {
           ),
         ),
       ),
-    [deals, selectedOrigins, selectedDests, priceMin, priceMax],
+    [deals, selectedOrigins, selectedDests, selectedFlightTypes, priceMin, priceMax],
   );
 
   const allOriginCodes = airports.map((a) => a.code);
@@ -136,11 +153,16 @@ export function AccountDeals() {
     allOriginCodes.every((c) => selectedOrigins.includes(c));
   const priceAll =
     boundMax <= boundMin || (priceMin <= boundMin && priceMax >= boundMax);
-  const canClear = !originsAll || selectedDests.length > 0 || !priceAll;
+  const canClear =
+    !originsAll ||
+    selectedDests.length > 0 ||
+    selectedFlightTypes.length > 0 ||
+    !priceAll;
 
   function clearFilters() {
     setSelectedOrigins(allOriginCodes);
     setSelectedDests([]);
+    setSelectedFlightTypes([]);
     setPriceMin(boundMin);
     setPriceMax(boundMax);
   }
@@ -154,6 +176,8 @@ export function AccountDeals() {
         dests={dests}
         selectedDests={selectedDests}
         onDestsChange={setSelectedDests}
+        selectedFlightTypes={selectedFlightTypes}
+        onFlightTypesChange={setSelectedFlightTypes}
         priceMin={priceMin}
         priceMax={priceMax}
         boundMin={boundMin}
@@ -177,6 +201,9 @@ export function AccountDeals() {
         <div className="empty">
           Şu an eşiğin üzerinde dip fırsat yok. Biraz sonra tekrar bak.
         </div>
+      ) : null}
+      {visible.some((deal) => airportCoord(dealDestCode(deal))) ? (
+        <VitrinMap deals={visible} />
       ) : null}
       {visible.length > 0 ? (
         <div className="vitrin-grid">

@@ -1,17 +1,17 @@
-import { createHash } from "crypto";
 import { NextResponse } from "next/server";
+import { hashOtpCode, otpPepper } from "@/lib/otp";
 import { normalizeTrPhone } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-function hashCode(code: string, userId: string) {
-  const pepper = process.env.CRON_SECRET?.trim() || "dip-bilet-otp";
-  return createHash("sha256").update(`${pepper}:${userId}:${code}`).digest("hex");
-}
-
 export async function POST(request: Request) {
+  const pepper = otpPepper();
+  if (!pepper) {
+    return NextResponse.json({ error: "Sunucu ayarı eksik." }, { status: 500 });
+  }
+
   const supabase = await createClient();
   if (!supabase) {
     return NextResponse.json({ error: "Bağlantı kurulamadı." }, { status: 500 });
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (row.code_hash !== hashCode(token, user.id)) {
+  if (row.code_hash !== hashOtpCode(token, user.id, pepper)) {
     await admin
       .from("phone_otps")
       .update({ attempts: row.attempts + 1 })
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
   }
 
   await admin.from("phone_otps").delete().eq("user_id", user.id);
-  const { error: profileError } = await supabase.from("profiles").upsert(
+  const { error: profileError } = await admin.from("profiles").upsert(
     {
       id: user.id,
       email: user.email ?? "",
@@ -89,10 +89,8 @@ export async function POST(request: Request) {
     { onConflict: "id" },
   );
   if (profileError) {
-    return NextResponse.json(
-      { error: `Doğrulama kaydedilemedi: ${profileError.message}` },
-      { status: 500 },
-    );
+    console.error("verify-otp profile:", profileError.message);
+    return NextResponse.json({ error: "Doğrulama kaydedilemedi." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, phone });

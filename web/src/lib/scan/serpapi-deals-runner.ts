@@ -1,4 +1,5 @@
 import { notifyNewDeals } from "@/lib/notify-new-deals";
+import { foldOneCardPerCity } from "@/lib/deal-display";
 import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
@@ -266,7 +267,7 @@ export async function runSerpapiDealsScan(
 
   const { payload, live, previousLive } = foldShowcase(
     board.deals,
-    [...byTrip.values()],
+    foldOneCardPerCity([...byTrip.values()]),
     foundAt,
     today,
   );
