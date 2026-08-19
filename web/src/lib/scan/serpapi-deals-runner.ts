@@ -33,8 +33,14 @@ function destFromHit(hit: {
   if (!/^[A-Z]{3}$/.test(arrival)) return null;
   if (arrival === "IST" || arrival === "SAW") return null;
   const tracked = findTrackedDestination(arrival);
-  if (!tracked) return null;
-  return { code: tracked.code, name: tracked.name };
+  if (tracked) return { code: tracked.code, name: tracked.name };
+
+  // Takip edilmeyen havalimanlarında bile (örn. LHR/STN) kart üretmeye devam et.
+  // Tekilleştirme/vitrin birleştirme `dealCityKey` üzerinden yapılıyor.
+  const raw = String(hit.name ?? "")
+    .replace(/\s*\([A-Z]{3}\)\s*$/, "")
+    .trim();
+  return { code: arrival, name: raw || arrival };
 }
 
 function departureLabel(origin: string) {

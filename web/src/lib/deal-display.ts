@@ -148,7 +148,12 @@ export function canonicalDestCode(code: string) {
 }
 
 export function dealCityKey(deal: Deal) {
-  return canonicalDestCode(dealDestCode(deal));
+  const code = dealDestCode(deal);
+  if (code && findTrackedDestination(code)) {
+    return canonicalDestCode(code);
+  }
+  // Takip edilmeyen havalimanlarında (örn. Londra: LHR/STN) aynı şehri tek kabul et.
+  return dealCityName(deal);
 }
 
 export function siteOrigin() {
