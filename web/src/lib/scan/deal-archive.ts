@@ -10,10 +10,19 @@ export const ARCHIVE_KEEP_DAYS = 60;
 /** Anasayfada gösterilecek kart tavanı. */
 export const ARCHIVE_SHOW_MAX = 12;
 
+function latestDealActivityAt(deal: Deal): string {
+  let latest = deal.foundAt ?? "";
+  for (const opt of deal.dateOptions ?? []) {
+    const t = opt.foundAt ?? "";
+    if (t && t.localeCompare(latest) > 0) latest = t;
+  }
+  return latest;
+}
+
 export function sortByFoundAt(deals: Deal[]) {
   return [...deals].sort((a, b) => {
-    const fb = b.foundAt ?? "";
-    const fa = a.foundAt ?? "";
+    const fb = latestDealActivityAt(b);
+    const fa = latestDealActivityAt(a);
     if (fb !== fa) return fb.localeCompare(fa);
     return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
   });
