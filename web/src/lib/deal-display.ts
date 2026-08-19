@@ -397,6 +397,33 @@ export function aviasalesAffiliateUrl(
   return `https://tp.media/r?${params.toString()}`;
 }
 
+/**
+ * Trip.com affiliate link — env yoksa (client tarafında erişilemeyen değerler)
+ * basit arama URL'i döndürür; her zaman bir link üretilir.
+ */
+export function tripcomUrl(
+  outOrigin: string,
+  dest: string,
+  outDate: string,
+  retDate: string,
+): string {
+  const dcity = (TRIPCOM_CITY[outOrigin.toUpperCase()] ?? outOrigin).toLowerCase();
+  const acity = (TRIPCOM_CITY[dest.toUpperCase()] ?? dest).toLowerCase();
+  const params = new URLSearchParams({
+    dcity,
+    acity,
+    ddate: outDate,
+    rdate: retDate,
+    triptype: "rt",
+    class: "y",
+    quantity: "1",
+    Allianceid: "10131696",
+    SID: "328743822",
+    trip_sub3: "D19299933",
+  });
+  return `https://www.trip.com/flights/showfarefirst?${params.toString()}`;
+}
+
 /** Trip.com şehir kodu — havalimanı değil şehir (IST/PAR/ROM). */
 const TRIPCOM_CITY: Record<string, string> = {
   IST: "IST",

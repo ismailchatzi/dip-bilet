@@ -8,7 +8,6 @@ import {
   dealDateRange,
   dealDateRangeShort,
   dealFoundLabel,
-  dealBookingUrl,
   dealDateChoices,
   dealWithDateChoice,
   dealHref,
@@ -24,6 +23,9 @@ import {
   formatDealMoney,
   isOldShowcaseDeal,
   isOldDateOption,
+  kiwiAffiliateUrl,
+  aviasalesAffiliateUrl,
+  tripcomUrl,
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
@@ -39,6 +41,7 @@ export function DealDetail({
   focusId?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [bookModal, setBookModal] = useState(false);
   const [pickedKey, setPickedKey] = useState(() => {
     const choices = dealDateChoices(deal);
     const focused = focusId
@@ -60,8 +63,12 @@ export function DealDetail({
   const shownOff = displayDealDiscountPercent(view);
   const out = dealOutOrigin(view);
   const back = dealReturnAirport(view);
-  const bookUrl = dealBookingUrl(view);
   const mark = dealSourceCipher(deal);
+  const od = view.outboundDate ?? "";
+  const rd = view.returnDate ?? "";
+  const kiwiUrl = kiwiAffiliateUrl(out, dealDestCode(view), od, rd, dealDestCode(view));
+  const aviasalesUrl = aviasalesAffiliateUrl(out, dealDestCode(view), od, rd, dealDestCode(view));
+  const tripUrl = od && rd ? tripcomUrl(out, dealDestCode(view), od, rd) : undefined;
   const oldDeal = isOldShowcaseDeal(deal);
   const altRows = useMemo(() => {
     const fromChoices = choices
@@ -225,20 +232,58 @@ export function DealDetail({
               {mark}
             </span>
           ) : null}
-          {bookUrl ? (
-            <a
-              className="deal-detail__book"
-              href={bookUrl}
-              target="_blank"
-              rel="noopener noreferrer sponsored"
-            >
-              Bileti incele
-            </a>
-          ) : (
-            <span className="deal-detail__book deal-detail__book--disabled">
-              Link yok
-            </span>
-          )}
+          <button
+            type="button"
+            className="deal-detail__book"
+            onClick={() => setBookModal(true)}
+          >
+            Bileti incele
+          </button>
+
+          {bookModal ? (
+            <div className="book-modal__overlay" onClick={() => setBookModal(false)}>
+              <div className="book-modal" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="book-modal__close"
+                  onClick={() => setBookModal(false)}
+                  aria-label="Kapat"
+                >
+                  ✕
+                </button>
+                <p className="book-modal__title">Alternatif seçenekleriniz var.</p>
+                <p className="book-modal__sub">
+                  En iyi fiyatlı seçeneği aşağıdaki platformlarda arayabilirsiniz. Kiwi.com, Aviasales ve Trip.com linklerinden uçuşları karşılaştırabilirsiniz.
+                </p>
+                {(od && rd) ? (
+                  <p className="book-modal__dates">
+                    <CalendarIcon />
+                    <span>Tarihler: {dealDateRangeShort(view)}</span>
+                  </p>
+                ) : null}
+                <div className="book-modal__options">
+                  {kiwiUrl ? (
+                    <a href={kiwiUrl} target="_blank" rel="noopener noreferrer sponsored" className="book-modal__option">
+                      <KiwiLogo />
+                      <span>Kiwi.com</span>
+                    </a>
+                  ) : null}
+                  {aviasalesUrl ? (
+                    <a href={aviasalesUrl} target="_blank" rel="noopener noreferrer sponsored" className="book-modal__option">
+                      <AviasalesLogo />
+                      <span>Aviasales</span>
+                    </a>
+                  ) : null}
+                  {tripUrl ? (
+                    <a href={tripUrl} target="_blank" rel="noopener noreferrer sponsored" className="book-modal__option">
+                      <TripcomLogo />
+                      <span>Trip.com</span>
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
           <button type="button" className="deal-detail__alt" onClick={() => void share()}>
             Fırsatı paylaş
           </button>
@@ -386,4 +431,26 @@ function ClockIcon() {
       />
     </svg>
   );
+}
+
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true">
+      <rect x="2" y="4" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 8h16" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 2v3M14 2v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function KiwiLogo() {
+  return <img src="/logo-kiwi.png" alt="Kiwi.com" width={36} height={36} style={{ borderRadius: 8 }} />;
+}
+
+function AviasalesLogo() {
+  return <img src="/logo-aviasales.png" alt="Aviasales" width={36} height={36} style={{ borderRadius: 8 }} />;
+}
+
+function TripcomLogo() {
+  return <img src="/logo-trip.png" alt="Trip.com" width={36} height={36} style={{ borderRadius: 8 }} />;
 }

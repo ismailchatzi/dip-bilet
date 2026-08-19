@@ -103,7 +103,8 @@ async function main() {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
       process.exit(1);
     }
-    const result = await publishAllShowcase(admin, { notify: false });
+    // rematch vitrin fiyatlarını tazeler; bildirim isteniyorsa kapatmıyoruz
+    const result = await publishAllShowcase(admin, { notify: true });
     console.log("rematch done", result);
     return;
   }

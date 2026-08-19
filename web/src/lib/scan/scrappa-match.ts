@@ -358,7 +358,14 @@ async function verifyWithRoundTrip(
     flightNumber: best.flightNumber,
   });
   best.price = booked.price;
-  if (m != null && best.price > m * opts.postRatio) {
+  // Eşik kontrolü: NaN/undefined olursa karşılaştırma false olur ve kart sessizce geçebilir.
+  // Bu yüzden her ikisini de "finite" olarak zorlayalım.
+  if (
+    m == null ||
+    !Number.isFinite(m) ||
+    !Number.isFinite(opts.postRatio) ||
+    best.price > m * opts.postRatio
+  ) {
     return null;
   }
   const strike = deal.averagePrice ?? Math.round((m ?? best.price) * STRIKE_RATIO);
