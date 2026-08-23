@@ -1,4 +1,4 @@
-import { dealDestCode, familyLastDealFoundAt } from "@/lib/deal-display";
+import { dealDestCode } from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
@@ -14,12 +14,9 @@ export { familyLastDealFoundAt } from "@/lib/deal-display";
 
 export function sortByFoundAt(deals: Deal[]) {
   return [...deals].sort((a, b) => {
-    const fb = familyLastDealFoundAt(b);
-    const fa = familyLastDealFoundAt(a);
+    const fb = b.foundAt ?? "";
+    const fa = a.foundAt ?? "";
     if (fb !== fa) return fb.localeCompare(fa);
-    const hb = b.foundAt ?? "";
-    const ha = a.foundAt ?? "";
-    if (hb !== ha) return hb.localeCompare(ha);
     return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
   });
 }

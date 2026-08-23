@@ -10,6 +10,7 @@ import {
   isUnverifiedOneWaySum,
   dealOutOrigin,
   foldOneCardPerCity,
+  MAX_DATE_OPTIONS,
 } from "@/lib/deal-display";
 import {
   scrappaCheapestBookingPrice,
@@ -406,9 +407,12 @@ export async function matchDestFromDb(
     verified.push(next);
   }
   if (verified.length === 0) return [];
-  verified.sort((a, b) => a.price - b.price);
+  verified.sort(
+    (a, b) =>
+      (b.foundAt ?? "").localeCompare(a.foundAt ?? "") || a.price - b.price,
+  );
   const hero = verified[0]!;
-  hero.dateOptions = verified.slice(1).map(toDateOption);
+  hero.dateOptions = verified.slice(1, 1 + MAX_DATE_OPTIONS).map(toDateOption);
   return [hero];
 }
 

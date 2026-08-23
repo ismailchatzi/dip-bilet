@@ -23,6 +23,7 @@ import {
   formatDealMoney,
   isOldShowcaseDeal,
   isOldDateOption,
+  isCheaperFreshDateOption,
   kiwiAffiliateUrl,
   aviasalesAffiliateUrl,
   tripcomUrl,
@@ -71,6 +72,7 @@ export function DealDetail({
   const tripUrl = od && rd ? tripcomUrl(out, dealDestCode(view), od, rd) : undefined;
   const oldDeal = isOldShowcaseDeal(deal);
   const altRows = useMemo(() => {
+    const heroPrice = deal.price;
     const fromChoices = choices
       .filter((c) => `${c.outboundDate}|${c.returnDate}` !== pickedKey)
       .map((c) => ({
@@ -80,6 +82,7 @@ export function DealDetail({
         href: null as string | null,
         choice: c,
         old: isOldDateOption(c.foundAt),
+        cheap: isCheaperFreshDateOption(c.price, heroPrice, c.foundAt),
       }));
     if (fromChoices.length > 0) return fromChoices;
     return cityAlts.map((d) => ({
@@ -89,6 +92,7 @@ export function DealDetail({
       href: dealHref(d),
       choice: null,
       old: isOldDateOption(d.foundAt),
+      cheap: isCheaperFreshDateOption(d.price, heroPrice, d.foundAt),
     }));
   }, [choices, cityAlts, deal, pickedKey]);
 
@@ -304,7 +308,9 @@ export function DealDetail({
                         <em className="deal-alts__old">Eski fırsat</em>
                       ) : null}
                     </span>
-                    <strong>{row.price}</strong>
+                    <strong className={row.cheap ? "deal-alts__cheap" : undefined}>
+                      {row.price}
+                    </strong>
                   </Link>
                 ) : (
                   <button
@@ -322,7 +328,9 @@ export function DealDetail({
                         <em className="deal-alts__old">Eski fırsat</em>
                       ) : null}
                     </span>
-                    <strong>{row.price}</strong>
+                    <strong className={row.cheap ? "deal-alts__cheap" : undefined}>
+                      {row.price}
+                    </strong>
                   </button>
                 )}
               </li>

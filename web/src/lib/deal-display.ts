@@ -109,7 +109,7 @@ export function familyLastDealFoundAt(deal: Deal): string {
 }
 
 export function dealFoundLabel(deal: Deal) {
-  const day = formatFoundDate(familyLastDealFoundAt(deal));
+  const day = formatFoundDate(deal.foundAt);
   return day ? `${day}’da yakalandı` : null;
 }
 
@@ -127,16 +127,29 @@ export function dealFoundDateTr(foundAt?: string) {
  * → nightsBetween >= 3.
  */
 export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
-  const day = dealFoundDateTr(familyLastDealFoundAt(deal));
+  const day = dealFoundDateTr(deal.foundAt);
   if (!day) return false;
   return nightsBetween(day, today) >= 3;
 }
 
-/** Diğer tarihler satırı: aynı takvim kuralı (21 → 18 ve öncesi). */
+/** Diğer tarihler: yakalanalı ≥2 takvim günü → eski fırsat. */
 export function isOldDateOption(foundAt?: string, today = turkeyTodayIso()) {
   const day = dealFoundDateTr(foundAt);
   if (!day) return false;
-  return nightsBetween(day, today) >= 3;
+  return nightsBetween(day, today) >= 2;
+}
+
+/** Diğer tarihlerde hero’dan ucuz ve taze seçenek vurgusu. */
+export function isCheaperFreshDateOption(
+  optPrice: number,
+  heroPrice: number,
+  foundAt?: string,
+  today = turkeyTodayIso(),
+) {
+  return (
+    !isOldDateOption(foundAt, today) &&
+    displayDealPrice(optPrice) < displayDealPrice(heroPrice)
+  );
 }
 
 function showcaseParts(deal: Deal) {
@@ -609,19 +622,21 @@ function applyDateOption(template: Deal, opt: DealDateOption): Deal {
   };
 }
 
+function compareFoundAtDesc(a?: string, b?: string) {
+  return (b ?? "").localeCompare(a ?? "");
+}
+
 function capDateOptions(opts: DealDateOption[]): DealDateOption[] {
   if (opts.length <= MAX_DATE_OPTIONS) return opts;
   return [...opts]
-    .sort((a, b) => {
-      const fa = a.foundAt ?? "";
-      const fb = b.foundAt ?? "";
-      if (fa !== fb) return fb.localeCompare(fa);
-      return a.price - b.price;
-    })
+    .sort(
+      (a, b) =>
+        compareFoundAtDesc(a.foundAt, b.foundAt) || a.price - b.price,
+    )
     .slice(0, MAX_DATE_OPTIONS);
 }
 
-/** Şehir başına 1 kart (en ucuz). Diğer eşiğe uyan tarihler max 3, en yeni kalsın. */
+/** Şehir başına 1 kart: vitrin = en güncel fırsat; diğerleri max 3. */
 export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   const byCity = new Map<string, Deal[]>();
   for (const deal of deals) {
@@ -644,18 +659,13 @@ export function foldOneCardPerCity(deals: Deal[]): Deal[] {
     }
     const unique = [...best.values()].sort(
       (a, b) =>
-        a.opt.price - b.opt.price ||
-        (a.opt.foundAt ?? "").localeCompare(b.opt.foundAt ?? ""),
+        compareFoundAtDesc(a.opt.foundAt, b.opt.foundAt) ||
+        a.opt.price - b.opt.price,
     );
     const head = unique[0];
     if (!head) continue;
     const hero = applyDateOption(head.template, head.opt);
-    hero.dateOptions = capDateOptions(unique.slice(1).map((x) => x.opt)).map(
-      (o) => ({
-        ...o,
-        foundAt: o.foundAt || head.opt.foundAt || hero.foundAt,
-      }),
-    );
+    hero.dateOptions = capDateOptions(unique.slice(1).map((x) => x.opt));
     heroes.push(hero);
   }
   return heroes;

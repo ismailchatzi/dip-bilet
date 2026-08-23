@@ -3331,6 +3331,13 @@ a {
   color: #888;
 }
 
+.deal-alts__cheap {
+  color: #15803d;
+  background: #ecfdf3;
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.45rem;
+}
+
 .deal-alts__pick {
   display: flex;
   justify-content: space-between;
