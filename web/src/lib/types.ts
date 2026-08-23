@@ -14,9 +14,9 @@ export type Deal = {
   destination: string;
   country?: string;
   price: number;
-  /** Kartta üstü çizili fiyat (medyan × 1.10) */
+  /** Kartta üstü çizili referans */
   averagePrice?: number;
-  /** Detay: Fiyat Eşiği (medyan × 0.90) */
+  /** Detay: Fiyat Eşiği = gerçek kapı (snapshot) */
   thresholdPrice?: number;
   discountPercent?: number;
   currency: string;
@@ -27,6 +27,12 @@ export type Deal = {
   googleFlightsUrl?: string;
   departureLabel: string;
   foundAt?: string;
+  /** Canlı paket doğrulama zamanı */
+  verifiedAt?: string;
+  /** Son kontrol */
+  lastCheckedAt?: string;
+  /** MUTLAK_FIRSAT | SEZONLUK_DIP */
+  dealBadge?: "MUTLAK_FIRSAT" | "SEZONLUK_DIP";
   /** Google Deals / harici: şehir görseli */
   photoUrl?: string;
   /** Google: yolcu sorumluluğunda aktarma (ayrı bilet) */

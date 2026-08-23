@@ -10,7 +10,8 @@ export const ARCHIVE_KEEP_DAYS = 60;
 /** Anasayfada gösterilecek kart tavanı. */
 export const ARCHIVE_SHOW_MAX = 12;
 
-function latestDealActivityAt(deal: Deal): string {
+/** Kart ailesinin son fırsat yakalanma zamanı (hero + diğer tarihler). lastChecked değil. */
+export function familyLastDealFoundAt(deal: Deal): string {
   let latest = deal.foundAt ?? "";
   for (const opt of deal.dateOptions ?? []) {
     const t = opt.foundAt ?? "";
@@ -21,8 +22,8 @@ function latestDealActivityAt(deal: Deal): string {
 
 export function sortByFoundAt(deals: Deal[]) {
   return [...deals].sort((a, b) => {
-    const fb = latestDealActivityAt(b);
-    const fa = latestDealActivityAt(a);
+    const fb = familyLastDealFoundAt(b);
+    const fa = familyLastDealFoundAt(a);
     if (fb !== fa) return fb.localeCompare(fa);
     return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
   });

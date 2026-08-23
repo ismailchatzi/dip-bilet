@@ -50,7 +50,7 @@ export function OnboardingDestinations({
       {
         id: user.id,
         email: user.email ?? "",
-        destination_codes: selected,
+        destination_codes: selected.map((c) => c.trim().toUpperCase()),
         onboarding_step: 2,
         updated_at: new Date().toISOString(),
       },

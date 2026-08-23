@@ -41,11 +41,12 @@ export async function saveScrappaJob(
 export async function enqueueScrappaWindow(
   admin: SupabaseClient,
   window: ScrappaWindow,
+  opts?: { force?: boolean },
 ) {
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
   const now = new Date().toISOString();
-  if (current?.halted) {
+  if (current?.halted && !opts?.force) {
     return saveScrappaJob(admin, {
       ...current,
       status: "idle",
@@ -56,7 +57,7 @@ export async function enqueueScrappaWindow(
     });
   }
 
-  if (current?.status === "running") {
+  if (current?.status === "running" && !current.halted) {
     const startedDay = (current.startedAt ?? "").slice(0, 10);
     const today = new Date(Date.now() + 3 * 60 * 60 * 1000)
       .toISOString()
@@ -83,6 +84,7 @@ export async function enqueueScrappaWindow(
     saved: 0,
     lastError: undefined,
     pausedUntil: undefined,
+    halted: false,
   });
 }
 

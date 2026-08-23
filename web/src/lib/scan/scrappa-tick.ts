@@ -96,11 +96,16 @@ function applyBatch(
   };
 }
 
-export async function startScrappaWindow(window: ScrappaWindow) {
+export async function startScrappaWindow(
+  window: ScrappaWindow,
+  opts?: { force?: boolean },
+) {
   const admin = createAdminClient();
   if (!admin) return { ok: false, error: "Supabase yok" };
-  if (SCANS_HALTED) return { ok: false, halted: true, error: "taramalar askıda" };
-  await enqueueScrappaWindow(admin, window);
+  if (SCANS_HALTED && !opts?.force) {
+    return { ok: false, halted: true, error: "taramalar askıda" };
+  }
+  await enqueueScrappaWindow(admin, window, { force: opts?.force === true });
   return { ok: true, window };
 }
 

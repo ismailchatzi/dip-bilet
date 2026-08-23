@@ -1,4 +1,5 @@
 import type { Deal, DealDateOption } from "@/lib/types";
+import { destPhotoCode } from "@/lib/destination-photos";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import {
   maxStopsForDest,
@@ -112,8 +113,8 @@ export function dealFoundDateTr(foundAt?: string) {
 }
 
 /**
- * Eski fırsat damgası: yakalanma, bugünden en az 3 gün önce.
- * Örn. 18’inde 17 ve 16 damgasız; 15 ve eskisi damgalı.
+ * Eski fırsat damgası (takvim günü): bugün 21 ise 18 ve öncesi damgalı
+ * → nightsBetween >= 3.
  */
 export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
   const day = dealFoundDateTr(deal.foundAt);
@@ -121,11 +122,11 @@ export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
   return nightsBetween(day, today) >= 3;
 }
 
-/** Diğer tarihler satırı: yakalanma 2 gün veya daha eski. */
+/** Diğer tarihler satırı: aynı takvim kuralı (21 → 18 ve öncesi). */
 export function isOldDateOption(foundAt?: string, today = turkeyTodayIso()) {
   const day = dealFoundDateTr(foundAt);
   if (!day) return false;
-  return nightsBetween(day, today) >= 2;
+  return nightsBetween(day, today) >= 3;
 }
 
 function showcaseParts(deal: Deal) {
@@ -147,11 +148,27 @@ export function canonicalDestCode(code: string) {
   return findTrackedDestination(u)?.code ?? u;
 }
 
+/**
+ * Profil / kart / isim → tek IATA (VIE, CDG…).
+ * "Viyana", "vienna", "VIE", "Viyana (VIE)" aynı kapıya düşer.
+ */
+export function normalizeDestinationCode(input: string) {
+  const raw = input.trim();
+  if (!raw) return "";
+  const fromPhoto = destPhotoCode(raw);
+  if (fromPhoto) return canonicalDestCode(fromPhoto);
+  const m = raw.match(/\b([A-Za-z]{3})\b/);
+  if (m) return canonicalDestCode(m[1]!);
+  return canonicalDestCode(raw);
+}
+
 export function dealCityKey(deal: Deal) {
   const code = dealDestCode(deal);
   if (code && findTrackedDestination(code)) {
     return canonicalDestCode(code);
   }
+  const fromName = destPhotoCode(dealCityName(deal));
+  if (fromName) return canonicalDestCode(fromName);
   // Takip edilmeyen havalimanlarında (örn. Londra: LHR/STN) aynı şehri tek kabul et.
   return dealCityName(deal);
 }
@@ -623,7 +640,12 @@ export function foldOneCardPerCity(deals: Deal[]): Deal[] {
     const head = unique[0];
     if (!head) continue;
     const hero = applyDateOption(head.template, head.opt);
-    hero.dateOptions = capDateOptions(unique.slice(1).map((x) => x.opt));
+    hero.dateOptions = capDateOptions(unique.slice(1).map((x) => x.opt)).map(
+      (o) => ({
+        ...o,
+        foundAt: o.foundAt || head.opt.foundAt || hero.foundAt,
+      }),
+    );
     heroes.push(hero);
   }
   return heroes;
@@ -737,8 +759,8 @@ export function dealMatchesOrigins(deal: Deal, origins: string[]) {
 
 export function dealMatchesDests(deal: Deal, dests: string[]) {
   if (dests.length === 0) return true;
-  const city = dealCityKey(deal);
-  return dests.some((code) => canonicalDestCode(code) === city);
+  const city = normalizeDestinationCode(dealCityKey(deal));
+  return dests.some((code) => normalizeDestinationCode(code) === city);
 }
 
 const TURKEY_IATA = new Set([

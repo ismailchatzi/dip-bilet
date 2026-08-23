@@ -42,11 +42,9 @@ export async function readScanBoard(
 }
 
 function newerScrappaJob(a?: ScrappaJob | null, b?: ScrappaJob | null) {
-  if (a?.halted && !b?.halted) return a;
-  if (b?.halted && !a?.halted) return b;
   if (!a) return b ?? undefined;
   if (!b) return a;
-  // Daha yeni nabız kazanır (idle, bitmiş işi stale running üzerine yazabilsin).
+  // Askı bayrağı tek başına “daha yeni” sayılmaz; nabız kazanır.
   return Date.parse(a.heartbeatAt) >= Date.parse(b.heartbeatAt) ? a : b;
 }
 

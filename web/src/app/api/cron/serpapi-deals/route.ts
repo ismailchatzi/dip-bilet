@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { GOOGLE_DEALS_HALTED } from "@/lib/scan/halt";
 import { runSerpapiDealsScan } from "@/lib/scan/serpapi-deals-runner";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -17,6 +18,18 @@ function isAuthorized(request: Request) {
 
 export async function POST(request: Request) {
   if (!isAuthorized(request)) return unauthorized();
+  if (GOOGLE_DEALS_HALTED) {
+    return NextResponse.json({
+      ok: true,
+      halted: true,
+      fetched: 0,
+      matched: 0,
+      added: 0,
+      skippedDup: 0,
+      skippedGate: 0,
+      error: "google deals askıda",
+    });
+  }
   const admin = createAdminClient();
   const result = await runSerpapiDealsScan(admin);
   return NextResponse.json(result);

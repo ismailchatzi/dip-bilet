@@ -1,18 +1,20 @@
 import type { Deal } from "@/lib/types";
 import { dealDestCode } from "@/lib/deal-display";
-import { postRatioForOutbound } from "@/lib/scan/trip-rules";
+import { hardFloorUsd } from "@/lib/scan/showcase-config";
 
-const THRESHOLD_RATIO = 0.9;
-
-/** Scrappa: paket o ay medyanının kapı oranının altında mı? Taban kartlar hayır. */
+/**
+ * Scrappa kartı hâlâ kapıya uyuyor mu?
+ * Eşik snapshot’ı thresholdPrice; yoksa hard floor.
+ */
 export function passesScrappaDipGate(deal: Deal) {
   if (!deal.id.startsWith("scrappa:")) return true;
-  const threshold = deal.thresholdPrice;
-  if (typeof threshold !== "number" || threshold <= 0) return true;
-  const m = threshold / THRESHOLD_RATIO;
-  const out = deal.outboundDate;
-  if (!out) return true;
-  return deal.price <= m * postRatioForOutbound(out, dealDestCode(deal));
+  const code = dealDestCode(deal);
+  const floor = hardFloorUsd(code);
+  if (typeof deal.thresholdPrice === "number" && deal.thresholdPrice > 0) {
+    return deal.price <= deal.thresholdPrice;
+  }
+  if (floor != null) return deal.price <= floor;
+  return true;
 }
 
 export function dropFailedScrappaDips(deals: Deal[]) {

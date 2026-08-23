@@ -3,17 +3,11 @@ import { foldOneCardPerCity } from "@/lib/deal-display";
 import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
-import {
-  passesGoogleDealGates,
-  scrappaCityPackageMedian,
-} from "@/lib/scan/google-deals-gates";
+import { passesGoogleDealGates } from "@/lib/scan/google-deals-gates";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import { maxStopsForDest, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-const STRIKE_RATIO = 1.1;
-const THRESHOLD_RATIO = 0.9;
 
 export type SerpapiDealsScanResult = {
   ok: boolean;
@@ -35,8 +29,6 @@ function destFromHit(hit: {
   const tracked = findTrackedDestination(arrival);
   if (tracked) return { code: tracked.code, name: tracked.name };
 
-  // Takip edilmeyen havalimanlarında bile (örn. LHR/STN) kart üretmeye devam et.
-  // Tekilleştirme/vitrin birleştirme `dealCityKey` üzerinden yapılıyor.
   const raw = String(hit.name ?? "")
     .replace(/\s*\([A-Z]{3}\)\s*$/, "")
     .trim();
@@ -44,7 +36,6 @@ function destFromHit(hit: {
 }
 
 function departureLabel(origin: string) {
-  if (origin === "SAW" || origin === "IST") return `İstanbul (${origin})`;
   return `İstanbul (${origin})`;
 }
 
@@ -63,16 +54,14 @@ function toShowcaseDeal(
   },
   dest: { code: string; name: string },
   foundAt: string,
+  gate: { badge?: string; uiThreshold?: number; strikePrice?: number },
 ): Deal {
-  const strike = hit.average
-    ? Math.round(hit.average * STRIKE_RATIO)
-    : undefined;
-  const threshold = hit.average
-    ? Math.round(hit.average * THRESHOLD_RATIO)
-    : undefined;
-  const displayOff = strike
-    ? Math.round(((strike - hit.price) / strike) * 100)
-    : hit.discount;
+  const strike = gate.strikePrice;
+  const threshold = gate.uiThreshold;
+  const displayOff =
+    strike != null
+      ? Math.round(((strike - hit.price) / strike) * 100)
+      : hit.discount;
 
   return {
     id: `gdeals:${dest.code}:${hit.origin}:${hit.outDate}:${hit.origin}:${hit.retDate}`,
@@ -93,6 +82,12 @@ function toShowcaseDeal(
     googleFlightsUrl: hit.link,
     departureLabel: departureLabel(hit.origin),
     foundAt,
+    dealBadge:
+      gate.badge === "MUTLAK_FIRSAT" || gate.badge === "SEZONLUK_DIP"
+        ? gate.badge
+        : undefined,
+    verifiedAt: foundAt,
+    lastCheckedAt: foundAt,
   };
 }
 
@@ -109,7 +104,8 @@ function googleAvgFromDeal(deal: Deal) {
   if (typeof deal.averagePrice !== "number" || deal.averagePrice <= 0) {
     return undefined;
   }
-  return deal.averagePrice / STRIKE_RATIO;
+  // strike ≈ avg × 1.1 → avg ≈ strike / 1.1
+  return deal.averagePrice / 1.1;
 }
 
 function destCodeFromDeal(deal: Deal) {
@@ -138,19 +134,8 @@ export async function runSerpapiDealsScan(
   }
 
   const foundAt = new Date().toISOString();
-  const medianCache = new Map<string, number | null>();
   const matched: Deal[] = [];
   let skippedGate = 0;
-
-  async function medianFor(destCode: string, outDate: string) {
-    if (!admin) return null;
-    const season = outDate.slice(0, 7);
-    const key = `${destCode}|${season}`;
-    if (medianCache.has(key)) return medianCache.get(key) ?? null;
-    const m = await scrappaCityPackageMedian(admin, destCode, season);
-    medianCache.set(key, m);
-    return m;
-  }
 
   for (const hit of fetched.deals) {
     const dest = destFromHit(hit);
@@ -169,13 +154,11 @@ export async function runSerpapiDealsScan(
     }
 
     const average = Number(hit.average_price) || undefined;
-    const scrappaM = await medianFor(dest.code, outDate);
     const gate = passesGoogleDealGates({
       price,
       average,
       destCode: dest.code,
       outDate,
-      scrappaM,
     });
     if (!gate.ok) {
       skippedGate += 1;
@@ -199,6 +182,7 @@ export async function runSerpapiDealsScan(
         },
         dest,
         foundAt,
+        gate,
       ),
     );
   }
@@ -220,7 +204,6 @@ export async function runSerpapiDealsScan(
     isLiveDeal(d, today),
   );
 
-  // Eski Google kartlarını da aynı kapıdan geçir (saçma $1988 vb. temizlensin).
   const keptExisting: Deal[] = [];
   for (const deal of existingLive) {
     if (!isGoogleDeal(deal)) {
@@ -238,7 +221,6 @@ export async function runSerpapiDealsScan(
       average: googleAvgFromDeal(deal),
       destCode: code,
       outDate,
-      scrappaM: await medianFor(code, outDate),
     });
     if (!gate.ok) {
       skippedGate += 1;
@@ -256,8 +238,15 @@ export async function runSerpapiDealsScan(
     const prev = byTrip.get(key);
     if (prev) {
       skippedDup += 1;
+      const cheaper = deal.price < prev.price;
       byTrip.set(key, {
         ...prev,
+        price: cheaper ? deal.price : prev.price,
+        averagePrice: cheaper ? deal.averagePrice : prev.averagePrice,
+        thresholdPrice: cheaper ? deal.thresholdPrice : prev.thresholdPrice,
+        discountPercent: cheaper ? deal.discountPercent : prev.discountPercent,
+        dealBadge: cheaper ? deal.dealBadge : prev.dealBadge,
+        lastCheckedAt: foundAt,
         photoUrl: prev.photoUrl || deal.photoUrl,
         airline: prev.airline || deal.airline,
         stops: typeof prev.stops === "number" ? prev.stops : deal.stops,

@@ -1,9 +1,4 @@
 const LONG_HAUL = new Set(["DPS", "HKT", "MLE"]);
-const NEAR_DAYS = 21;
-const POST_NEAR = 0.7;
-const POST_FAR = 0.75;
-const LONG_HAUL_NEAR = 0.9;
-const LONG_HAUL_FAR = 0.95;
 
 export function isLongHaulDest(code: string) {
   return LONG_HAUL.has(code.toUpperCase());
@@ -40,20 +35,3 @@ export function addDaysIso(iso: string, days: number) {
   if (!Number.isFinite(t)) return iso;
   return new Date(t + days * 86_400_000).toISOString().slice(0, 10);
 }
-
-/**
- * Vitrin kapısı. Avrupa: yakın %30 (0.70) / uzak %25 (0.75).
- * Uzak doğu (DPS/HKT/MLE): yakın %10 (0.90) / uzak %5 (0.95).
- */
-export function postRatioForOutbound(
-  outDate: string,
-  destCode = "",
-  today = turkeyTodayIso(),
-) {
-  const near = outDate <= addDaysIso(today, NEAR_DAYS);
-  if (isLongHaulDest(destCode)) {
-    return near ? LONG_HAUL_NEAR : LONG_HAUL_FAR;
-  }
-  return near ? POST_NEAR : POST_FAR;
-}
-

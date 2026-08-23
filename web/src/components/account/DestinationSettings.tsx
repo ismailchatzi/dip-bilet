@@ -55,7 +55,7 @@ export function DestinationSettings({
       {
         id: user.id,
         email: user.email ?? "",
-        destination_codes: selected,
+        destination_codes: selected.map((c) => c.trim().toUpperCase()),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },

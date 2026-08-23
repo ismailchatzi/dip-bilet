@@ -7,64 +7,38 @@ alwaysApply: true
 
 Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda ekle.
 
+## Ürün
+Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW → 21 varış.
+
 ## Tarama
-- Tek yön IST + SAW, gidiş + dönüş ayrı; 21 varış (en işlek havalimanı).
-- Eşleştirerek gidiş-dönüş fırsat üret. Yayınlanan fırsatı zam diye kaldırma.
+- Tek yön IST + SAW, gidiş + dönüş ayrı; DB’de sentetik gidiş-dönüş matrisi; vitrine yalnız **canlı paket doğrulama** geçenler.
 - **Gün 1–4:** tarama yok
-- **Gün 5–21 (17 gün):** **07:00, 15:00, 22:00** (TR) — 15:00, full’ün 14:00’a yetişmemesi için
-- **Kalan 6 ay:** sadece **07:00**
-- Cron: `scrappa-0700/1500/2200-background` (UTC 04 / 12 / 19) işi kuyruğa alır; `scrappa-tick` her 5 dk kaldığı yerden 4 paket (~240 istek) yapar. Defter `scan_board.deals.scrappaJob`. VPS crontab: `0 7,15,22 * * *` Europe/Istanbul (`full` yalnız 07, `near` 15+22).
-- Scrappa’da 1M **inactive** ise harcama 33K’dan düşer; paketi aktif et
-- `sort_by=cheapest`. Kota: gidiş+dönüş ≈ **17.900/gün → ~537K/ay**
-- Vitrin aktarma: Avrupa vb. **en fazla 1**; Bali / Phuket / Maldivler **en fazla 2**. Yolcu sorumluluğunda aktarma gösterilir, etiketlenir.
+- **Near gün 5–21:** 07 / 15 / 22 TR (günde 3)
+- **Full gün 22–180:** yalnız 07 TR (near dilimini tekrarlamaz)
+- Cron / VPS: `start full` 07, `start near` 15+22; `scrappa-tick` 5 dk.
+- `sort_by=cheapest`. Kota ~1M/ay Scrappa.
+- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE en fazla 2.
 
-## Ucuz 4 gün ≠ gönderi
-Ayın en ucuz 4 günü sadece sıralama (rapor). 1$ fark bile 4. gün olabilir; vitrine girmez.
+## Vitrin kapıları (showcase-config + showcase-eligibility)
+`benchmark_mode = synthetic_rt_candidate` (ileride `verified_rt`).
 
-## Hafıza
-Her tek yön sonuç `price_observations` (ve ileride origin/direction) kaydı. 1 yıl sonra: rota medyanı, dip, sezon. Silme.
+1. **MUTLAK_FIRSAT:** paket ≤ hard floor (manual_initial v1, rota başına USD). Sezon/medyan yok.
+2. **SEZONLUK_DIP:** yalnız örneklem yeterliyse: sentetik RT aday sayısı ≥ N (uzak 30 / diğer 50) **ve** farklı gidiş günü ≥ (uzak 7 / diğer 10); paket ≤ ay medyanı × gate.
+   - Gate: Balkan/vizesiz 0.70 · Schengen/Avrupa 0.75 · Uzak 0.82
+3. Çakışmada MUTLAK ezer SEZONLUK.
+4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10.
+5. Kart uçuş gününe kadar kalır; 12 saat otomatik silme yok. `verifiedAt` / `lastCheckedAt` tutulur.
+6. Dedup: şehir başına 1 kart; aynı tarih ucuzsa güncelle; pahalı ama geçerli → diğer tarihler (≤3).
 
-## Ortalama — ilk gün (1 yıl bekleme)
-İlk 6 ay taraması bitince o anki fiyatların **ortası (medyan)** = eşik.
-Örn. Roma 180 günün 150’si ~118$ → normal 118$; 83$ fırsat.
-1 yıl = geçen Ekim vs bu Ekim, tüm zamanların dibi. İlk gönderi için şart değil.
+## Hard floor v1 (GD toplam USD)
+TIA 110, SJJ 120, SKP 115, BEG 135, TBS 110, GYD 140, SSH 160, ATH 110, BUD 135, VIE 145, PRG 150, FCO 150, VCE 145, MUC 155, BER 140, CDG 170, MAD 165, BCN 160, HKT 580, MLE 620, DPS 680.
 
-## Fiyat / eşik / vitrin
-İstanbul = IST + SAW tek şehir. Kullanıcı havalimanı seçmez.
-Aynı tarih çifti için 4 kombinasyonun **en ucuzu** (IST/SAW gidiş × IST/SAW dönüş, karışık serbest).
+## Google Deals (SerpAPI)
+Aynı kalite: hard floor **veya** Google avg × 0.75. Ayrı “direkt bas” yok.
 
-`M` = o ay **şehir** medyanı: her gün gidiş = min(IST→şehir, SAW→şehir), dönüş = min(şehir→IST, şehir→SAW).
-Tek yön dönüş şişer; dönüş medyanı en fazla gidiş medyanı × 1.15.
-Sonra gidiş medyan + (tavanlı) dönüş medyan.
-
-Aday tarihler tek yön toplamından çıkar. Vitrine **gidiş-dönüş paket** fiyatı basılır (`/round-trip`, `sort_by=cheapest`). Tek yön IST+SAW toplamı kart olmaz. Kazanan pakette +1 kredi: `/booking-details` yalnız **aynı uçuşun** satıcı toplamı (Google En ucuz: 95→91). Insights/dip/tek yön rakamı yok; listeye göre %15’ten fazla inmez. Bileti incele = **Kiwi Travelpayouts** deep link (`NEXT_PUBLIC_TRAVELPAYOUTS_MARKER`); Google’a gitmez. Kart altı kod: `D` Google / `S` Scrappa + 4 harf + **eklenme saati HHMM TR** (örn. `S…0235`).
-
-- **3 hafta (gidiş ≤ 21 gün):** paket ≤ `M × 0.70` (%30 altı). **Uzak doğu (DPS/HKT/MLE):** ≤ `M × 0.90` (%10 altı)
-- **6 ay (daha uzak):** paket ≤ `M × 0.75` (%25 altı). **Uzak doğu:** ≤ `M × 0.95` (%5 altı)
-- **Kartta üstü çizili:** `M × 1.10`
-- **Detay “Fiyat Eşiği”:** `M × 0.90`
-- Şehir başına **1 dip kart** (en ucuz). Kapıdan geçen yoksa o şehir boş. Taban kart yok.
-- Medyan **o ayın** medyanı; Ekim’i Ocak’la eleyerek düşürme.
-- Daha pahalı ama eşiğe uyan tarihler kart detayında **Diğer tarihler** (en fazla 3; dolunca en eski eklenen çıkar). Daha ucuz bulunursa kahraman değişir, eski kahraman diğer tarihlere iner.
-- Diğer tarihlerde yakalanma **2 gün veya daha eskiyse** satırda “Eski fırsat”; tıklanır.
-- Google: gerçekten altı (avg ≥ %20 + varsa M kapısı: Avrupa 0.70/0.75, uzak doğu 0.90/0.95); kapıdan geçmeyen `gdeals:` düşer.
-
-Örn. M=150, bilet=113 (%25 altı → 6 ay gönderi)
-Kart: ~~165~~ **113**
-Detay Fiyat Eşiği: **135**
-
-## Google Deals (SerpAPI, 250/ay)
-- Günde 8 tarama (TR): 01, 03, 07, 12, 14, 17, 19, 22. `IST,SAW` tek istek Google’dan boş; taramalar IST / SAW nöbetleşe. `trip_length=4,10` yoksa kart gelmiyor.
-- Vitrine girmek için **üç kapı**: (1) Google `average_price` zorunlu + fiyat ortalama ≥ **%20** altı; (2) tavan USD: Avrupa/yakın **450**, DPS/HKT/MLE **800**; (3) Scrappa şehir medyanı `M` varsa paket ≤ M kapısı (Avrupa 0.70/0.75, uzak doğu 0.90/0.95). Kapıdan geçmeyen yeni ve eski `gdeals:` kartları düşer.
-- Google’ın döndürdüğü tüm ham sonuçlar değil, kapıyı geçenler vitrine girer (21 ile sınırlama yok). Görsel: `thumbnail` → `photoUrl`; yerel foto varsa o öncelikli.
-- Bildirim yalnız kullanıcının hedef destinasyonlarındaki şehirler için. Yeni tarih çifti (kartın kendisi veya Diğer tarihler) veya aynı tarihlerin daha ucuzu → e-posta. Telefon doğrulanmışsa SMS de gider.
-- Kart tarzı aynı (üstü çizili = Google avg × 1.10, Fiyat Eşiği = avg × 0.90).
-- Aynı rota (şehir + gidiş tarihi + dönüş tarihi) vitrinde varsa tekrar koyma; eksik görsel/havayolu doldurulabilir.
-- Scrappa vitrini güncellerken `gdeals:` kartlarını silme (kapı temizliği Deals taramasında).
-- `serpapi_flight_link` kullanma (ayrı hak). Google `flight_link` yeter.
+## Halt
+`web/src/lib/scan/halt.ts` — SCRAPPA_HALTED / GOOGLE_DEALS_HALTED. Strateji oturana kadar true olabilir.
 
 ## Eski kart / anasayfa
-- Canlı vitrin: uçuş günü gelene kadar durur (fiyat artsa da kalkmaz; yakalanma tarihi kartta).
-- Anasayfa “Son yakalanan fırsatlar”: uçuş gününden **ertesi gün**. En yüksek indirim oranları, en iyi ~12 kart.
-- Arşiv 60 gün tutulur. Gerçek kart yoksa örnekler kalır.
-- Arşiv kartında bilet linki yok; CTA üye ol.
+- Canlı vitrin uçuş gününe kadar.
+- Anasayfa arşiv: uçuş ertesi gün, ~12 kart, 60 gün.
