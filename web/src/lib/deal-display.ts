@@ -98,8 +98,18 @@ export function formatFoundDate(iso?: string) {
   return formatDealDateShort(tr);
 }
 
+/** Kart ailesinin son aktivitesi (hero + diğer tarihler). Sıralama ve etiket buradan. */
+export function familyLastDealFoundAt(deal: Deal): string {
+  let latest = deal.foundAt ?? "";
+  for (const opt of deal.dateOptions ?? []) {
+    const t = opt.foundAt ?? "";
+    if (t && t.localeCompare(latest) > 0) latest = t;
+  }
+  return latest;
+}
+
 export function dealFoundLabel(deal: Deal) {
-  const day = formatFoundDate(deal.foundAt);
+  const day = formatFoundDate(familyLastDealFoundAt(deal));
   return day ? `${day}’da yakalandı` : null;
 }
 
@@ -117,7 +127,7 @@ export function dealFoundDateTr(foundAt?: string) {
  * → nightsBetween >= 3.
  */
 export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
-  const day = dealFoundDateTr(deal.foundAt);
+  const day = dealFoundDateTr(familyLastDealFoundAt(deal));
   if (!day) return false;
   return nightsBetween(day, today) >= 3;
 }

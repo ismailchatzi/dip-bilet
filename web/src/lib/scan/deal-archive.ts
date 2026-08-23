@@ -1,4 +1,4 @@
-import { dealDestCode } from "@/lib/deal-display";
+import { dealDestCode, familyLastDealFoundAt } from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
@@ -10,21 +10,16 @@ export const ARCHIVE_KEEP_DAYS = 60;
 /** Anasayfada gösterilecek kart tavanı. */
 export const ARCHIVE_SHOW_MAX = 12;
 
-/** Kart ailesinin son fırsat yakalanma zamanı (hero + diğer tarihler). lastChecked değil. */
-export function familyLastDealFoundAt(deal: Deal): string {
-  let latest = deal.foundAt ?? "";
-  for (const opt of deal.dateOptions ?? []) {
-    const t = opt.foundAt ?? "";
-    if (t && t.localeCompare(latest) > 0) latest = t;
-  }
-  return latest;
-}
+export { familyLastDealFoundAt } from "@/lib/deal-display";
 
 export function sortByFoundAt(deals: Deal[]) {
   return [...deals].sort((a, b) => {
     const fb = familyLastDealFoundAt(b);
     const fa = familyLastDealFoundAt(a);
     if (fb !== fa) return fb.localeCompare(fa);
+    const hb = b.foundAt ?? "";
+    const ha = a.foundAt ?? "";
+    if (hb !== ha) return hb.localeCompare(ha);
     return (b.discountPercent ?? 0) - (a.discountPercent ?? 0);
   });
 }

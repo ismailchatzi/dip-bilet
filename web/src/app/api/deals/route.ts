@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import { dealWithinStopLimit, isUnverifiedOneWaySum } from "@/lib/deal-display";
+import {
+  dealWithinStopLimit,
+  isUnverifiedOneWaySum,
+  vitrinHeroDeals,
+} from "@/lib/deal-display";
 import { emptyDealsPayload, readScanBoard } from "@/lib/scan/board";
-import { isLiveDeal } from "@/lib/scan/deal-archive";
+import { isLiveDeal, sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +27,13 @@ export async function GET() {
 
   const board = await readScanBoard(supabase);
   const payload = board.deals ?? emptyDealsPayload();
-  const deals = (payload.deals ?? []).filter(
-    (d) =>
-      isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
+  const deals = sortByFoundAt(
+    vitrinHeroDeals(
+      (payload.deals ?? []).filter(
+        (d) =>
+          isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),
+      ),
+    ),
   );
 
   return NextResponse.json({
