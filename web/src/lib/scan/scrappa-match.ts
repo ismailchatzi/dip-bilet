@@ -60,36 +60,45 @@ function departureLabel(outOrigin: string, retDest: string) {
   return `İstanbul (${outOrigin} → ${retDest})`;
 }
 
+/** Supabase/PostgREST varsayılan max ~1000 satır; .limit(8000) yetmez → sayfala. */
+const OBS_PAGE = 1000;
+const OBS_PAGE_CAP = 50;
+
 async function loadObservations(
   admin: SupabaseClient,
   destCode: string,
 ): Promise<Obs[]> {
-  const full = await admin
-    .from("price_observations")
-    .select(
-      "route_key, season_key, price, outbound_date, airline, stops, self_transfer",
-    )
-    .eq("destination_code", destCode)
-    .eq("source", "scrappa_oneway")
-    .not("outbound_date", "is", null)
-    .order("outbound_date", { ascending: true })
-    .limit(8000);
+  const colsFull =
+    "route_key, season_key, price, outbound_date, airline, stops, self_transfer";
+  const colsSlim = "route_key, season_key, price, outbound_date";
+  let cols = colsFull;
+  const raw: Obs[] = [];
 
-  const { data, error } =
-    full.error && /airline|stops|self_transfer|schema cache/i.test(full.error.message)
-      ? await admin
-          .from("price_observations")
-          .select("route_key, season_key, price, outbound_date")
-          .eq("destination_code", destCode)
-          .eq("source", "scrappa_oneway")
-          .not("outbound_date", "is", null)
-          .order("outbound_date", { ascending: true })
-          .limit(8000)
-      : full;
+  for (let page = 0; page < OBS_PAGE_CAP; page++) {
+    const from = page * OBS_PAGE;
+    const to = from + OBS_PAGE - 1;
+    let res = await admin
+      .from("price_observations")
+      .select(cols)
+      .eq("destination_code", destCode)
+      .eq("source", "scrappa_oneway")
+      .not("outbound_date", "is", null)
+      .order("outbound_date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
 
-  if (error || !data) return [];
-  return data
-    .map((r) => {
+    if (
+      res.error &&
+      cols === colsFull &&
+      /airline|stops|self_transfer|schema cache/i.test(res.error.message)
+    ) {
+      cols = colsSlim;
+      page -= 1;
+      continue;
+    }
+    if (res.error || !res.data) break;
+
+    for (const r of res.data) {
       const row = r as {
         route_key: unknown;
         season_key: unknown;
@@ -99,7 +108,7 @@ async function loadObservations(
         stops?: unknown;
         self_transfer?: unknown;
       };
-      return {
+      const obs: Obs = {
         route_key: String(row.route_key),
         season_key: String(row.season_key),
         price: Number(row.price),
@@ -111,14 +120,26 @@ async function loadObservations(
         stops: typeof row.stops === "number" ? row.stops : undefined,
         self_transfer: row.self_transfer === true ? true : undefined,
       };
-    })
-    .filter(
-      (r) =>
-        r.route_key.includes(">") &&
-        Number.isFinite(r.price) &&
-        r.price > 0 &&
-        /^\d{4}-\d{2}-\d{2}$/.test(r.outbound_date),
-    );
+      if (
+        obs.route_key.includes(">") &&
+        Number.isFinite(obs.price) &&
+        obs.price > 0 &&
+        /^\d{4}-\d{2}-\d{2}$/.test(obs.outbound_date)
+      ) {
+        raw.push(obs);
+      }
+    }
+    if (res.data.length < OBS_PAGE) break;
+  }
+
+  // Aynı rota+gün tekrarları (çift drain) → en ucuz kalsın
+  const best = new Map<string, Obs>();
+  for (const o of raw) {
+    const key = `${o.route_key}|${o.outbound_date}`;
+    const prev = best.get(key);
+    if (!prev || o.price < prev.price) best.set(key, o);
+  }
+  return [...best.values()];
 }
 
 type Pair = {
