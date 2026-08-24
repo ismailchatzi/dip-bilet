@@ -1,8 +1,7 @@
 /**
- * true = Scrappa takvimi kapalı (07/15/22 start çalışmaz).
- * Oturum / çift-drain toparlanana kadar: true.
+ * false = Scrappa takvim aktif (dilimli full + near + rematch).
  * Google Deals ayrı.
  */
-export const SCRAPPA_HALTED = true;
+export const SCRAPPA_HALTED = false;
 export const GOOGLE_DEALS_HALTED = false;
 export const SCANS_HALTED = SCRAPPA_HALTED;

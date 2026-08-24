@@ -29,12 +29,13 @@ function applyBatch(
   },
 ): ScrappaJob {
   const now = new Date().toISOString();
+  const destStart = job.destStart ?? 0;
 
   if (batch.hold) {
     const rewind = job.saved === 0;
     return {
       ...job,
-      destIndex: rewind ? 0 : job.destIndex,
+      destIndex: rewind ? destStart : job.destIndex,
       dateIndex: rewind ? 0 : job.dateIndex,
       legIndex: rewind ? 0 : job.legIndex,
       scanned: rewind ? 0 : job.scanned,
@@ -50,7 +51,12 @@ function applyBatch(
   const scanned = job.scanned + batch.scanned;
   const saved = job.saved + batch.saved;
 
-  if (batch.next) {
+  const hitChunkEnd =
+    batch.next != null &&
+    job.destLimit != null &&
+    batch.next.destIndex >= job.destLimit;
+
+  if (batch.next && !hitChunkEnd) {
     return {
       ...job,
       destIndex: batch.next.destIndex,
@@ -81,6 +87,9 @@ function applyBatch(
       saved,
       lastError: undefined,
       pausedUntil: undefined,
+      destStart: 0,
+      destLimit: undefined,
+      chunk: undefined,
     };
   }
 
@@ -98,15 +107,31 @@ function applyBatch(
 
 export async function startScrappaWindow(
   window: ScrappaWindow,
-  opts?: { force?: boolean },
+  opts?: { force?: boolean; chunk?: number },
 ) {
   const admin = createAdminClient();
   if (!admin) return { ok: false, error: "Supabase yok" };
   if (SCANS_HALTED && !opts?.force) {
     return { ok: false, halted: true, error: "taramalar askıda" };
   }
-  await enqueueScrappaWindow(admin, window, { force: opts?.force === true });
-  return { ok: true, window };
+  const enqueued = await enqueueScrappaWindow(admin, window, {
+    force: opts?.force === true,
+    chunk: opts?.chunk,
+  });
+  if (!enqueued.ok) {
+    return {
+      ok: false,
+      error: enqueued.skipped ?? "başlatılamadı",
+      skipped: enqueued.skipped,
+    };
+  }
+  return {
+    ok: true,
+    window,
+    chunk: enqueued.job?.chunk,
+    destStart: enqueued.job?.destStart,
+    destLimit: enqueued.job?.destLimit,
+  };
 }
 
 export async function runScrappaTick(force = false) {

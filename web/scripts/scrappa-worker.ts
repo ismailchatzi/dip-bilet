@@ -1,15 +1,19 @@
 /**
- * Netlify dışı Scrappa taraması. VPS'te (Hetzner CX22 yeter):
- *   cd web && npm i && npx tsx scripts/scrappa-worker.ts start near
- * Saatler (Europe/Istanbul): 07:00 start full | 15:00 ve 22:00 start near
- * Crontab örneği (TZ=Europe/Istanbul):
- *   0 7 * * *  cd /path/web && npx tsx scripts/scrappa-worker.ts start full
- *   0 15 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
- *   0 22 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
- * Yedek 5-dk drain KULLANMA — start zaten drain eder; ikinci process aynı
- * sorguları tekrarlar (kota yanar).
+ * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
+ *
+ *   0 0 * * *   start full 1
+ *   30 2 * * *  start full 2
+ *   0 5 * * *   start full 3
+ *   30 7 * * *  start full 4
+ *   0 10 * * *  start full 5
+ *   30 12 * * * start near
+ *   0 15 * * *  start full 6
+ *   30 17 * * * start full 7
+ *   0 20 * * *  start near
+ *   30 22 * * * rematch
+ *
+ * Yedek 5-dk drain KULLANMA. İstek arası 2sn; oturum düşünce ~45dk pause.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
- * Netlify scrappa cron'ları VPS ayağa kalkınca kapat (çift tarama olmasın).
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -19,6 +23,11 @@ import {
 } from "@/lib/scan/scrappa-tick";
 import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  FULL_CHUNK_COUNT,
+  SCRAPPA_REQUEST_GAP_MS,
+  fullChunkRange,
+} from "@/lib/scan/scrappa-schedule";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 
 function loadEnv() {
@@ -44,10 +53,15 @@ function parseWindow(raw: string | undefined): ScrappaWindow | null {
   return null;
 }
 
+function parseChunk(raw: string | undefined): number | undefined {
+  if (raw == null || raw === "") return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1 || n > FULL_CHUNK_COUNT) return undefined;
+  return Math.floor(n);
+}
+
 async function drain() {
   for (;;) {
-    // force=false: başka drain çalışıyorsa (heartbeat taze) ikinci process
-    // aynı bacağı tekrar çekmesin — */5 yedek + start çakışması kotayı yakıyordu.
     const result = await runScrappaTick(false);
     const pausedUntil =
       "pausedUntil" in result && typeof result.pausedUntil === "string"
@@ -78,7 +92,7 @@ async function drain() {
       await sleep(Math.max(5_000, wait));
       continue;
     }
-    await sleep(250);
+    await sleep(SCRAPPA_REQUEST_GAP_MS);
   }
 }
 
@@ -88,10 +102,21 @@ async function main() {
   if (cmd === "start") {
     const window = parseWindow(process.argv[3]);
     if (!window) {
-      console.error("kullanım: npx tsx scripts/scrappa-worker.ts start near|full");
+      console.error(
+        "kullanım: npx tsx scripts/scrappa-worker.ts start near|full [chunk 1-7]",
+      );
       process.exit(1);
     }
-    const started = await startScrappaWindow(window);
+    const chunk =
+      window === "full" ? parseChunk(process.argv[4]) : undefined;
+    if (window === "full" && process.argv[4] != null && chunk == null) {
+      console.error(`full chunk 1..${FULL_CHUNK_COUNT} olmalı`);
+      process.exit(1);
+    }
+    if (window === "full" && chunk != null) {
+      console.log("chunk", fullChunkRange(chunk));
+    }
+    const started = await startScrappaWindow(window, { chunk });
     console.log("start", started);
     if (!started.ok) process.exit(1);
     await drain();
@@ -107,12 +132,11 @@ async function main() {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
       process.exit(1);
     }
-    // rematch vitrin fiyatlarını tazeler; bildirim isteniyorsa kapatmıyoruz
     const result = await publishAllShowcase(admin, { notify: true });
     console.log("rematch done", result);
     return;
   }
-  console.error("kullanım: start near|full  |  drain  |  rematch");
+  console.error("kullanım: start near|full [1-7]  |  drain  |  rematch");
   process.exit(1);
 }
 

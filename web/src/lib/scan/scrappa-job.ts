@@ -1,6 +1,7 @@
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import type { ScrappaCursor } from "@/lib/scan/scrappa-oneway-runner";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
+import { fullChunkRange } from "@/lib/scan/scrappa-schedule";
 import type { DealsPayload, ScrappaJob } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -41,40 +42,43 @@ export async function saveScrappaJob(
 export async function enqueueScrappaWindow(
   admin: SupabaseClient,
   window: ScrappaWindow,
-  opts?: { force?: boolean },
-) {
+  opts?: { force?: boolean; chunk?: number },
+): Promise<{ ok: boolean; skipped?: string; job?: ScrappaJob }> {
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
   const now = new Date().toISOString();
   if (current?.halted && !opts?.force) {
-    return saveScrappaJob(admin, {
+    const halted: ScrappaJob = {
       ...current,
       status: "idle",
       queue: [],
       heartbeatAt: now,
       halted: true,
       lastError: current.lastError || "taramalar askıda",
-    });
+    };
+    await saveScrappaJob(admin, halted);
+    return { ok: false, skipped: "halted", job: halted };
   }
 
-  if (current?.status === "running" && !current.halted) {
-    const startedDay = (current.startedAt ?? "").slice(0, 10);
-    const today = new Date(Date.now() + 3 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
-    if (startedDay === today) {
-      const queue = [...(current.queue ?? [])];
-      if (current.window !== window && !queue.includes(window)) {
-        queue.push(window);
-      }
-      return saveScrappaJob(admin, { ...current, queue, heartbeatAt: now });
-    }
+  // Dilimler çakışmasın: önceki job bitmeden yenisi yok
+  if (current?.status === "running" && !current.halted && !opts?.force) {
+    return { ok: false, skipped: "önceki dilim bitmedi", job: current };
   }
 
-  return saveScrappaJob(admin, {
+  let destStart = 0;
+  let destLimit: number | undefined;
+  let chunk: number | undefined;
+  if (window === "full" && opts?.chunk != null) {
+    const range = fullChunkRange(opts.chunk);
+    destStart = range.destStart;
+    destLimit = range.destLimit;
+    chunk = range.chunk;
+  }
+
+  const job: ScrappaJob = {
     status: "running",
     window,
-    destIndex: 0,
+    destIndex: destStart,
     dateIndex: 0,
     legIndex: 0,
     queue: [],
@@ -85,7 +89,12 @@ export async function enqueueScrappaWindow(
     lastError: undefined,
     pausedUntil: undefined,
     halted: false,
-  });
+    destStart,
+    destLimit,
+    chunk,
+  };
+  await saveScrappaJob(admin, job);
+  return { ok: true, job };
 }
 
 export function cursorFromJob(job: ScrappaJob): ScrappaCursor {

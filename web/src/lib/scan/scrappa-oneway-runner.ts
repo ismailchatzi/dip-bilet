@@ -9,6 +9,7 @@ import {
   legsForDest,
   type ScrappaWindow,
 } from "@/lib/scan/scrappa-horizon";
+import { SCRAPPA_SESSION_PAUSE_MS } from "@/lib/scan/scrappa-schedule";
 import {
   publishAllShowcase,
   publishDestShowcase,
@@ -158,7 +159,7 @@ export async function runScrappaOneWayBatch(
         matched: 0,
         errors: errors.slice(0, 20),
         lastError: msg,
-        pauseMs: outage ? 2 * 60 * 1000 : 20 * 1000,
+        pauseMs: outage ? SCRAPPA_SESSION_PAUSE_MS : 20 * 1000,
       };
     }
     scanned = 1;

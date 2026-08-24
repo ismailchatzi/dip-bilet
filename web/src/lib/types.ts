@@ -56,6 +56,12 @@ export type ScrappaJob = {
   pausedUntil?: string;
   /** Elle askı: cron yeniden başlatmaz. */
   halted?: boolean;
+  /** Full dilim: dahil başlangıç index. */
+  destStart?: number;
+  /** Full dilim: exclusive bitiş index. */
+  destLimit?: number;
+  /** 1..7 full chunk. */
+  chunk?: number;
 };
 
 export type DealsPayload = {
