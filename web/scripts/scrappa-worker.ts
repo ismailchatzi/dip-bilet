@@ -6,7 +6,7 @@
  *   0 7 * * *  cd /path/web && npx tsx scripts/scrappa-worker.ts start full
  *   0 15 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
  *   0 22 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
- * Yedek */5 drain KULLANMA — start zaten drain eder; ikinci process aynı
+ * Yedek 5-dk drain KULLANMA — start zaten drain eder; ikinci process aynı
  * sorguları tekrarlar (kota yanar).
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  * Netlify scrappa cron'ları VPS ayağa kalkınca kapat (çift tarama olmasın).
