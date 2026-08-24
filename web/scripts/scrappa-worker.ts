@@ -6,6 +6,8 @@
  *   0 7 * * *  cd /path/web && npx tsx scripts/scrappa-worker.ts start full
  *   0 15 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
  *   0 22 * * * cd /path/web && npx tsx scripts/scrappa-worker.ts start near
+ * Yedek */5 drain KULLANMA — start zaten drain eder; ikinci process aynı
+ * sorguları tekrarlar (kota yanar).
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  * Netlify scrappa cron'ları VPS ayağa kalkınca kapat (çift tarama olmasın).
  */
@@ -44,7 +46,9 @@ function parseWindow(raw: string | undefined): ScrappaWindow | null {
 
 async function drain() {
   for (;;) {
-    const result = await runScrappaTick(true);
+    // force=false: başka drain çalışıyorsa (heartbeat taze) ikinci process
+    // aynı bacağı tekrar çekmesin — */5 yedek + start çakışması kotayı yakıyordu.
+    const result = await runScrappaTick(false);
     const pausedUntil =
       "pausedUntil" in result && typeof result.pausedUntil === "string"
         ? result.pausedUntil
