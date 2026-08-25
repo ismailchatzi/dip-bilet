@@ -1,0 +1,25 @@
+---
+description: VPS drain hatırlatma — Çarşamba 01:00 TR sonrası ilk sohbette
+alwaysApply: true
+---
+
+# VPS drain hatırlatma (geçici)
+
+Kullanıcı 25 Ağustos 2026’da drain’i crontab’tan çıkardı (laptop near çakışmasın diye).
+
+**Ne zaman:** Europe/Istanbul **2026-08-26 01:00** geçtikten sonra — sohbet açıksa hemen; PC kapalıysa **ilk kullanıcı mesajında** ilk iş olarak hatırlat (başka konuya dalmadan).
+
+**Ne söyle:** VPS’e drain’i geri ekleyelim + `git pull` (cron drain soft-lock fix `af5d656`).
+
+**Komutlar (adım adım ver):**
+```bash
+cd /root/dip-bilet && git pull
+crontab - <<'EOF'
+0 7 * * * cd /root/dip-bilet/web && /usr/bin/npx tsx scripts/scrappa-worker.ts start day >> /var/log/scrappa.log 2>&1
+30 22 * * * cd /root/dip-bilet/web && /usr/bin/npx tsx scripts/scrappa-worker.ts rematch >> /var/log/scrappa.log 2>&1
+*/5 * * * * cd /root/dip-bilet/web && /usr/bin/npx tsx scripts/scrappa-worker.ts drain >> /var/log/scrappa.log 2>&1
+EOF
+crontab -l
+```
+
+Kullanıcı “drain eklendi / tamam” deyince **bu kural dosyasını sil** (`.cursor/rules/vps-drain-reminder.mdc`).

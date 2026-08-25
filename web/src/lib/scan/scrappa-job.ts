@@ -16,6 +16,14 @@ export function isJobFresh(job: ScrappaJob | null, maxAgeMs = 20 * 1000) {
   return Date.now() - t < maxAgeMs;
 }
 
+/** Drain ölmüş “running” job — sabah start day üzerine yazabilsin. */
+export function isJobStale(job: ScrappaJob | null, maxAgeMs = 15 * 60 * 1000) {
+  if (!job || job.status !== "running") return true;
+  const t = Date.parse(job.heartbeatAt);
+  if (!Number.isFinite(t)) return true;
+  return Date.now() - t > maxAgeMs;
+}
+
 /** Eski string kuyruk / bozuk kayıtları normalize et. */
 export function normalizeQueue(raw: unknown): ScrappaQueueItem[] {
   if (!Array.isArray(raw)) return [];
@@ -96,8 +104,14 @@ export async function enqueueScrappaWindow(
     return { ok: false, skipped: "halted", job: halted };
   }
 
-  // Dilimler çakışmasın: önceki job bitmeden yenisi yok
-  if (current?.status === "running" && !current.halted && !opts?.force) {
+  // Dilimler çakışmasın: canlı job varken yenisi yok.
+  // Drain ölü + status running kalırsa (heartbeat bayat) sabah start day takılmasın.
+  if (
+    current?.status === "running" &&
+    !current.halted &&
+    !opts?.force &&
+    !isJobStale(current)
+  ) {
     return { ok: false, skipped: "önceki dilim bitmedi", job: current };
   }
 

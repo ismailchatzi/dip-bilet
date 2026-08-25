@@ -156,7 +156,9 @@ async function main() {
   }
 
   if (cmd === "drain") {
-    await drain(false);
+    // nohup / elle devam: --force (kendi heartbeat kilidine takılma)
+    // cron */5: force yok — başka start day drain varken çakışmaz
+    await drain(process.argv.includes("--force"));
     return;
   }
 
