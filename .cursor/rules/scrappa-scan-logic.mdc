@@ -38,13 +38,15 @@ Pzt→1, Sal→2, Çar→3, Per→4, Cum→5, Cmt→6, Paz→7.
 2. hemen `start full N` (o günün dilimi) → bitince **otomatik rematch**
 3. idle
 
+Önceki takvim gününden kalan / bayat `running` job varsa 07:00 **force** ile yeni güne geçer (dünkü yarım iş sabahı bloklamaz).
 Oturum molası (45 dk) zinciri bozmaz; saate bakılmaz, iş bitince sıradaki.
 **22:30 TR** güvenlik rematch.
+**\*/5 drain** (force yok): canlı drain varken no-op; ölünce kaldığı yerden devam.
 
 Worker: `npx tsx scripts/scrappa-worker.ts start day [chunk]` · `stop` · `crontab` (satırları basar).
-Cron: yalnız `0 7 start day` + `30 22 rematch` + `*/5 drain`. Eski full 1…7 / near×2–3 **iptal**.
+Cron: `0 7 start day` + `30 22 rematch` + `*/5 drain`. Eski full 1…7 / near×2–3 **iptal**.
 
-Paralel dilim / çoklu drain **yok**.
+Paralel dilim / çoklu drain **yok**. Elle ikinci `drain --force` açma.
 
 ## Vitrin kapıları (showcase-config + showcase-eligibility)
 `benchmark_mode = synthetic_rt_candidate` (ileride `verified_rt`).

@@ -6,6 +6,7 @@ import {
   cursorFromJob,
   enqueueScrappaWindow,
   isJobFresh,
+  isJobStale,
   jobFromPayload,
   normalizeQueue,
   saveScrappaJob,
@@ -18,6 +19,12 @@ import {
 } from "@/lib/scan/scrappa-schedule";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import type { ScrappaJob, ScrappaQueueItem } from "@/lib/types";
+
+function trDateString(d: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+  }).format(d);
+}
 
 function isSessionOutageMessage(msg?: string) {
   return Boolean(
@@ -141,18 +148,45 @@ export async function startScrappaWindow(
 
 /**
  * Günlük kuyruk: near → (rematch) → full(haftanın dilimi) → (rematch).
- * chunkOverride: test / “Salı gibi başlat” için.
+ * Önceki takvim gününden kalan running job 07:00'ı bloklamasın → force.
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;
   chunk?: number;
   now?: Date;
 }) {
-  const chunk = opts?.chunk ?? fullChunkForWeekday(opts?.now);
+  const now = opts?.now ?? new Date();
+  const chunk = opts?.chunk ?? fullChunkForWeekday(now);
   const range = fullChunkRange(chunk);
-  console.log(`start day: near → full ${range.chunk}`, range.codes);
+
+  let force = opts?.force === true;
+  if (!force) {
+    const admin = createAdminClient();
+    if (admin) {
+      const current = jobFromPayload((await readScanBoard(admin)).deals);
+      if (current?.status === "running" && !current.halted) {
+        if (isJobStale(current)) {
+          force = true;
+          console.log("start day: bayat job → force");
+        } else {
+          const startedDay = trDateString(new Date(current.startedAt));
+          const today = trDateString(now);
+          if (startedDay < today) {
+            force = true;
+            console.log(
+              `start day: önceki gün işi (${startedDay}) → force, bugün ${today}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`start day: near → full ${range.chunk}`, range.codes, {
+    force,
+  });
   return startScrappaWindow("near", {
-    force: opts?.force,
+    force,
     queue: [{ window: "full", chunk: range.chunk }],
   });
 }
