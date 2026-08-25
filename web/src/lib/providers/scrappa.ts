@@ -69,6 +69,16 @@ export class ScrappaUnavailableError extends Error {
   }
 }
 
+/** Cloudflare bot imzasını yumuşat — istek gövdesi/parametreler aynı. */
+function scrappaHeaders(apiKey: string): HeadersInit {
+  return {
+    Accept: "application/json",
+    "x-api-key": apiKey,
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  };
+}
+
 export type ScrappaOneWay = {
   origin: string;
   destination: string;
@@ -246,10 +256,7 @@ export async function scrappaCheapestBookingPrice(input: {
     const res = await fetch(
       `https://scrappa.co/api/flights/booking-details?${params}`,
       {
-        headers: {
-          Accept: "application/json",
-          "x-api-key": apiKey,
-        },
+        headers: scrappaHeaders(apiKey),
         cache: "no-store",
       },
     );
@@ -310,10 +317,7 @@ export async function scrappaOneWay(input: {
     const res = await fetch(
       `https://scrappa.co/api/flights/one-way?${params}`,
       {
-        headers: {
-          Accept: "application/json",
-          "x-api-key": apiKey,
-        },
+        headers: scrappaHeaders(apiKey),
         cache: "no-store",
       },
     );
@@ -374,10 +378,7 @@ export async function scrappaRoundTrip(input: {
     const res = await fetch(
       `https://scrappa.co/api/flights/round-trip?${params}`,
       {
-        headers: {
-          Accept: "application/json",
-          "x-api-key": apiKey,
-        },
+        headers: scrappaHeaders(apiKey),
         cache: "no-store",
       },
     );
