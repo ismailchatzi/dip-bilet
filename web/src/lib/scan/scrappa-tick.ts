@@ -16,6 +16,9 @@ import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import {
   fullChunkForWeekday,
   fullChunkRange,
+  SCRAPPA_SESSION_CIRCUIT_AFTER,
+  SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
+  SCRAPPA_SESSION_SOFT_PAUSE_MS,
 } from "@/lib/scan/scrappa-schedule";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import type { ScrappaJob, ScrappaQueueItem } from "@/lib/types";
@@ -58,6 +61,14 @@ function applyBatch(
 
   if (batch.hold) {
     const rewind = job.saved === 0;
+    const sessionOutage = isSessionOutageMessage(batch.lastError);
+    const sessionFailStreak = sessionOutage
+      ? (job.sessionFailStreak ?? 0) + 1
+      : 0;
+    const pauseMs =
+      sessionOutage && sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER
+        ? SCRAPPA_SESSION_CIRCUIT_PAUSE_MS
+        : (batch.pauseMs ?? SCRAPPA_SESSION_SOFT_PAUSE_MS);
     return {
       ...job,
       queue,
@@ -68,9 +79,8 @@ function applyBatch(
       saved: job.saved,
       heartbeatAt: now,
       lastError: batch.lastError,
-      pausedUntil: new Date(
-        Date.now() + (batch.pauseMs ?? 20 * 1000),
-      ).toISOString(),
+      sessionFailStreak,
+      pausedUntil: new Date(Date.now() + pauseMs).toISOString(),
     };
   }
 
@@ -94,6 +104,7 @@ function applyBatch(
       scanned,
       saved,
       lastError: undefined,
+      sessionFailStreak: 0,
       pausedUntil: undefined,
     };
   }
@@ -107,6 +118,7 @@ function applyBatch(
     scanned,
     saved,
     lastError: undefined,
+    sessionFailStreak: 0,
     pausedUntil: undefined,
   };
 }

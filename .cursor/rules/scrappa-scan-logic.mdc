@@ -39,7 +39,7 @@ Pzt→1, Sal→2, Çar→3, Per→4, Cum→5, Cmt→6, Paz→7.
 3. idle
 
 Önceki takvim gününden kalan / bayat `running` job varsa 07:00 **force** ile yeni güne geçer (dünkü yarım iş sabahı bloklamaz).
-Oturum molası (45 dk) zinciri bozmaz; saate bakılmaz, iş bitince sıradaki.
+Oturum: tek 503 ≈15 sn; art arda 7× → 20 dk mola (zinciri bozmaz). 200’de streak sıfır.
 **22:30 TR** güvenlik rematch.
 **\*/5 drain** (force yok): canlı drain varken no-op; ölünce kaldığı yerden devam.
 

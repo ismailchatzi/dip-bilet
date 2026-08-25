@@ -60,6 +60,8 @@ export type ScrappaJob = {
   saved: number;
   lastError?: string;
   pausedUntil?: string;
+  /** Art arda oturum/503 (cookie_session / request_exhausted). 200’de sıfır. */
+  sessionFailStreak?: number;
   /** Elle askı: cron yeniden başlatmaz. */
   halted?: boolean;
   /** Full dilim: dahil başlangıç index. */

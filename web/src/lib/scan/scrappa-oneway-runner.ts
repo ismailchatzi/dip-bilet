@@ -9,7 +9,7 @@ import {
   legsForDest,
   type ScrappaWindow,
 } from "@/lib/scan/scrappa-horizon";
-import { SCRAPPA_SESSION_PAUSE_MS } from "@/lib/scan/scrappa-schedule";
+import { SCRAPPA_SESSION_SOFT_PAUSE_MS } from "@/lib/scan/scrappa-schedule";
 import {
   publishAllShowcase,
   publishDestShowcase,
@@ -145,9 +145,7 @@ export async function runScrappaOneWayBatch(
     const msg = e instanceof Error ? e.message : "hata";
     errors.push(`${leg.origin}>${leg.destination} ${date}: ${msg}`);
     if (e instanceof ScrappaUnavailableError) {
-      const outage =
-        /cookie_session|request_exhausted/i.test(e.reason) ||
-        /cookie_session|request_exhausted/i.test(msg);
+      // Uzun mola tick/applyBatch’te streak’e göre; burada sadece soft.
       return {
         ok: false,
         done: false,
@@ -159,7 +157,7 @@ export async function runScrappaOneWayBatch(
         matched: 0,
         errors: errors.slice(0, 20),
         lastError: msg,
-        pauseMs: outage ? SCRAPPA_SESSION_PAUSE_MS : 20 * 1000,
+        pauseMs: SCRAPPA_SESSION_SOFT_PAUSE_MS,
       };
     }
     scanned = 1;
