@@ -59,7 +59,8 @@ function parseChunk(raw: string | undefined): number | undefined {
 
 async function drain() {
   for (;;) {
-    const result = await runScrappaTick(false);
+    // Bu süreç işin sahibi; force=true — isJobFresh kilidi rakip drain içindir.
+    const result = await runScrappaTick(true);
     const pausedUntil =
       "pausedUntil" in result && typeof result.pausedUntil === "string"
         ? result.pausedUntil
