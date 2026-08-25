@@ -15,8 +15,44 @@ export type HardFloorEntry = {
   source: "manual_initial_heuristic";
 };
 
-/** Kartta üstü çizili ≈ eşik × 1.10 */
+/** Kartta üstü çizili (Standart) — her zaman eşikten yüksek: max(baz, eşik) × 1.10 */
 export const STRIKE_RATIO = 1.1;
+
+/**
+ * Standart asla eşiğin altında olmaz.
+ * preferredBase = medyan / Google avg (varsa); yoksa yalnız eşik × 1.10.
+ */
+export function strikeFromThreshold(
+  uiThreshold: number,
+  preferredBase?: number | null,
+): number {
+  const t = Number.isFinite(uiThreshold) && uiThreshold > 0 ? uiThreshold : 0;
+  const b =
+    typeof preferredBase === "number" &&
+    Number.isFinite(preferredBase) &&
+    preferredBase > 0
+      ? preferredBase
+      : 0;
+  const base = Math.max(t, b);
+  return Math.round(base * STRIKE_RATIO);
+}
+
+/** Snapshot kart: averagePrice (Standart) < threshold ise düzelt. */
+export function clampDealStrikePrices<
+  T extends { averagePrice?: number; thresholdPrice?: number; price?: number; discountPercent?: number },
+>(deal: T): T {
+  const thr = deal.thresholdPrice;
+  const avg = deal.averagePrice;
+  if (typeof thr !== "number" || !(thr > 0)) return deal;
+  if (typeof avg === "number" && avg >= thr) return deal;
+  const strike = strikeFromThreshold(thr, avg);
+  const price = deal.price;
+  const discountPercent =
+    typeof price === "number" && strike > 0
+      ? Math.round(((strike - price) / strike) * 100)
+      : deal.discountPercent;
+  return { ...deal, averagePrice: strike, discountPercent };
+}
 
 /** Google Deals: avg × 0.75 altı (hard floor yoksa) */
 export const GOOGLE_AVG_GATE = 0.75;

@@ -1,5 +1,6 @@
 import { dealDestCode } from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
+import { clampDealStrikePrices } from "@/lib/scan/showcase-config";
 import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
 
@@ -81,15 +82,17 @@ export function foldShowcase(
     held,
     today,
   );
+  const liveSafe = live.map(clampDealStrikePrices);
+  const archiveSafe = archive.map(clampDealStrikePrices);
   return {
     payload: {
       source: "cache",
       fetchedAt: foundAt,
       departure: DEPARTURE_LABEL,
-      deals: live,
-      archive,
+      deals: liveSafe,
+      archive: archiveSafe,
     },
-    live,
+    live: liveSafe,
     previousLive,
   };
 }

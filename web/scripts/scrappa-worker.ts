@@ -7,12 +7,13 @@
  *   30 7 * * *  start full 4
  *   0 10 * * *  start full 5
  *   30 12 * * * start near
+ *   30 13 * * * rematch
  *   0 15 * * *  start full 6
  *   30 17 * * * start full 7
  *   0 20 * * *  start near
  *   30 22 * * * rematch
  *
- * Yedek 5-dk drain KULLANMA. İstek arası 2sn; oturum düşünce ~45dk pause.
+ * Dilim bitince / oturum toparlanınca tick otomatik rematch de yapar.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  */
 import { readFileSync, existsSync } from "node:fs";

@@ -23,7 +23,7 @@ import {
   monthStatsFromTotals,
   type MonthSampleStats,
 } from "@/lib/scan/showcase-eligibility";
-import { hardFloorUsd, STRIKE_RATIO } from "@/lib/scan/showcase-config";
+import { hardFloorUsd, strikeFromThreshold } from "@/lib/scan/showcase-config";
 import { nightsBetween, stayRange, maxStopsForDest } from "@/lib/scan/trip-rules";
 import type { Deal, DealDateOption } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -277,7 +277,10 @@ function matchDestDrafts(
           isEligible: true as const,
           badge: "MUTLAK_FIRSAT" as const,
           uiThreshold: floor ?? Math.round(pair.total),
-          strikePrice: Math.round((stats.median ?? floor ?? pair.total) * STRIKE_RATIO),
+          strikePrice: strikeFromThreshold(
+            floor ?? Math.round(pair.total),
+            stats.median,
+          ),
           monthlyMedian: stats.median,
           benchmarkMode: "synthetic_rt_candidate" as const,
         };
@@ -438,7 +441,11 @@ export async function matchDestFromDb(
 }
 
 function destCodeFromDeal(deal: Deal) {
-  if (deal.id.startsWith("scrappa:") || deal.id.startsWith("gdeals:")) {
+  if (
+    deal.id.startsWith("scrappa:") ||
+    deal.id.startsWith("gdeals:") ||
+    deal.id.startsWith("manual:")
+  ) {
     return deal.id.split(":")[1] ?? "";
   }
   return deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ?? "";
@@ -446,6 +453,10 @@ function destCodeFromDeal(deal: Deal) {
 
 function isGoogleDeal(deal: Deal) {
   return deal.id.startsWith("gdeals:");
+}
+
+function isManualDeal(deal: Deal) {
+  return deal.id.startsWith("manual:");
 }
 
 /** Bir varışın vitrin kartlarını günceller, diğer şehirleri korur */
@@ -485,7 +496,8 @@ export async function publishAllShowcase(
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
   const googleKept = previous.filter(isGoogleDeal);
-  const all: Deal[] = [...googleKept];
+  const manualKept = previous.filter(isManualDeal);
+  const auto: Deal[] = [...googleKept];
   for (const dest of SCRAPPA_DESTINATIONS) {
     let fresh: Deal[];
     try {
@@ -494,19 +506,33 @@ export async function publishAllShowcase(
     } catch (err) {
       if (!(err instanceof ScrappaUnavailableError)) throw err;
       fresh = previous.filter(
-        (d) => !isGoogleDeal(d) && destCodeFromDeal(d) === dest.code,
+        (d) =>
+          !isGoogleDeal(d) &&
+          !isManualDeal(d) &&
+          destCodeFromDeal(d) === dest.code,
       );
       console.log(
         `rematch ${dest.code} keep=${fresh.length} (scrappa unavailable)`,
       );
     }
     for (const deal of fresh) {
-      all.push(deal);
+      auto.push(deal);
     }
   }
-  const collapsed = foldOneCardPerCity(
-    all.filter((d) => !isUnverifiedOneWaySum(d)),
+  // Otomatik kartlar önce; manuel yalnız o şehirde otomatik yoksa kahraman olur.
+  const collapsedAuto = foldOneCardPerCity(
+    auto.filter((d) => !isUnverifiedOneWaySum(d)),
   );
+  const autoCities = new Set(
+    collapsedAuto.map((d) => destCodeFromDeal(d)).filter(Boolean),
+  );
+  const manualOnly = manualKept.filter(
+    (d) => !autoCities.has(destCodeFromDeal(d)),
+  );
+  const collapsed = foldOneCardPerCity([
+    ...collapsedAuto,
+    ...manualOnly.filter((d) => !isUnverifiedOneWaySum(d)),
+  ]);
   const { payload, live, previousLive } = foldShowcase(board.deals, collapsed);
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };

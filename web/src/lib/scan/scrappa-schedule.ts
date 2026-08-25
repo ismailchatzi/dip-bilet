@@ -41,6 +41,7 @@ export const SCRAPPA_CRON_SCHEDULE = [
   { time: "07:30", cmd: "start full 4" },
   { time: "10:00", cmd: "start full 5" },
   { time: "12:30", cmd: "start near" },
+  { time: "13:30", cmd: "rematch" },
   { time: "15:00", cmd: "start full 6" },
   { time: "17:30", cmd: "start full 7" },
   { time: "20:00", cmd: "start near" },

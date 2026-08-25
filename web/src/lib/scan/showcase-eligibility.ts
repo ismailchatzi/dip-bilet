@@ -1,11 +1,11 @@
 import {
   BENCHMARK_MODE,
   GOOGLE_AVG_GATE,
-  STRIKE_RATIO,
   gateRatioForDest,
   hardFloorUsd,
   minDistinctOutboundForDest,
   minSampleForDest,
+  strikeFromThreshold,
   type DealBadge,
 } from "@/lib/scan/showcase-config";
 
@@ -82,12 +82,11 @@ export function checkShowcaseEligibility(input: {
 
   const floor = hardFloorUsd(input.destCode);
   if (floor != null && price <= floor) {
-    const strikeBase = input.monthStats.median ?? floor;
     return {
       isEligible: true,
       badge: "MUTLAK_FIRSAT",
       uiThreshold: floor,
-      strikePrice: Math.round(strikeBase * STRIKE_RATIO),
+      strikePrice: strikeFromThreshold(floor, input.monthStats.median),
       monthlyMedian: input.monthStats.median,
       benchmarkMode: BENCHMARK_MODE,
     };
@@ -101,11 +100,12 @@ export function checkShowcaseEligibility(input: {
   const ratio = gateRatioForDest(input.destCode);
   const seasonalThreshold = m * ratio;
   if (price <= seasonalThreshold) {
+    const uiThreshold = Math.round(seasonalThreshold);
     return {
       isEligible: true,
       badge: "SEZONLUK_DIP",
-      uiThreshold: Math.round(seasonalThreshold),
-      strikePrice: Math.round(m * STRIKE_RATIO),
+      uiThreshold,
+      strikePrice: strikeFromThreshold(uiThreshold, m),
       monthlyMedian: m,
       benchmarkMode: BENCHMARK_MODE,
     };
@@ -143,7 +143,7 @@ export function passesGoogleShowcaseGate(input: {
       isEligible: true,
       badge: "MUTLAK_FIRSAT",
       uiThreshold: floor,
-      strikePrice: Math.round((avg ?? floor) * STRIKE_RATIO),
+      strikePrice: strikeFromThreshold(floor, avg),
       monthlyMedian: null,
       benchmarkMode: BENCHMARK_MODE,
     };
@@ -155,11 +155,12 @@ export function passesGoogleShowcaseGate(input: {
   }
   const threshold = avg * GOOGLE_AVG_GATE;
   if (input.price <= threshold) {
+    const uiThreshold = Math.round(threshold);
     return {
       isEligible: true,
       badge: "SEZONLUK_DIP",
-      uiThreshold: Math.round(threshold),
-      strikePrice: Math.round(avg * STRIKE_RATIO),
+      uiThreshold,
+      strikePrice: strikeFromThreshold(uiThreshold, avg),
       monthlyMedian: avg,
       benchmarkMode: BENCHMARK_MODE,
     };

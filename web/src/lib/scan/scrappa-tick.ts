@@ -9,8 +9,18 @@ import {
   jobFromPayload,
   saveScrappaJob,
 } from "@/lib/scan/scrappa-job";
+import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import type { ScrappaJob } from "@/lib/types";
+
+function isSessionOutageMessage(msg?: string) {
+  return Boolean(
+    msg &&
+      /cookie_session|request_exhausted|oturum|unavailable|API key|validating/i.test(
+        msg,
+      ),
+  );
+}
 
 function applyBatch(
   job: ScrappaJob,
@@ -18,6 +28,7 @@ function applyBatch(
     hold?: boolean;
     lastError?: string;
     pauseMs?: number;
+    matched?: number;
     next: {
       window: ScrappaWindow;
       destIndex: number;
@@ -134,6 +145,31 @@ export async function startScrappaWindow(
   };
 }
 
+/**
+ * Dilim bitince veya oturum toparlanınca tüm şehirleri paket doğrula → vitrin.
+ * (Sadece biten şehri yayınlamak yetmiyor; diğer şehirlerdeki adaylar bekliyordu.)
+ */
+async function autoRematchIfNeeded(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  opts: {
+    becameIdle: boolean;
+    sessionRecovered: boolean;
+  },
+): Promise<{ ok: boolean; count?: number; error?: string } | null> {
+  if (!opts.becameIdle && !opts.sessionRecovered) return null;
+  try {
+    const reason = opts.becameIdle ? "dilim-bitti" : "oturum-toparlandi";
+    console.log(`auto-rematch (${reason})`);
+    const result = await publishAllShowcase(admin, { notify: true });
+    console.log(`auto-rematch done`, result);
+    return result;
+  } catch (e) {
+    const error = e instanceof Error ? e.message : "rematch hata";
+    console.log(`auto-rematch fail`, error);
+    return { ok: false, error };
+  }
+}
+
 export async function runScrappaTick(force = false) {
   const admin = createAdminClient();
   if (!admin) {
@@ -173,9 +209,19 @@ export async function runScrappaTick(force = false) {
     return { ok: true, running: true, skipped: "dilim çalışıyor" };
   }
 
+  const hadSessionOutage = isSessionOutageMessage(job.lastError);
   const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
+  const prevStatus = job.status;
   job = applyBatch(job, batch);
   await saveScrappaJob(admin, job);
+
+  const becameIdle = prevStatus === "running" && job.status === "idle";
+  const sessionRecovered =
+    hadSessionOutage && batch.hold !== true && (batch.scanned > 0 || batch.ok);
+  const rematch = await autoRematchIfNeeded(admin, {
+    becameIdle,
+    sessionRecovered,
+  });
 
   return {
     ok: batch.ok,
@@ -184,6 +230,8 @@ export async function runScrappaTick(force = false) {
     dest: batch.dest,
     scanned: batch.scanned,
     saved: batch.saved,
+    matched: batch.matched,
+    rematch: rematch ?? undefined,
     next: batch.next,
     errors: batch.errors,
     lastError: batch.lastError ?? job.lastError,
