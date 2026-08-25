@@ -25,6 +25,10 @@ import {
 } from "@/lib/scan/showcase-eligibility";
 import { hardFloorUsd, strikeFromThreshold } from "@/lib/scan/showcase-config";
 import { nightsBetween, stayRange, maxStopsForDest } from "@/lib/scan/trip-rules";
+import {
+  SCRAPPA_PHASE_BREATHER_MS,
+  SCRAPPA_REQUEST_GAP_MS,
+} from "@/lib/scan/scrappa-schedule";
 import type { Deal, DealDateOption } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -32,6 +36,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const MAX_KEEP = 4;
 /** Paket doğrulama denemesi tavanı (kredi). */
 const MAX_VERIFY = 8;
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 type Obs = {
   route_key: string;
@@ -41,6 +49,22 @@ type Obs = {
   airline?: string;
   stops?: number;
   self_transfer?: boolean;
+};
+
+type BookingHook = {
+  origin: "IST" | "SAW";
+  destCode: string;
+  departureDate: string;
+  listPrice: number;
+  bookingToken?: string;
+  airlineCode?: string;
+  flightNumber?: string;
+  monthStats: MonthSampleStats;
+};
+
+type RtPending = {
+  deal: Deal;
+  booking?: BookingHook;
 };
 
 function originOf(routeKey: string) {
@@ -317,7 +341,8 @@ async function verifyWithRoundTrip(
   deal: Deal,
   destCode: string,
   monthStats: MonthSampleStats,
-): Promise<Deal | null> {
+  opts?: { withBooking?: boolean },
+): Promise<RtPending | null> {
   const outDate = deal.outboundDate;
   const retDate = deal.returnDate;
   if (!outDate || !retDate) return null;
@@ -341,6 +366,7 @@ async function verifyWithRoundTrip(
         departureDate: outDate,
         returnDate: retDate,
       });
+      await sleep(SCRAPPA_REQUEST_GAP_MS);
       if (!hit) continue;
       if (!best || hit.price < best.price) {
         best = {
@@ -362,16 +388,31 @@ async function verifyWithRoundTrip(
   if (typeof best.stops === "number" && best.stops > maxStopsForDest(destCode)) {
     return null;
   }
-  const booked = await scrappaCheapestBookingPrice({
+
+  const booking: BookingHook = {
     origin: best.origin,
-    destination: destCode,
+    destCode,
     departureDate: outDate,
     listPrice: best.price,
     bookingToken: best.bookingToken,
     airlineCode: best.airlineCode,
     flightNumber: best.flightNumber,
-  });
-  best.price = booked.price;
+    monthStats,
+  };
+
+  if (opts?.withBooking !== false) {
+    const booked = await scrappaCheapestBookingPrice({
+      origin: booking.origin,
+      destination: booking.destCode,
+      departureDate: booking.departureDate,
+      listPrice: booking.listPrice,
+      bookingToken: booking.bookingToken,
+      airlineCode: booking.airlineCode,
+      flightNumber: booking.flightNumber,
+    });
+    await sleep(SCRAPPA_REQUEST_GAP_MS);
+    best.price = booked.price;
+  }
 
   const el = checkShowcaseEligibility({
     destCode,
@@ -384,7 +425,7 @@ async function verifyWithRoundTrip(
   const displayOff = Math.round(
     ((el.strikePrice - best.price) / el.strikePrice) * 100,
   );
-  return {
+  const nextDeal: Deal = {
     ...deal,
     id: `scrappa:${destCode}:${best.origin}:${outDate}:${best.origin}:${retDate}`,
     price: Math.round(best.price),
@@ -406,16 +447,56 @@ async function verifyWithRoundTrip(
     ),
     departureLabel: departureLabel(best.origin, best.origin),
   };
+  return {
+    deal: nextDeal,
+    booking: opts?.withBooking === false ? booking : undefined,
+  };
+}
+
+async function applyBookingToDeal(pending: RtPending): Promise<Deal | null> {
+  const hook = pending.booking;
+  if (!hook) return pending.deal;
+  const booked = await scrappaCheapestBookingPrice({
+    origin: hook.origin,
+    destination: hook.destCode,
+    departureDate: hook.departureDate,
+    listPrice: hook.listPrice,
+    bookingToken: hook.bookingToken,
+    airlineCode: hook.airlineCode,
+    flightNumber: hook.flightNumber,
+  });
+  await sleep(SCRAPPA_REQUEST_GAP_MS);
+  const el = checkShowcaseEligibility({
+    destCode: hook.destCode,
+    packagePrice: booked.price,
+    monthStats: hook.monthStats,
+  });
+  if (!el.isEligible) return null;
+  const displayOff = Math.round(
+    ((el.strikePrice - booked.price) / el.strikePrice) * 100,
+  );
+  const now = new Date().toISOString();
+  return {
+    ...pending.deal,
+    price: Math.round(booked.price),
+    averagePrice: el.strikePrice,
+    thresholdPrice: el.uiThreshold,
+    discountPercent: displayOff,
+    dealBadge: el.badge,
+    verifiedAt: now,
+    lastCheckedAt: now,
+  };
 }
 
 export async function matchDestFromDb(
   admin: SupabaseClient,
   dest: ScrappaDestination,
-): Promise<Deal[]> {
+  opts?: { withBooking?: boolean },
+): Promise<{ card: Deal | null; pending: RtPending[] }> {
   const rows = await loadObservations(admin, dest.code);
   const pairs = collectPairs(dest, rows);
   const drafts = matchDestDrafts(dest, rows, new Date().toISOString());
-  const verified: Deal[] = [];
+  const verified: RtPending[] = [];
   const seen = new Set<string>();
   let attempts = 0;
   for (const draft of drafts) {
@@ -423,21 +504,43 @@ export async function matchDestFromDb(
     if (attempts >= MAX_VERIFY) break;
     attempts += 1;
     const stats = monthStatsForSeason(pairs, draft.seasonKey);
-    const next = await verifyWithRoundTrip(toDeal(draft), dest.code, stats);
+    const next = await verifyWithRoundTrip(toDeal(draft), dest.code, stats, {
+      withBooking: opts?.withBooking,
+    });
     if (!next) continue;
-    const key = `${next.outboundDate}|${next.returnDate}`;
+    const key = `${next.deal.outboundDate}|${next.deal.returnDate}`;
     if (seen.has(key)) continue;
     seen.add(key);
     verified.push(next);
   }
-  if (verified.length === 0) return [];
+  if (verified.length === 0) return { card: null, pending: [] };
   verified.sort(
     (a, b) =>
-      (b.foundAt ?? "").localeCompare(a.foundAt ?? "") || a.price - b.price,
+      (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? "") ||
+      a.deal.price - b.deal.price,
   );
-  const hero = verified[0]!;
-  hero.dateOptions = verified.slice(1, 1 + MAX_DATE_OPTIONS).map(toDateOption);
-  return [hero];
+  const card: Deal = {
+    ...verified[0]!.deal,
+    dateOptions: verified.slice(1, 1 + MAX_DATE_OPTIONS).map((p) =>
+      toDateOption(p.deal),
+    ),
+  };
+  return { card, pending: verified };
+}
+
+function cardFromPending(pending: RtPending[]): Deal | null {
+  if (pending.length === 0) return null;
+  const sorted = [...pending].sort(
+    (a, b) =>
+      (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? "") ||
+      a.deal.price - b.deal.price,
+  );
+  return {
+    ...sorted[0]!.deal,
+    dateOptions: sorted.slice(1, 1 + MAX_DATE_OPTIONS).map((p) =>
+      toDateOption(p.deal),
+    ),
+  };
 }
 
 function destCodeFromDeal(deal: Deal) {
@@ -464,15 +567,17 @@ export async function publishDestShowcase(
   admin: SupabaseClient,
   dest: ScrappaDestination,
 ): Promise<{ ok: boolean; count: number; error?: string }> {
-  let fresh: Deal[];
+  let card: Deal | null;
   try {
-    fresh = await matchDestFromDb(admin, dest);
+    const matched = await matchDestFromDb(admin, dest, { withBooking: true });
+    card = matched.card;
   } catch (err) {
     if (err instanceof ScrappaUnavailableError) {
       return { ok: false, count: 0, error: err.message };
     }
     throw err;
   }
+  const fresh = card ? [card] : [];
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
   const others = previous.filter((d) => destCodeFromDeal(d) !== dest.code);
@@ -488,47 +593,13 @@ export async function publishDestShowcase(
   return { ok: true, count: fresh.length };
 }
 
-/** Tüm varışları yeniden eşleştirir */
-export async function publishAllShowcase(
-  admin: SupabaseClient,
-  opts?: { notify?: boolean },
-): Promise<{ ok: boolean; count: number; error?: string }> {
-  const board = await readScanBoard(admin);
-  const previous = board.deals?.deals ?? [];
-  const googleKept = previous.filter(isGoogleDeal);
-  const manualKept = previous.filter(isManualDeal);
-  const auto: Deal[] = [...googleKept];
-  for (let i = 0; i < SCRAPPA_DESTINATIONS.length; i++) {
-    const dest = SCRAPPA_DESTINATIONS[i]!;
-    let fresh: Deal[];
-    try {
-      fresh = await matchDestFromDb(admin, dest);
-      console.log(`rematch ${dest.code} scrappa=${fresh.length}`);
-    } catch (err) {
-      if (!(err instanceof ScrappaUnavailableError)) throw err;
-      // İlk oturum/503’te dur — kalan şehirleri deneme (Paid 503 yağmuru).
-      console.log(
-        `rematch abort @${dest.code}: ${err instanceof Error ? err.message : "unavailable"}`,
-      );
-      for (let j = i; j < SCRAPPA_DESTINATIONS.length; j++) {
-        const code = SCRAPPA_DESTINATIONS[j]!.code;
-        for (const deal of previous) {
-          if (
-            !isGoogleDeal(deal) &&
-            !isManualDeal(deal) &&
-            destCodeFromDeal(deal) === code
-          ) {
-            auto.push(deal);
-          }
-        }
-      }
-      break;
-    }
-    for (const deal of fresh) {
-      auto.push(deal);
-    }
-  }
-  // Otomatik kartlar önce; manuel yalnız o şehirde otomatik yoksa kahraman olur.
+function foldAutoAndManual(
+  boardDeals: Deal[] | undefined,
+  scrappaCards: Deal[],
+  googleKept: Deal[],
+  manualKept: Deal[],
+) {
+  const auto = [...googleKept, ...scrappaCards];
   const collapsedAuto = foldOneCardPerCity(
     auto.filter((d) => !isUnverifiedOneWaySum(d)),
   );
@@ -538,15 +609,149 @@ export async function publishAllShowcase(
   const manualOnly = manualKept.filter(
     (d) => !autoCities.has(destCodeFromDeal(d)),
   );
-  const collapsed = foldOneCardPerCity([
+  return foldOneCardPerCity([
     ...collapsedAuto,
     ...manualOnly.filter((d) => !isUnverifiedOneWaySum(d)),
   ]);
+}
+
+/**
+ * One-way dilim sonrası:
+ * nefes → round-trip → nefes → booking-details → vitrin.
+ */
+export async function publishAllShowcase(
+  admin: SupabaseClient,
+  opts?: { notify?: boolean; skipBreather?: boolean },
+): Promise<{ ok: boolean; count: number; error?: string; aborted?: boolean }> {
+  const board = await readScanBoard(admin);
+  const previous = board.deals?.deals ?? [];
+  const googleKept = previous.filter(isGoogleDeal);
+  const manualKept = previous.filter(isManualDeal);
+
+  if (!opts?.skipBreather) {
+    console.log(
+      `rematch: one-way sonrası ${SCRAPPA_PHASE_BREATHER_MS / 1000}s nefes`,
+    );
+    await sleep(SCRAPPA_PHASE_BREATHER_MS);
+  }
+
+  console.log("rematch: round-trip fazı");
+  const pendingByDest = new Map<string, RtPending[]>();
+  const scrappaCards: Deal[] = [];
+  let aborted = false;
+
+  for (let i = 0; i < SCRAPPA_DESTINATIONS.length; i++) {
+    const dest = SCRAPPA_DESTINATIONS[i]!;
+    try {
+      const matched = await matchDestFromDb(admin, dest, {
+        withBooking: false,
+      });
+      console.log(
+        `rematch RT ${dest.code} scrappa=${matched.card ? 1 : 0}`,
+      );
+      if (matched.card) scrappaCards.push(matched.card);
+      if (matched.pending.length > 0) {
+        pendingByDest.set(dest.code, matched.pending);
+      }
+    } catch (err) {
+      if (!(err instanceof ScrappaUnavailableError)) throw err;
+      aborted = true;
+      console.log(
+        `rematch RT abort @${dest.code}: ${err instanceof Error ? err.message : "unavailable"}`,
+      );
+      for (let j = i; j < SCRAPPA_DESTINATIONS.length; j++) {
+        const code = SCRAPPA_DESTINATIONS[j]!.code;
+        for (const deal of previous) {
+          if (
+            !isGoogleDeal(deal) &&
+            !isManualDeal(deal) &&
+            destCodeFromDeal(deal) === code
+          ) {
+            scrappaCards.push(deal);
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  {
+    const collapsed = foldAutoAndManual(
+      board.deals?.deals,
+      scrappaCards,
+      googleKept,
+      manualKept,
+    );
+    const { payload } = foldShowcase(board.deals, collapsed);
+    const saved = await patchScanBoard(admin, { deals: payload });
+    if (!saved.ok) return { ok: false, count: 0, error: saved.error };
+  }
+
+  if (aborted) {
+    console.log("rematch: RT abort — booking fazı atlandı");
+    const liveBoard = await readScanBoard(admin);
+    return {
+      ok: true,
+      count: liveBoard.deals?.deals?.length ?? 0,
+      aborted: true,
+    };
+  }
+
+  if (!opts?.skipBreather) {
+    console.log(
+      `rematch: booking öncesi ${SCRAPPA_PHASE_BREATHER_MS / 1000}s nefes`,
+    );
+    await sleep(SCRAPPA_PHASE_BREATHER_MS);
+  }
+
+  console.log("rematch: booking-details fazı");
+  const bookedCards: Deal[] = [];
+  bookingLoop: for (const dest of SCRAPPA_DESTINATIONS) {
+    const pending = pendingByDest.get(dest.code);
+    if (!pending?.length) continue;
+    const updated: RtPending[] = [];
+    for (const item of pending) {
+      try {
+        const deal = await applyBookingToDeal(item);
+        if (deal) updated.push({ deal, booking: undefined });
+      } catch (err) {
+        if (!(err instanceof ScrappaUnavailableError)) throw err;
+        aborted = true;
+        console.log(
+          `rematch booking abort @${dest.code}: ${err instanceof Error ? err.message : "unavailable"}`,
+        );
+        // Bu şehir + kalanlar: RT fiyatı veya önceki kart
+        const rtCard = cardFromPending(pending);
+        if (rtCard) bookedCards.push(rtCard);
+        for (const rest of SCRAPPA_DESTINATIONS) {
+          if (rest.code === dest.code) continue;
+          if (!pendingByDest.has(rest.code)) continue;
+          if (bookedCards.some((d) => destCodeFromDeal(d) === rest.code)) {
+            continue;
+          }
+          const p = pendingByDest.get(rest.code)!;
+          const c = cardFromPending(p);
+          if (c) bookedCards.push(c);
+        }
+        break bookingLoop;
+      }
+    }
+    const card = cardFromPending(updated);
+    if (card) bookedCards.push(card);
+    console.log(`rematch booking ${dest.code} ok=${card ? 1 : 0}`);
+  }
+
+  const collapsed = foldAutoAndManual(
+    board.deals?.deals,
+    bookedCards,
+    googleKept,
+    manualKept,
+  );
   const { payload, live, previousLive } = foldShowcase(board.deals, collapsed);
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error };
   if (opts?.notify !== false) {
     await notifyNewDeals(admin, previousLive, live);
   }
-  return { ok: true, count: live.length };
+  return { ok: true, count: live.length, aborted };
 }

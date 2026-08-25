@@ -1,11 +1,11 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- *   0 7 * * *   start day     — near → rematch → full(haftanın dilimi) → rematch
- *   30 22 * * * rematch       — güvenlik
+ *   0 7 * * *   start day     — near → (nefes) RT → (nefes) booking → full → aynı
+ *   30 22 * * * rematch       — güvenlik (tarama varken skip)
  *   her 5 dk      drain         — yedek devam
  *
- * Pzt=full1 … Paz=full7. Tek near/gün; 2. near sonra.
+ * One-way gap 3s. Art arda 7× oturum/503 → 15 dk pause, kaldığı yerden.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  */
 import { readFileSync, existsSync } from "node:fs";

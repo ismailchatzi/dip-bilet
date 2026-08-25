@@ -211,7 +211,7 @@ export async function stopScrappaScans(reason?: string) {
 }
 
 /**
- * Dilim bitince veya oturum toparlanınca tüm şehirleri paket doğrula → vitrin.
+ * Dilim bitince: nefes → RT rematch → nefes → booking → (kuyrukta full varsa) full.
  */
 async function autoRematchIfNeeded(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,

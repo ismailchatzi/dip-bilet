@@ -1,19 +1,24 @@
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 
 /** İstekler arası bekleme — oturumu yormamak için. */
-export const SCRAPPA_REQUEST_GAP_MS = 2_000;
+export const SCRAPPA_REQUEST_GAP_MS = 3_000;
 
 /** Tek oturum/503 hatası: kısa nefes, taramayı öldürme. */
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 
 /**
  * Art arda bu kadar cookie_session / request_exhausted → uzun mola.
- * (Tek 503'te 45 dk beklemek dilimi bitirmez.)
+ * Sonra kaldığı yerden devam.
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
-/** Circuit açıkken bekleme — sonra 1 deneme; yine fail → yine bu süre. */
-export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 20 * 60 * 1000;
+/** Circuit açıkken bekleme — sonra kaldığı cursor’dan devam. */
+export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 15 * 60 * 1000;
+
+/**
+ * One-way dilim bitince → RT rematch → booking arasında nefes (1–2 dk).
+ */
+export const SCRAPPA_PHASE_BREATHER_MS = 90_000;
 
 /** Full tarama: 21 şehir → 7 dilim × 3. */
 export const FULL_CHUNK_SIZE = 3;

@@ -252,15 +252,25 @@ export async function scrappaCheapestBookingPrice(input: {
     gl: "tr",
   });
 
+  const res = await fetch(
+    `https://scrappa.co/api/flights/booking-details?${params}`,
+    {
+      headers: scrappaHeaders(apiKey),
+      cache: "no-store",
+    },
+  );
+  if (res.status === 503) {
+    const json = await readScrappaJson(res);
+    const reason =
+      json.last_failure_reason ||
+      json.failed_stage ||
+      json.error ||
+      json.message ||
+      "booking_details_unavailable";
+    throw new ScrappaUnavailableError(503, reason);
+  }
+  if (!res.ok) return { price: input.listPrice };
   try {
-    const res = await fetch(
-      `https://scrappa.co/api/flights/booking-details?${params}`,
-      {
-        headers: scrappaHeaders(apiKey),
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return { price: input.listPrice };
     const json = (await res.json()) as { fare_options?: unknown };
     const prices = fareOptionTotals(json.fare_options);
     const floor = input.listPrice * 0.85;
@@ -269,7 +279,8 @@ export async function scrappaCheapestBookingPrice(input: {
     );
     if (sellers.length === 0) return { price: input.listPrice };
     return { price: Math.min(...sellers) };
-  } catch {
+  } catch (err) {
+    if (err instanceof ScrappaUnavailableError) throw err;
     return { price: input.listPrice };
   }
 }
