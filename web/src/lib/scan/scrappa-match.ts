@@ -498,22 +498,31 @@ export async function publishAllShowcase(
   const googleKept = previous.filter(isGoogleDeal);
   const manualKept = previous.filter(isManualDeal);
   const auto: Deal[] = [...googleKept];
-  for (const dest of SCRAPPA_DESTINATIONS) {
+  for (let i = 0; i < SCRAPPA_DESTINATIONS.length; i++) {
+    const dest = SCRAPPA_DESTINATIONS[i]!;
     let fresh: Deal[];
     try {
       fresh = await matchDestFromDb(admin, dest);
       console.log(`rematch ${dest.code} scrappa=${fresh.length}`);
     } catch (err) {
       if (!(err instanceof ScrappaUnavailableError)) throw err;
-      fresh = previous.filter(
-        (d) =>
-          !isGoogleDeal(d) &&
-          !isManualDeal(d) &&
-          destCodeFromDeal(d) === dest.code,
-      );
+      // İlk oturum/503’te dur — kalan şehirleri deneme (Paid 503 yağmuru).
       console.log(
-        `rematch ${dest.code} keep=${fresh.length} (scrappa unavailable)`,
+        `rematch abort @${dest.code}: ${err instanceof Error ? err.message : "unavailable"}`,
       );
+      for (let j = i; j < SCRAPPA_DESTINATIONS.length; j++) {
+        const code = SCRAPPA_DESTINATIONS[j]!.code;
+        for (const deal of previous) {
+          if (
+            !isGoogleDeal(deal) &&
+            !isManualDeal(deal) &&
+            destCodeFromDeal(deal) === code
+          ) {
+            auto.push(deal);
+          }
+        }
+      }
+      break;
     }
     for (const deal of fresh) {
       auto.push(deal);

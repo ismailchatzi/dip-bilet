@@ -18,6 +18,8 @@ import {
 } from "@/lib/scan/scrappa-tick";
 import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readScanBoard } from "@/lib/scan/board";
+import { jobFromPayload } from "@/lib/scan/scrappa-job";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -167,6 +169,15 @@ async function main() {
     if (!admin) {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
       process.exit(1);
+    }
+    const job = jobFromPayload((await readScanBoard(admin)).deals);
+    if (job?.status === "running" && !job.halted) {
+      console.log("rematch skip — tarama sürüyor", {
+        window: job.window,
+        dest: job.destIndex,
+        scanned: job.scanned,
+      });
+      return;
     }
     const result = await publishAllShowcase(admin, { notify: true });
     console.log("rematch done", result);

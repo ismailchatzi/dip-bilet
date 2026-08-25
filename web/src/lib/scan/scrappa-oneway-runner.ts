@@ -10,10 +10,6 @@ import {
   type ScrappaWindow,
 } from "@/lib/scan/scrappa-horizon";
 import { SCRAPPA_SESSION_SOFT_PAUSE_MS } from "@/lib/scan/scrappa-schedule";
-import {
-  publishAllShowcase,
-  publishDestShowcase,
-} from "@/lib/scan/scrappa-match";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ScrappaCursor = {
@@ -177,30 +173,7 @@ export async function runScrappaOneWayBatch(
     legs.length,
   );
 
-  let matched = 0;
-  const destDone = !next || next.destIndex !== destIndex;
-  if (admin && destDone) {
-    try {
-      if (next === null) {
-        const pub = await publishAllShowcase(admin);
-        if (!pub.ok) errors.push(`vitrin: ${pub.error}`);
-        else matched = pub.count;
-      } else {
-        const pub = await publishDestShowcase(admin, dest);
-        if (!pub.ok) errors.push(`vitrin: ${pub.error}`);
-        else matched = pub.count;
-      }
-    } catch (e) {
-      if (e instanceof ScrappaUnavailableError) {
-        errors.push(`vitrin: ${e.message}`);
-      } else {
-        errors.push(
-          `vitrin: ${e instanceof Error ? e.message : "eşleştirme hatası"}`,
-        );
-      }
-    }
-  }
-
+  // Rematch yalnız dilim bitince (tick autoRematch) — şehir şehir RT kredi yakmasın.
   return {
     ok: errors.length === 0,
     done: next === null,
@@ -209,7 +182,7 @@ export async function runScrappaOneWayBatch(
     dest: dest.code,
     scanned,
     saved,
-    matched,
+    matched: 0,
     errors: errors.slice(0, 20),
   };
 }

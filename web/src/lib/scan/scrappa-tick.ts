@@ -310,18 +310,16 @@ export async function runScrappaTick(force = false) {
     return { ok: true, running: true, skipped: "dilim çalışıyor" };
   }
 
-  const hadSessionOutage = isSessionOutageMessage(job.lastError);
   const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
   const prevStatus = job.status;
   job = applyBatch(job, batch);
   await saveScrappaJob(admin, job);
 
   const becameIdle = prevStatus === "running" && job.status === "idle";
-  const sessionRecovered =
-    hadSessionOutage && batch.hold !== true && (batch.scanned > 0 || batch.ok);
+  // Rematch yalnız dilim bitince (ortada oturum toparlanması / şehir bitişi yok).
   const rematch = await autoRematchIfNeeded(admin, {
     becameIdle,
-    sessionRecovered,
+    sessionRecovered: false,
   });
 
   let chain: {
