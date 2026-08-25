@@ -57,10 +57,10 @@ function parseChunk(raw: string | undefined): number | undefined {
   return Math.floor(n);
 }
 
-async function drain() {
+async function drain(force = false) {
   for (;;) {
-    // Bu süreç işin sahibi; force=true — isJobFresh kilidi rakip drain içindir.
-    const result = await runScrappaTick(true);
+    // force=true: start day/near sahibi süreç. Cron drain force=false (çakışmasın).
+    const result = await runScrappaTick(force);
     const pausedUntil =
       "pausedUntil" in result && typeof result.pausedUntil === "string"
         ? result.pausedUntil
@@ -125,7 +125,7 @@ async function main() {
       });
       console.log("start day", started);
       if (!started.ok) process.exit(1);
-      await drain();
+      await drain(true);
       return;
     }
 
@@ -151,12 +151,12 @@ async function main() {
     });
     console.log("start", started);
     if (!started.ok) process.exit(1);
-    await drain();
+    await drain(true);
     return;
   }
 
   if (cmd === "drain") {
-    await drain();
+    await drain(false);
     return;
   }
 
