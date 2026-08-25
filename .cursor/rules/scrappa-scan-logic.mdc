@@ -5,19 +5,46 @@ alwaysApply: true
 
 # Scrappa son strateji
 
-Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda ekle.
+Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda + VPS cron’a ekle.
 
 ## Ürün
 Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW → 21 varış.
 
-## Tarama
+## Tarama (tek near + haftalık full)
 - Tek yön IST + SAW, gidiş + dönüş ayrı; DB’de sentetik gidiş-dönüş matrisi; vitrine yalnız **canlı paket doğrulama** geçenler.
 - **Gün 1–4:** tarama yok
-- **Near gün 5–21:** 07 / 15 / 22 TR (günde 3)
-- **Full gün 22–180:** yalnız 07 TR (near dilimini tekrarlamaz)
-- Cron / VPS: `start full` 07, `start near` 15+22; `scrappa-tick` 5 dk.
+- **Near gün 5–21:** günde **1×** (şimdilik; 2. near sonra konuşulur)
+- **Full gün 22–180:** günde **1 dilim** (3 şehir); near dilimini tekrarlamaz. Aynı gün 1→7 yok.
 - `sort_by=cheapest`. Kota ~1M/ay Scrappa.
 - Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE en fazla 2.
+
+### Full dilimler (liste sırası, bölge gate’i değil)
+| Dilim | Şehirler |
+|------|----------|
+| 1 | ATH, BUD, VIE |
+| 2 | PRG, FCO, VCE |
+| 3 | MUC, BER, TBS |
+| 4 | GYD, SJJ, BEG |
+| 5 | TIA, SKP, SSH |
+| 6 | CDG, MAD, BCN |
+| 7 | DPS, HKT, MLE |
+
+### Haftalık full rotasyon (TR)
+Pzt→1, Sal→2, Çar→3, Per→4, Cum→5, Cmt→6, Paz→7.
+
+### Günlük kuyruk (saat beklemeden zincir)
+**07:00 TR** `start day`:
+1. `start near` → bitince **otomatik rematch**
+2. hemen `start full N` (o günün dilimi) → bitince **otomatik rematch**
+3. idle
+
+Oturum molası (45 dk) zinciri bozmaz; saate bakılmaz, iş bitince sıradaki.
+**22:30 TR** güvenlik rematch.
+
+Worker: `npx tsx scripts/scrappa-worker.ts start day [chunk]` · `stop` · `crontab` (satırları basar).
+Cron: yalnız `0 7 start day` + `30 22 rematch` + `*/5 drain`. Eski full 1…7 / near×2–3 **iptal**.
+
+Paralel dilim / çoklu drain **yok**.
 
 ## Vitrin kapıları (showcase-config + showcase-eligibility)
 `benchmark_mode = synthetic_rt_candidate` (ileride `verified_rt`).
@@ -26,7 +53,7 @@ Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW �
 2. **SEZONLUK_DIP:** yalnız örneklem yeterliyse: sentetik RT aday sayısı ≥ N (uzak 30 / diğer 50) **ve** farklı gidiş günü ≥ (uzak 7 / diğer 10); paket ≤ ay medyanı × gate.
    - Gate: Balkan/vizesiz 0.70 · Schengen/Avrupa 0.75 · Uzak 0.82
 3. Çakışmada MUTLAK ezer SEZONLUK.
-4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10.
+4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10 (eşikten aşağı düşmez).
 5. Kart uçuş gününe kadar kalır; 12 saat otomatik silme yok. `verifiedAt` / `lastCheckedAt` tutulur.
 6. Dedup: şehir başına 1 kart; aynı tarih ucuzsa güncelle; pahalı ama geçerli → diğer tarihler (≤3).
 

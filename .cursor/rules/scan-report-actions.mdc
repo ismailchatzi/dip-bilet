@@ -1,0 +1,30 @@
+---
+description: Tarama raporu istendiğinde durum + yapılacaklar; rematch/oturum kuralları
+alwaysApply: true
+---
+
+# Tarama raporu & aksiyon
+
+Kullanıcı tarama durumu / raporu istediğinde **her gün** (yalnızca yarın değil):
+
+1. Near / full: oldu mu (günlük kuyruk: near→rematch→full N→rematch), `scanned/total`, `saved`, cursor (dest/tarih), `lastError`, heartbeat. Full N = haftanın dilimi (Pzt1…Paz7).
+2. Oturum: `cookie_session_unavailable` var mı?
+3. Vitrin: Scrappa kartı eklendi mi / doğrulandı mı?
+4. **Yapılacaklar listesi** — gerekirse madde madde. Gerek yoksa açıkça yaz:
+   - “Tarama ve eşleştirme tamam; kart eklendi / fırsat yok → ekstra işlem yok.”
+
+## Ne zaman işlem?
+
+| Durum | Aksiyon |
+|--------|---------|
+| Bitti + oturum açık + aday var ama vitrinde yok | `rematch` |
+| Oturum yeni geldi | rematch (kullanıcı “scrappa açıldı” derse beklemeden) |
+| Oturum kapalı | rematch / yeni start **yok** — bekle |
+| Drain/cron çalışıyor | ekstra `start` yok |
+| Fiyatlar DB’de, oturum sonra geldi | yeniden tarama şart değil; rematch yeter |
+
+## Rematch
+
+`cd web && npx tsx scripts/scrappa-worker.ts rematch` (laptop veya VPS).
+
+Boşa taratıp bekletme: oturum yokken start/rematch önerme.

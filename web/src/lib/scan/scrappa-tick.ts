@@ -7,11 +7,17 @@ import {
   enqueueScrappaWindow,
   isJobFresh,
   jobFromPayload,
+  normalizeQueue,
   saveScrappaJob,
+  stopScrappaJob,
 } from "@/lib/scan/scrappa-job";
 import { publishAllShowcase } from "@/lib/scan/scrappa-match";
+import {
+  fullChunkForWeekday,
+  fullChunkRange,
+} from "@/lib/scan/scrappa-schedule";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
-import type { ScrappaJob } from "@/lib/types";
+import type { ScrappaJob, ScrappaQueueItem } from "@/lib/types";
 
 function isSessionOutageMessage(msg?: string) {
   return Boolean(
@@ -41,11 +47,13 @@ function applyBatch(
 ): ScrappaJob {
   const now = new Date().toISOString();
   const destStart = job.destStart ?? 0;
+  const queue = normalizeQueue(job.queue);
 
   if (batch.hold) {
     const rewind = job.saved === 0;
     return {
       ...job,
+      queue,
       destIndex: rewind ? destStart : job.destIndex,
       dateIndex: rewind ? 0 : job.dateIndex,
       legIndex: rewind ? 0 : job.legIndex,
@@ -70,6 +78,7 @@ function applyBatch(
   if (batch.next && !hitChunkEnd) {
     return {
       ...job,
+      queue,
       destIndex: batch.next.destIndex,
       dateIndex: batch.next.dateIndex,
       legIndex: batch.next.legIndex,
@@ -82,32 +91,11 @@ function applyBatch(
     };
   }
 
-  const queue = [...(job.queue ?? [])];
-  const nextWindow = queue.shift();
-  if (nextWindow) {
-    return {
-      status: "running",
-      window: nextWindow,
-      destIndex: 0,
-      dateIndex: 0,
-      legIndex: 0,
-      queue,
-      heartbeatAt: now,
-      startedAt: now,
-      scanned,
-      saved,
-      lastError: undefined,
-      pausedUntil: undefined,
-      destStart: 0,
-      destLimit: undefined,
-      chunk: undefined,
-    };
-  }
-
+  // Pencere bitti → idle; kuyruk rematch sonrası tick'te devam eder
   return {
     ...job,
     status: "idle",
-    queue: [],
+    queue,
     heartbeatAt: now,
     scanned,
     saved,
@@ -118,7 +106,11 @@ function applyBatch(
 
 export async function startScrappaWindow(
   window: ScrappaWindow,
-  opts?: { force?: boolean; chunk?: number },
+  opts?: {
+    force?: boolean;
+    chunk?: number;
+    queue?: ScrappaQueueItem[];
+  },
 ) {
   const admin = createAdminClient();
   if (!admin) return { ok: false, error: "Supabase yok" };
@@ -128,6 +120,7 @@ export async function startScrappaWindow(
   const enqueued = await enqueueScrappaWindow(admin, window, {
     force: opts?.force === true,
     chunk: opts?.chunk,
+    queue: opts?.queue,
   });
   if (!enqueued.ok) {
     return {
@@ -142,12 +135,37 @@ export async function startScrappaWindow(
     chunk: enqueued.job?.chunk,
     destStart: enqueued.job?.destStart,
     destLimit: enqueued.job?.destLimit,
+    queue: enqueued.job?.queue,
   };
 }
 
 /**
+ * Günlük kuyruk: near → (rematch) → full(haftanın dilimi) → (rematch).
+ * chunkOverride: test / “Salı gibi başlat” için.
+ */
+export async function startScrappaDay(opts?: {
+  force?: boolean;
+  chunk?: number;
+  now?: Date;
+}) {
+  const chunk = opts?.chunk ?? fullChunkForWeekday(opts?.now);
+  const range = fullChunkRange(chunk);
+  console.log(`start day: near → full ${range.chunk}`, range.codes);
+  return startScrappaWindow("near", {
+    force: opts?.force,
+    queue: [{ window: "full", chunk: range.chunk }],
+  });
+}
+
+export async function stopScrappaScans(reason?: string) {
+  const admin = createAdminClient();
+  if (!admin) return { ok: false, error: "Supabase yok" };
+  const job = await stopScrappaJob(admin, reason ?? "elle durduruldu");
+  return { ok: true, job };
+}
+
+/**
  * Dilim bitince veya oturum toparlanınca tüm şehirleri paket doğrula → vitrin.
- * (Sadece biten şehri yayınlamak yetmiyor; diğer şehirlerdeki adaylar bekliyordu.)
  */
 async function autoRematchIfNeeded(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
@@ -168,6 +186,43 @@ async function autoRematchIfNeeded(
     console.log(`auto-rematch fail`, error);
     return { ok: false, error };
   }
+}
+
+/**
+ * Rematch sonrası günlük kuyruktaki sıradaki pencereyi başlat.
+ */
+async function continueDayQueue(
+  finished: ScrappaJob,
+): Promise<{
+  ok: boolean;
+  window?: ScrappaWindow;
+  chunk?: number;
+  skipped?: string;
+} | null> {
+  const queue = normalizeQueue(finished.queue);
+  const next = queue.shift();
+  if (!next) return null;
+
+  console.log(
+    `day-queue → ${next.window}${next.window === "full" ? ` ${next.chunk}` : ""}`,
+  );
+  const started = await startScrappaWindow(next.window, {
+    force: true,
+    chunk: next.window === "full" ? next.chunk : undefined,
+    queue,
+  });
+  if (!started.ok) {
+    console.log(`day-queue skip`, started.error ?? started.skipped);
+    return {
+      ok: false,
+      skipped: started.error ?? started.skipped,
+    };
+  }
+  return {
+    ok: true,
+    window: next.window,
+    chunk: next.window === "full" ? next.chunk : undefined,
+  };
 }
 
 export async function runScrappaTick(force = false) {
@@ -223,6 +278,20 @@ export async function runScrappaTick(force = false) {
     sessionRecovered,
   });
 
+  let chain: {
+    ok: boolean;
+    window?: ScrappaWindow;
+    chunk?: number;
+    skipped?: string;
+  } | null = null;
+  if (becameIdle) {
+    chain = await continueDayQueue(job);
+    if (chain?.ok) {
+      const refreshed = jobFromPayload((await readScanBoard(admin)).deals);
+      if (refreshed) job = refreshed;
+    }
+  }
+
   return {
     ok: batch.ok,
     running: job.status === "running",
@@ -232,6 +301,7 @@ export async function runScrappaTick(force = false) {
     saved: batch.saved,
     matched: batch.matched,
     rematch: rematch ?? undefined,
+    chain: chain ?? undefined,
     next: batch.next,
     errors: batch.errors,
     lastError: batch.lastError ?? job.lastError,

@@ -31,19 +31,42 @@ export function fullChunkRange(chunk1based: number): {
 }
 
 /**
- * TR takvim (TZ=Europe/Istanbul) — günlük hacim aynı, 24saate yayılmış.
- * Full dilim ~65dk / near ~50dk @ 2sn gap; start aralığı 2.5sa → çakışmaz.
+ * TR haftanın günü → full dilim.
+ * Pzt=1 … Paz=7 (Europe/Istanbul).
+ */
+export function fullChunkForWeekday(now = new Date()): number {
+  const wd = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Istanbul",
+    weekday: "short",
+  }).format(now);
+  const map: Record<string, number> = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7,
+  };
+  return map[wd] ?? 1;
+}
+
+/**
+ * TR takvim — tek near + o günün full dilimi (zincir tick içinde).
+ * 07:00: start day → near → rematch → full N → rematch
+ * 22:30: güvenlik rematch
  */
 export const SCRAPPA_CRON_SCHEDULE = [
-  { time: "00:00", cmd: "start full 1" },
-  { time: "02:30", cmd: "start full 2" },
-  { time: "05:00", cmd: "start full 3" },
-  { time: "07:30", cmd: "start full 4" },
-  { time: "10:00", cmd: "start full 5" },
-  { time: "12:30", cmd: "start near" },
-  { time: "13:30", cmd: "rematch" },
-  { time: "15:00", cmd: "start full 6" },
-  { time: "17:30", cmd: "start full 7" },
-  { time: "20:00", cmd: "start near" },
+  { time: "07:00", cmd: "start day" },
   { time: "22:30", cmd: "rematch" },
 ] as const;
+
+/** crontab satırları (TZ=Europe/Istanbul, web/ kökü). */
+export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
+  const bin = `cd ${webDir} && /usr/bin/npx tsx scripts/scrappa-worker.ts`;
+  return [
+    `0 7 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
+    `30 22 * * * ${bin} rematch >> /var/log/scrappa.log 2>&1`,
+    `*/5 * * * * ${bin} drain >> /var/log/scrappa.log 2>&1`,
+  ];
+}

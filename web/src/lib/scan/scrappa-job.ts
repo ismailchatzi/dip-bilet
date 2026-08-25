@@ -2,7 +2,7 @@ import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import type { ScrappaCursor } from "@/lib/scan/scrappa-oneway-runner";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import { fullChunkRange } from "@/lib/scan/scrappa-schedule";
-import type { DealsPayload, ScrappaJob } from "@/lib/types";
+import type { DealsPayload, ScrappaJob, ScrappaQueueItem } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export function jobFromPayload(deals: DealsPayload | null | undefined) {
@@ -14,6 +14,38 @@ export function isJobFresh(job: ScrappaJob | null, maxAgeMs = 20 * 1000) {
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return false;
   return Date.now() - t < maxAgeMs;
+}
+
+/** Eski string kuyruk / bozuk kayıtları normalize et. */
+export function normalizeQueue(raw: unknown): ScrappaQueueItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ScrappaQueueItem[] = [];
+  for (const item of raw) {
+    if (item === "near") {
+      out.push({ window: "near" });
+      continue;
+    }
+    if (item === "full") continue;
+    if (
+      item &&
+      typeof item === "object" &&
+      (item as ScrappaQueueItem).window === "near"
+    ) {
+      out.push({ window: "near" });
+      continue;
+    }
+    if (
+      item &&
+      typeof item === "object" &&
+      (item as ScrappaQueueItem).window === "full"
+    ) {
+      const chunk = Number((item as { chunk?: number }).chunk);
+      if (Number.isFinite(chunk) && chunk >= 1) {
+        out.push({ window: "full", chunk: Math.floor(chunk) });
+      }
+    }
+  }
+  return out;
 }
 
 export async function saveScrappaJob(
@@ -42,7 +74,11 @@ export async function saveScrappaJob(
 export async function enqueueScrappaWindow(
   admin: SupabaseClient,
   window: ScrappaWindow,
-  opts?: { force?: boolean; chunk?: number },
+  opts?: {
+    force?: boolean;
+    chunk?: number;
+    queue?: ScrappaQueueItem[];
+  },
 ): Promise<{ ok: boolean; skipped?: string; job?: ScrappaJob }> {
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
@@ -81,7 +117,7 @@ export async function enqueueScrappaWindow(
     destIndex: destStart,
     dateIndex: 0,
     legIndex: 0,
-    queue: [],
+    queue: normalizeQueue(opts?.queue ?? []),
     heartbeatAt: now,
     startedAt: now,
     scanned: 0,
@@ -95,6 +131,36 @@ export async function enqueueScrappaWindow(
   };
   await saveScrappaJob(admin, job);
   return { ok: true, job };
+}
+
+/** Çalışan / bekleyen taramayı durdur; kuyruğu temizle. */
+export async function stopScrappaJob(
+  admin: SupabaseClient,
+  reason = "elle durduruldu",
+): Promise<ScrappaJob | null> {
+  const board = await readScanBoard(admin);
+  const current = jobFromPayload(board.deals);
+  const now = new Date().toISOString();
+  const job: ScrappaJob = {
+    status: "idle",
+    window: current?.window ?? "near",
+    destIndex: current?.destIndex ?? 0,
+    dateIndex: current?.dateIndex ?? 0,
+    legIndex: current?.legIndex ?? 0,
+    queue: [],
+    heartbeatAt: now,
+    startedAt: current?.startedAt ?? now,
+    scanned: current?.scanned ?? 0,
+    saved: current?.saved ?? 0,
+    lastError: reason,
+    pausedUntil: undefined,
+    halted: false,
+    destStart: current?.destStart,
+    destLimit: current?.destLimit,
+    chunk: current?.chunk,
+  };
+  await saveScrappaJob(admin, job);
+  return job;
 }
 
 export function cursorFromJob(job: ScrappaJob): ScrappaCursor {

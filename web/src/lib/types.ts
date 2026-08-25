@@ -6,7 +6,7 @@ export type DealDateOption = {
   origin?: string;
   /** Kuyruğa eklenme zamanı — FIFO ve “eski fırsat” notu. */
   foundAt?: string;
-  source?: "gdeals" | "scrappa";
+  source?: "gdeals" | "scrappa" | "manual";
 };
 
 export type Deal = {
@@ -41,13 +41,19 @@ export type Deal = {
   dateOptions?: DealDateOption[];
 };
 
+/** Günlük kuyruk adımı (near bitince full N vb.). */
+export type ScrappaQueueItem =
+  | { window: "near" }
+  | { window: "full"; chunk: number };
+
 export type ScrappaJob = {
   status: "running" | "idle";
   window: "full" | "near";
   destIndex: number;
   dateIndex: number;
   legIndex: number;
-  queue: Array<"full" | "near">;
+  /** Bitince rematch sonrası işlenecek adımlar. */
+  queue: ScrappaQueueItem[];
   heartbeatAt: string;
   startedAt: string;
   scanned: number;

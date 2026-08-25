@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { startScrappaWindow } from "@/lib/scan/scrappa-tick";
+import {
+  startScrappaDay,
+  startScrappaWindow,
+} from "@/lib/scan/scrappa-tick";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 
 export const dynamic = "force-dynamic";
@@ -17,13 +20,26 @@ function isAuthorized(request: Request) {
 
 export async function POST(request: Request) {
   if (!isAuthorized(request)) return unauthorized();
-  let window: ScrappaWindow = "near";
+  let mode: "day" | ScrappaWindow = "day";
+  let chunk: number | undefined;
   try {
-    const body = (await request.json()) as { window?: string };
-    if (body.window === "full" || body.window === "near") window = body.window;
+    const body = (await request.json()) as {
+      window?: string;
+      mode?: string;
+      chunk?: number;
+    };
+    if (body.mode === "day" || body.window === "day") mode = "day";
+    else if (body.window === "full" || body.window === "near") {
+      mode = body.window;
+    }
+    if (typeof body.chunk === "number") chunk = body.chunk;
   } catch {
-    /* near */
+    /* day */
   }
-  const result = await startScrappaWindow(window);
+  if (mode === "day") {
+    const result = await startScrappaDay({ chunk });
+    return NextResponse.json(result);
+  }
+  const result = await startScrappaWindow(mode, { chunk });
   return NextResponse.json(result);
 }

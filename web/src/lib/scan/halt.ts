@@ -1,5 +1,5 @@
 /**
- * false = Scrappa takvim aktif (dilimli full + near + rematch).
+ * false = Scrappa takvim aktif (günlük: near → rematch → full dilim → rematch).
  * Google Deals ayrı.
  */
 export const SCRAPPA_HALTED = false;

@@ -1,33 +1,29 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- *   0 0 * * *   start full 1
- *   30 2 * * *  start full 2
- *   0 5 * * *   start full 3
- *   30 7 * * *  start full 4
- *   0 10 * * *  start full 5
- *   30 12 * * * start near
- *   30 13 * * * rematch
- *   0 15 * * *  start full 6
- *   30 17 * * * start full 7
- *   0 20 * * *  start near
- *   30 22 * * * rematch
+ *   0 7 * * *   start day     — near → rematch → full(haftanın dilimi) → rematch
+ *   30 22 * * * rematch       — güvenlik
+ *   her 5 dk      drain         — yedek devam
  *
- * Dilim bitince / oturum toparlanınca tick otomatik rematch de yapar.
+ * Pzt=full1 … Paz=full7. Tek near/gün; 2. near sonra.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   runScrappaTick,
+  startScrappaDay,
   startScrappaWindow,
+  stopScrappaScans,
 } from "@/lib/scan/scrappa-tick";
 import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
+  fullChunkForWeekday,
   fullChunkRange,
+  scrappaCrontabLines,
 } from "@/lib/scan/scrappa-schedule";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 
@@ -81,6 +77,8 @@ async function drain() {
         scanned,
         saved,
         skipped,
+        rematch: "rematch" in result ? result.rematch : undefined,
+        chain: "chain" in result ? result.chain : undefined,
         lastError: "lastError" in result ? result.lastError : undefined,
       }),
     );
@@ -100,11 +98,40 @@ async function drain() {
 async function main() {
   loadEnv();
   const cmd = process.argv[2] ?? "drain";
+
+  if (cmd === "crontab") {
+    for (const line of scrappaCrontabLines()) console.log(line);
+    return;
+  }
+
+  if (cmd === "stop") {
+    const stopped = await stopScrappaScans(
+      process.argv[3] ?? "worker stop — eski takvim iptal",
+    );
+    console.log("stop", stopped);
+    return;
+  }
+
   if (cmd === "start") {
-    const window = parseWindow(process.argv[3]);
+    const mode = process.argv[3];
+    if (mode === "day") {
+      const chunk =
+        parseChunk(process.argv[4]) ?? fullChunkForWeekday();
+      console.log("day chunk", fullChunkRange(chunk));
+      const started = await startScrappaDay({
+        force: process.argv.includes("--force"),
+        chunk,
+      });
+      console.log("start day", started);
+      if (!started.ok) process.exit(1);
+      await drain();
+      return;
+    }
+
+    const window = parseWindow(mode);
     if (!window) {
       console.error(
-        "kullanım: npx tsx scripts/scrappa-worker.ts start near|full [chunk 1-7]",
+        "kullanım: start day [chunk] | start near|full [chunk] | stop | drain | rematch | crontab",
       );
       process.exit(1);
     }
@@ -117,16 +144,21 @@ async function main() {
     if (window === "full" && chunk != null) {
       console.log("chunk", fullChunkRange(chunk));
     }
-    const started = await startScrappaWindow(window, { chunk });
+    const started = await startScrappaWindow(window, {
+      chunk,
+      force: process.argv.includes("--force"),
+    });
     console.log("start", started);
     if (!started.ok) process.exit(1);
     await drain();
     return;
   }
+
   if (cmd === "drain") {
     await drain();
     return;
   }
+
   if (cmd === "rematch") {
     const admin = createAdminClient();
     if (!admin) {
@@ -137,7 +169,10 @@ async function main() {
     console.log("rematch done", result);
     return;
   }
-  console.error("kullanım: start near|full [1-7]  |  drain  |  rematch");
+
+  console.error(
+    "kullanım: start day [chunk] | start near|full [chunk] | stop | drain | rematch | crontab",
+  );
   process.exit(1);
 }
 

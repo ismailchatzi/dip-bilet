@@ -1,8 +1,6 @@
-import { startScrappaWindow } from "../lib/trigger-scrappa";
-
-/** TR 22:00 = UTC 19:00 — yakın 17 gün. */
+/** Eski near 22:00 — iptal; 22:30 güvenlik rematch VPS crontab. */
 export default async () => {
-  await startScrappaWindow("near");
+  console.log("scrappa-2200 iptal — VPS 22:30 rematch");
 };
 
 export const config = {
