@@ -1,7 +1,7 @@
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 
 /** İstekler arası bekleme — oturumu yormamak için. */
-export const SCRAPPA_REQUEST_GAP_MS = 3_000;
+export const SCRAPPA_REQUEST_GAP_MS = 2_000;
 
 /** Tek oturum/503 hatası: kısa nefes, taramayı öldürme. */
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
@@ -13,7 +13,7 @@ export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
 /** Circuit açıkken bekleme — sonra kaldığı cursor’dan devam. */
-export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 15 * 60 * 1000;
+export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 5 * 60 * 1000;
 
 /**
  * One-way dilim bitince → RT rematch → booking arasında nefes (1–2 dk).
@@ -67,11 +67,11 @@ export function fullChunkForWeekday(now = new Date()): number {
 
 /**
  * TR takvim — tek near + o günün full dilimi (zincir tick içinde).
- * 07:00: start day → near → rematch → full N → rematch
+ * 04:00: start day → near → rematch → full N → rematch
  * 22:30: güvenlik rematch
  */
 export const SCRAPPA_CRON_SCHEDULE = [
-  { time: "07:00", cmd: "start day" },
+  { time: "04:00", cmd: "start day" },
   { time: "22:30", cmd: "rematch" },
 ] as const;
 
@@ -79,8 +79,8 @@ export const SCRAPPA_CRON_SCHEDULE = [
 export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
   const bin = `cd ${webDir} && /usr/bin/npx tsx scripts/scrappa-worker.ts`;
   return [
-    `0 7 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
+    `0 4 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
     `30 22 * * * ${bin} rematch >> /var/log/scrappa.log 2>&1`,
-    `*/5 * * * * ${bin} drain >> /var/log/scrappa.log 2>&1`,
+    `*/4 * * * * ${bin} drain >> /var/log/scrappa.log 2>&1`,
   ];
 }

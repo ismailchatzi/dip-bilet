@@ -32,7 +32,7 @@ function trDateString(d: Date) {
 function isSessionOutageMessage(msg?: string) {
   return Boolean(
     msg &&
-      /cookie_session|request_exhausted|oturum|unavailable|API key|validating/i.test(
+      /cookie_session|request_exhausted|\b502\b|\b503\b|oturum|unavailable|API key|validating/i.test(
         msg,
       ),
   );
@@ -160,7 +160,7 @@ export async function startScrappaWindow(
 
 /**
  * Günlük kuyruk: near → (rematch) → full(haftanın dilimi) → (rematch).
- * Önceki takvim gününden kalan running job 07:00'ı bloklamasın → force.
+ * Önceki takvim gününden kalan running job 04:00'ı bloklamasın → force.
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;

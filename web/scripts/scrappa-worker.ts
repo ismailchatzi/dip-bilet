@@ -1,11 +1,11 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- *   0 7 * * *   start day     — near → (nefes) RT → (nefes) booking → full → aynı
+ *   0 4 * * *   start day     — near → (nefes) RT → (nefes) booking → full → aynı
  *   30 22 * * * rematch       — güvenlik (tarama varken skip)
- *   her 5 dk      drain         — yedek devam
+ *   her 4 dk      drain         — yedek devam (canlı drain varken anında çık)
  *
- * One-way gap 3s. Art arda 7× oturum/503 → 15 dk pause, kaldığı yerden.
+ * One-way gap 2s. Art arda 7× 502/503 → 5 dk pause, kaldığı yerden.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -86,6 +86,9 @@ async function drain(force = false) {
       }),
     );
 
+    // Cron drain: canlı start-day/drain varken süreç fırtınası yapma
+    if (!force && skipped === "dilim çalışıyor") return;
+
     if (!result.running) return;
     if ("paused" in result && result.paused) {
       const wait = pausedUntil
@@ -159,7 +162,7 @@ async function main() {
 
   if (cmd === "drain") {
     // nohup / elle devam: --force (kendi heartbeat kilidine takılma)
-    // cron */5: force yok — başka start day drain varken çakışmaz
+    // cron */4: force yok — canlı drain varken no-op (dilim çalışıyor → exit)
     await drain(process.argv.includes("--force"));
     return;
   }

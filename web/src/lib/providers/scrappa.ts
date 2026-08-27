@@ -345,8 +345,8 @@ export async function scrappaOneWay(input: {
       await new Promise((r) => setTimeout(r, 2000 * attempt));
       continue;
     }
-    if (res.status === 503) {
-      throw new ScrappaUnavailableError(503, lastReason);
+    if (res.status === 503 || res.status === 502) {
+      throw new ScrappaUnavailableError(res.status, lastReason);
     }
     if (!res.ok) {
       throw new Error(`Scrappa one-way HTTP ${res.status}: ${lastReason}`);
