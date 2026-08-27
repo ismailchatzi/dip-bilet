@@ -123,7 +123,7 @@ async function loadObservations(
     if (res.error || !res.data) break;
 
     for (const r of res.data) {
-      const row = r as {
+      const row = r as unknown as {
         route_key: unknown;
         season_key: unknown;
         price: unknown;

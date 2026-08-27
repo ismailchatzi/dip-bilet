@@ -153,7 +153,11 @@ export function isCheaperFreshDateOption(
 }
 
 function showcaseParts(deal: Deal) {
-  if (deal.id.startsWith("scrappa:") || deal.id.startsWith("gdeals:")) {
+  if (
+    deal.id.startsWith("scrappa:") ||
+    deal.id.startsWith("gdeals:") ||
+    deal.id.startsWith("manual:")
+  ) {
     return deal.id.split(":");
   }
   return null;
@@ -574,8 +578,10 @@ export function sameDateCluster(a: Deal, b: Deal) {
 
 export const MAX_DATE_OPTIONS = 3;
 
-function dealSourcePrefix(deal: Deal): "gdeals" | "scrappa" {
-  return deal.id.startsWith("gdeals:") ? "gdeals" : "scrappa";
+function dealSourcePrefix(deal: Deal): "gdeals" | "scrappa" | "manual" {
+  if (deal.id.startsWith("gdeals:")) return "gdeals";
+  if (deal.id.startsWith("manual:")) return "manual";
+  return "scrappa";
 }
 
 function optionTripKey(opt: Pick<DealDateOption, "outboundDate" | "returnDate">) {
@@ -701,7 +707,7 @@ export type DealDateChoice = {
   airline?: string;
   origin?: string;
   foundAt?: string;
-  source?: "gdeals" | "scrappa";
+  source?: "gdeals" | "scrappa" | "manual";
 };
 
 export function dealDateChoices(deal: Deal): DealDateChoice[] {
@@ -861,7 +867,9 @@ export function dealSourceCipher(deal: Deal) {
     ? "D"
     : deal.id.startsWith("scrappa:")
       ? "S"
-      : null;
+      : deal.id.startsWith("manual:")
+        ? "M"
+        : null;
   if (!prefix) return null;
   const letters = "BCDFGHJKMNPQRTVWXZ";
   let n = 2166136261;
