@@ -45,33 +45,41 @@ export function fullChunkRange(chunk1based: number): {
 }
 
 /**
- * TR haftanın günü → full dilim.
+ * TR haftanın günü → tek full dilim (legacy / elle override).
  * Pzt=1 … Paz=7 (Europe/Istanbul).
  */
 export function fullChunkForWeekday(now = new Date()): number {
+  return fullChunksForWeekday(now)[0];
+}
+
+/**
+ * TR haftanın günü → günde 2 full dilim (arka arkaya; arada rematch yok).
+ * Pzt 1+2 · Sal 3+4 · Çar 5+6 · Per 7+1 · Cum 2+3 · Cmt 4+5 · Paz 6+7
+ */
+export function fullChunksForWeekday(now = new Date()): [number, number] {
   const wd = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Istanbul",
     weekday: "short",
   }).format(now);
-  const map: Record<string, number> = {
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-    Sun: 7,
+  const pairs: Record<string, [number, number]> = {
+    Mon: [1, 2],
+    Tue: [3, 4],
+    Wed: [5, 6],
+    Thu: [7, 1],
+    Fri: [2, 3],
+    Sat: [4, 5],
+    Sun: [6, 7],
   };
-  return map[wd] ?? 1;
+  return pairs[wd] ?? [1, 2];
 }
 
 /**
- * TR takvim — tek near + o günün full dilimi (zincir tick içinde).
- * 04:00: start day → near → rematch → full N → rematch
+ * TR takvim — near + 2 full dilim (arka arkaya) + gün sonu rematch.
+ * 05:00: start day → near → rematch → full A → full B → rematch
  * 22:30: güvenlik rematch
  */
 export const SCRAPPA_CRON_SCHEDULE = [
-  { time: "04:00", cmd: "start day" },
+  { time: "05:00", cmd: "start day" },
   { time: "22:30", cmd: "rematch" },
 ] as const;
 
@@ -79,7 +87,7 @@ export const SCRAPPA_CRON_SCHEDULE = [
 export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
   const bin = `cd ${webDir} && /usr/bin/npx tsx scripts/scrappa-worker.ts`;
   return [
-    `0 4 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
+    `0 5 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
     `30 22 * * * ${bin} rematch >> /var/log/scrappa.log 2>&1`,
     `*/4 * * * * ${bin} drain >> /var/log/scrappa.log 2>&1`,
   ];

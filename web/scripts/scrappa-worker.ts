@@ -1,7 +1,7 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- *   0 4 * * *   start day     — near → (nefes) RT → (nefes) booking → full → aynı
+ *   0 5 * * *   start day     — near → rematch → full A → full B → rematch
  *   30 22 * * * rematch       — güvenlik (tarama varken skip)
  *   her 4 dk      drain         — yedek devam (canlı drain varken anında çık)
  *
@@ -23,7 +23,7 @@ import { jobFromPayload } from "@/lib/scan/scrappa-job";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
-  fullChunkForWeekday,
+  fullChunksForWeekday,
   fullChunkRange,
   scrappaCrontabLines,
 } from "@/lib/scan/scrappa-schedule";
@@ -121,12 +121,16 @@ async function main() {
   if (cmd === "start") {
     const mode = process.argv[3];
     if (mode === "day") {
-      const chunk =
-        parseChunk(process.argv[4]) ?? fullChunkForWeekday();
-      console.log("day chunk", fullChunkRange(chunk));
+      const chunkArg = parseChunk(process.argv[4]);
+      if (chunkArg != null) {
+        console.log("day chunk (override)", fullChunkRange(chunkArg));
+      } else {
+        const [c1, c2] = fullChunksForWeekday();
+        console.log("day chunks", fullChunkRange(c1), fullChunkRange(c2));
+      }
       const started = await startScrappaDay({
         force: process.argv.includes("--force"),
-        chunk,
+        chunk: chunkArg,
       });
       console.log("start day", started);
       if (!started.ok) process.exit(1);

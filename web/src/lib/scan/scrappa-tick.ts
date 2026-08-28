@@ -16,6 +16,7 @@ import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import {
   fullChunkForWeekday,
   fullChunkRange,
+  fullChunksForWeekday,
   SCRAPPA_SESSION_CIRCUIT_AFTER,
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
@@ -159,8 +160,9 @@ export async function startScrappaWindow(
 }
 
 /**
- * Günlük kuyruk: near → (rematch) → full(haftanın dilimi) → (rematch).
- * Önceki takvim gününden kalan running job 04:00'ı bloklamasın → force.
+ * Günlük kuyruk: near → rematch → full A → full B → rematch.
+ * Full A/B arasında rematch yok (arka arkaya).
+ * Önceki takvim gününden kalan running job 05:00'ı bloklamasın → force.
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;
@@ -168,8 +170,10 @@ export async function startScrappaDay(opts?: {
   now?: Date;
 }) {
   const now = opts?.now ?? new Date();
-  const chunk = opts?.chunk ?? fullChunkForWeekday(now);
-  const range = fullChunkRange(chunk);
+  const [c1, c2] = fullChunksForWeekday(now);
+  const chunks =
+    opts?.chunk != null ? [opts.chunk] : [c1, c2];
+  const ranges = chunks.map((c) => fullChunkRange(c));
 
   let force = opts?.force === true;
   if (!force) {
@@ -194,12 +198,15 @@ export async function startScrappaDay(opts?: {
     }
   }
 
-  console.log(`start day: near → full ${range.chunk}`, range.codes, {
-    force,
-  });
+  console.log(
+    `start day: near → full ${ranges.map((r) => r.chunk).join("+")}`,
+    ranges.flatMap((r) => r.codes),
+    { force },
+  );
+  const queue = chunks.map((chunk) => ({ window: "full" as const, chunk }));
   return startScrappaWindow("near", {
     force,
-    queue: [{ window: "full", chunk: range.chunk }],
+    queue,
   });
 }
 
@@ -312,15 +319,25 @@ export async function runScrappaTick(force = false) {
 
   const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
   const prevStatus = job.status;
+  const finishedWindow = job.window;
   job = applyBatch(job, batch);
   await saveScrappaJob(admin, job);
 
   const becameIdle = prevStatus === "running" && job.status === "idle";
-  // Rematch yalnız dilim bitince (ortada oturum toparlanması / şehir bitişi yok).
-  const rematch = await autoRematchIfNeeded(admin, {
-    becameIdle,
-    sessionRecovered: false,
-  });
+  const pendingQueue = normalizeQueue(job.queue);
+  // Near bitince veya günün son full'ü bitince rematch; ara full'ler arasında yok.
+  const shouldRematch =
+    becameIdle &&
+    (finishedWindow === "near" || pendingQueue.length === 0);
+  if (becameIdle && !shouldRematch) {
+    console.log("auto-rematch skip — sıradaki full dilim bekliyor");
+  }
+  const rematch = shouldRematch
+    ? await autoRematchIfNeeded(admin, {
+        becameIdle: true,
+        sessionRecovered: false,
+      })
+    : null;
 
   let chain: {
     ok: boolean;
