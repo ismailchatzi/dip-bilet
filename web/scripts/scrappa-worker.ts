@@ -19,7 +19,7 @@ import {
 import { publishAllShowcase } from "@/lib/scan/scrappa-match";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readScanBoard } from "@/lib/scan/board";
-import { jobFromPayload } from "@/lib/scan/scrappa-job";
+import { jobFromPayload, isJobFresh } from "@/lib/scan/scrappa-job";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -166,8 +166,23 @@ async function main() {
 
   if (cmd === "drain") {
     // nohup / elle devam: --force (kendi heartbeat kilidine takılma)
-    // cron */4: force yok — canlı drain varken no-op (dilim çalışıyor → exit)
-    await drain(process.argv.includes("--force"));
+    // cron */4: canlı drain → no-op; ölü worker + bayat heartbeat → force takeover
+    let force = process.argv.includes("--force");
+    if (!force) {
+      const admin = createAdminClient();
+      if (admin) {
+        const job = jobFromPayload((await readScanBoard(admin)).deals);
+        if (
+          job?.status === "running" &&
+          !job.halted &&
+          !isJobFresh(job)
+        ) {
+          console.log("drain: bayat heartbeat — force takeover");
+          force = true;
+        }
+      }
+    }
+    await drain(force);
     return;
   }
 
