@@ -66,7 +66,7 @@ export const HARD_FLOORS: Record<string, HardFloorEntry> = {
   BEG: { floor: 135, version: "v1.0", source: "manual_initial_heuristic" },
   TBS: { floor: 110, version: "v1.0", source: "manual_initial_heuristic" },
   GYD: { floor: 140, version: "v1.0", source: "manual_initial_heuristic" },
-  SSH: { floor: 160, version: "v1.0", source: "manual_initial_heuristic" },
+  SSH: { floor: 120, version: "v1.0", source: "manual_initial_heuristic" },
   ATH: { floor: 110, version: "v1.0", source: "manual_initial_heuristic" },
   BUD: { floor: 135, version: "v1.0", source: "manual_initial_heuristic" },
   VIE: { floor: 145, version: "v1.0", source: "manual_initial_heuristic" },
