@@ -71,7 +71,7 @@ Paralel dilim / çoklu drain **yok**. Elle ikinci `drain --force` açma.
 6. Dedup: şehir başına 1 kart; aynı tarih ucuzsa güncelle; pahalı ama geçerli → diğer tarihler (≤3).
 
 ## Hard floor v1 (GD toplam USD)
-TIA 110, SJJ 120, SKP 115, BEG 135, TBS 110, GYD 140, SSH 120, ATH 110, BUD 135, VIE 145, PRG 150, FCO 150, VCE 145, MUC 155, BER 140, CDG 170, MAD 165, BCN 160, HKT 580, MLE 620, DPS 680.
+TIA 110, SJJ 120, SKP 115, BEG 135, TBS 110, GYD 140, SSH 120, ATH 100, BUD 135, VIE 145, PRG 150, FCO 150, VCE 145, MUC 155, BER 140, CDG 170, MAD 165, BCN 160, HKT 580, MLE 620, DPS 680.
 
 ## Google Deals (SerpAPI)
 Aynı kalite: hard floor **veya** Google avg × 0.75. Ayrı “direkt bas” yok.

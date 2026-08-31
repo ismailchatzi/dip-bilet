@@ -33,9 +33,9 @@ import type { Deal, DealDateOption } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Kahraman + diğer tarihler. */
-const MAX_KEEP = 4;
+const MAX_KEEP = 1 + MAX_DATE_OPTIONS;
 /** Paket doğrulama denemesi tavanı (kredi). */
-const MAX_VERIFY = 8;
+const MAX_VERIFY = 16;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -516,14 +516,19 @@ export async function matchDestFromDb(
   if (verified.length === 0) return { card: null, pending: [] };
   verified.sort(
     (a, b) =>
-      (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? "") ||
-      a.deal.price - b.deal.price,
+      a.deal.price - b.deal.price ||
+      (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? ""),
   );
   const card: Deal = {
     ...verified[0]!.deal,
-    dateOptions: verified.slice(1, 1 + MAX_DATE_OPTIONS).map((p) =>
-      toDateOption(p.deal),
-    ),
+    dateOptions: verified
+      .slice(1, 1 + MAX_DATE_OPTIONS)
+      .sort(
+        (a, b) =>
+          (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? "") ||
+          a.deal.price - b.deal.price,
+      )
+      .map((p) => toDateOption(p.deal)),
   };
   return { card, pending: verified };
 }
@@ -532,14 +537,19 @@ function cardFromPending(pending: RtPending[]): Deal | null {
   if (pending.length === 0) return null;
   const sorted = [...pending].sort(
     (a, b) =>
-      (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? "") ||
-      a.deal.price - b.deal.price,
+      a.deal.price - b.deal.price ||
+      (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? ""),
   );
   return {
     ...sorted[0]!.deal,
-    dateOptions: sorted.slice(1, 1 + MAX_DATE_OPTIONS).map((p) =>
-      toDateOption(p.deal),
-    ),
+    dateOptions: sorted
+      .slice(1, 1 + MAX_DATE_OPTIONS)
+      .sort(
+        (a, b) =>
+          (b.deal.foundAt ?? "").localeCompare(a.deal.foundAt ?? "") ||
+          a.deal.price - b.deal.price,
+      )
+      .map((p) => toDateOption(p.deal)),
   };
 }
 

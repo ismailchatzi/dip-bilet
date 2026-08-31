@@ -37,7 +37,7 @@ export type Deal = {
   photoUrl?: string;
   /** Google: yolcu sorumluluğunda aktarma (ayrı bilet) */
   selfTransfer?: boolean;
-  /** Aynı karttaki diğer tarihler (en fazla 3; kahraman hariç) */
+  /** Aynı karttaki diğer tarihler (en fazla 10; kahraman hariç) */
   dateOptions?: DealDateOption[];
 };
 

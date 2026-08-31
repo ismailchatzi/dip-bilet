@@ -576,7 +576,7 @@ export function sameDateCluster(a: Deal, b: Deal) {
   return outboundDaysApart(a.outboundDate, b.outboundDate) <= DATE_CLUSTER_DAYS;
 }
 
-export const MAX_DATE_OPTIONS = 3;
+export const MAX_DATE_OPTIONS = 10;
 
 function dealSourcePrefix(deal: Deal): "gdeals" | "scrappa" | "manual" {
   if (deal.id.startsWith("gdeals:")) return "gdeals";
@@ -632,8 +632,8 @@ function compareFoundAtDesc(a?: string, b?: string) {
   return (b ?? "").localeCompare(a ?? "");
 }
 
+/** Diğer tarihler: yeniden eskiye; fazlası en eski kayıtlardan kesilir. */
 function capDateOptions(opts: DealDateOption[]): DealDateOption[] {
-  if (opts.length <= MAX_DATE_OPTIONS) return opts;
   return [...opts]
     .sort(
       (a, b) =>
@@ -642,7 +642,7 @@ function capDateOptions(opts: DealDateOption[]): DealDateOption[] {
     .slice(0, MAX_DATE_OPTIONS);
 }
 
-/** Şehir başına 1 kart: vitrin = en güncel fırsat; diğerleri max 3. */
+/** Şehir başına 1 kart: kahraman = en ucuz tarih; diğerleri max 10, yenilik sırası. */
 export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   const byCity = new Map<string, Deal[]>();
   for (const deal of deals) {
@@ -665,8 +665,8 @@ export function foldOneCardPerCity(deals: Deal[]): Deal[] {
     }
     const unique = [...best.values()].sort(
       (a, b) =>
-        compareFoundAtDesc(a.opt.foundAt, b.opt.foundAt) ||
-        a.opt.price - b.opt.price,
+        a.opt.price - b.opt.price ||
+        compareFoundAtDesc(a.opt.foundAt, b.opt.foundAt),
     );
     const head = unique[0];
     if (!head) continue;
