@@ -7,12 +7,6 @@ export function SiteFooter() {
     <footer className="home-footer">
       <div className="home-footer__grid">
         <div>
-          <h3>Şirket</h3>
-          <Link href="/iletisim">Hakkımızda</Link>
-          <Link href="/uye-ol">Üye ol</Link>
-          <Link href="/giris">Giriş</Link>
-        </div>
-        <div>
           <h3>Yasal</h3>
           <Link href="/gizlilik">Gizlilik (KVKK)</Link>
           <Link href="/kullanim-sartlari">Kullanım Şartları</Link>
@@ -21,7 +15,7 @@ export function SiteFooter() {
         </div>
         <div>
           <h3>Yardım</h3>
-          <Link href="/#sss">SSS</Link>
+          <Link href="/sss">SSS</Link>
           <Link href="/iletisim">İletişim</Link>
         </div>
         <div>

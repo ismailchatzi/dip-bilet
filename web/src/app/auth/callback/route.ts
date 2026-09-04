@@ -4,6 +4,12 @@ import { NextResponse } from "next/server";
 import { fetchOnboardingProfile, postAuthPath } from "@/lib/onboarding";
 
 function siteOrigin(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
+  const host = new URL(request.url).hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return requestOrigin;
+  }
+
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   if (configured) return configured;
 

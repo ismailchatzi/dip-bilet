@@ -1,6 +1,7 @@
 "use client";
 
 import { DestGallery } from "@/components/vitrin/DestGallery";
+import { TripExtrasPanel } from "@/components/vitrin/TripExtrasPanel";
 import {
   dealCabin,
   dealCityName,
@@ -53,6 +54,7 @@ export function DealDetail({
   });
   const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
+  const cityLabel = dealCityName(deal);
   const dest = dealDestCode(deal);
   const choices = dealDateChoices(deal);
   const cityAlts = otherCityDeals(deal, cityDeals);
@@ -337,6 +339,16 @@ export function DealDetail({
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {dest && od && rd ? (
+        <TripExtrasPanel
+          cityLabel={cityLabel}
+          destIata={dest}
+          destinationLabel={deal.destination}
+          pickupDate={od}
+          dropoffDate={rd}
+        />
       ) : null}
     </article>
   );

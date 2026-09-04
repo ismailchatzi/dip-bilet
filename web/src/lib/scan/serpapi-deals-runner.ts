@@ -4,6 +4,7 @@ import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
 import { passesGoogleDealGates } from "@/lib/scan/google-deals-gates";
+import { destPhotoCode } from "@/lib/destination-photos";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import { maxStopsForDest, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal } from "@/lib/types";
@@ -26,12 +27,23 @@ function destFromHit(hit: {
   const arrival = String(hit.arrival_airport_code ?? "").toUpperCase();
   if (!/^[A-Z]{3}$/.test(arrival)) return null;
   if (arrival === "IST" || arrival === "SAW") return null;
-  const tracked = findTrackedDestination(arrival);
-  if (tracked) return { code: tracked.code, name: tracked.name };
 
   const raw = String(hit.name ?? "")
     .replace(/\s*\([A-Z]{3}\)\s*$/, "")
     .trim();
+
+  const tracked = findTrackedDestination(arrival);
+  if (tracked) return { code: tracked.code, name: tracked.name };
+
+  const fromName = destPhotoCode(raw) ?? destPhotoCode(arrival);
+  if (fromName) {
+    const canon = findTrackedDestination(fromName);
+    return {
+      code: canon?.code ?? fromName,
+      name: canon?.name ?? (raw || fromName),
+    };
+  }
+
   return { code: arrival, name: raw || arrival };
 }
 

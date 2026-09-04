@@ -1,4 +1,4 @@
-import { dealDestCode } from "@/lib/deal-display";
+import { dealDestCode, isDomesticDeal } from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { clampDealStrikePrices } from "@/lib/scan/showcase-config";
 import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
@@ -103,6 +103,7 @@ export function archiveForHomepage(
 ): Deal[] {
   return archive
     .filter((d) => isArchiveReady(d, today))
+    .filter((d) => !isDomesticDeal(d))
     .sort(
       (a, b) =>
         (b.discountPercent ?? 0) - (a.discountPercent ?? 0) ||

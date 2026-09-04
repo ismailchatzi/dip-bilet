@@ -142,9 +142,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       return;
     }
 
-    const site =
-      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-      window.location.origin;
+    const site = window.location.origin;
 
     setLoading(true);
     const { error: googleError } = await supabase.auth.signInWithOAuth({

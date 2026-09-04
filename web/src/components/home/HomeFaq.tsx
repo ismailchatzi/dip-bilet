@@ -13,7 +13,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Yurt içi ve yurt dışı destinasyonlara bakıyor musunuz?",
-    a: "Şimdilik İstanbul (IST / SAW) çıkışlı yurt dışı ve seçili destinasyonlara odaklanıyoruz. Liste büyüdükçe genişleyecek.",
+    a: "Şimdilik İstanbul (IST / SAW) çıkışlı yurt içi, yurt dışı ve seçili destinasyonlara odaklanıyoruz. Liste büyüdükçe genişleyecek.",
   },
   {
     q: "Türkiye dışından da üye olabilir miyim?",

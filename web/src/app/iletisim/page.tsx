@@ -18,10 +18,6 @@ export default function IletisimPage() {
         </li>
         <li>Web: dipbilet.com</li>
       </ul>
-      <p>
-        Ticari unvan, adres ve MERSİS / vergi bilgileri şirketleşme sonrası bu
-        sayfada yayımlanacaktır.
-      </p>
     </LegalShell>
   );
 }

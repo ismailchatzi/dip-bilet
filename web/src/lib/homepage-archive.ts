@@ -4,7 +4,7 @@ import { readScanBoard } from "@/lib/scan/board";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Deal } from "@/lib/types";
 
-/** Anasayfa: 2+ gün geçmiş gerçek kartlar; yoksa örnekler. */
+/** Anasayfa “Son yakalanan fırsatlar”: yurtdışı, uçuşu geçmiş; yoksa örnekler. */
 export async function getHomepageArchive(): Promise<Deal[]> {
   const admin = createAdminClient();
   if (!admin) return archiveDeals;

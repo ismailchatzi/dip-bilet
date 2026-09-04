@@ -1,4 +1,5 @@
 import {
+  cheapestDealPerCity,
   dealAbsoluteHref,
   dealCityKey,
   dealCityTitle,
@@ -9,7 +10,7 @@ import {
   formatDealMoney,
   siteOrigin,
 } from "@/lib/deal-display";
-import { destPhotoCode } from "@/lib/destination-photos";
+import { destPhotoUrls } from "@/lib/destination-photos";
 import type { Deal } from "@/lib/types";
 
 export function dealKey(deal: Deal): string {
@@ -25,18 +26,25 @@ function shownMoney(deal: Deal) {
   return formatDealMoney(displayDealPrice(deal.price), deal.currency);
 }
 
-function cardPhotoUrl(deal: Deal): string | null {
-  const origin = siteOrigin();
-  // Önce Google Deals thumbnail
-  if (deal.photoUrl) return deal.photoUrl;
-  // Yerel fotoğraf
-  const code =
-    destPhotoCode(dealCityKey(deal)) ?? destPhotoCode(dealDestCode(deal));
-  if (!code) return null;
-  return `${origin}/destinations/card/${code.toLowerCase()}1.jpg`;
+/** Mail istemcileri localhost görseli yükleyemez — fotoğraf için prod (veya EMAIL_ASSET_ORIGIN). */
+function emailAssetOrigin() {
+  const raw =
+    process.env.EMAIL_ASSET_ORIGIN?.trim() ||
+    "https://dipbilet.com";
+  return raw.replace(/\/$/, "");
 }
 
-function dealCard(deal: Deal, origin: string): string {
+function cardPhotoUrl(deal: Deal): string | null {
+  const assetOrigin = emailAssetOrigin();
+  const codeOrName = dealCityKey(deal) || dealDestCode(deal) || deal.destination;
+  const local = destPhotoUrls(codeOrName);
+  if (local[0]) return `${assetOrigin}${local[0]}`;
+  // Yerel yoksa Google thumbnail (bazı maillerde kırılabilir)
+  if (deal.photoUrl) return deal.photoUrl;
+  return null;
+}
+
+function dealCard(deal: Deal): string {
   const title = dealCityTitle(deal);
   const money = shownMoney(deal);
   const pct = displayDealDiscountPercent(deal);
@@ -61,26 +69,35 @@ function dealCard(deal: Deal, origin: string): string {
     <td style="padding:18px 20px 20px;background:#fff">
       <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:#00153d">${title}${discount}</p>
       <p style="margin:0 0 12px;font-size:13px;color:#888">${dates} &nbsp;·&nbsp; İstanbul kalkışlı</p>
-      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-        <td style="vertical-align:middle">
-          <span style="font-size:28px;font-weight:900;color:#111">${money}</span>${avg}
-        </td>
-        <td align="right" style="vertical-align:middle">
-          <a href="${href}" style="display:inline-block;background:#00153d;color:#fff;font-size:14px;font-weight:700;padding:10px 22px;border-radius:8px;text-decoration:none">Bileti incele →</a>
-        </td>
-      </tr></table>
+      <p style="margin:0 0 16px">
+        <span style="font-size:28px;font-weight:900;color:#111">${money}</span>${avg}
+      </p>
+      <p style="margin:0 0 10px;font-size:13px;color:#555;line-height:1.45">
+        Bu bileti ve diğer tarihli fırsatları görüntülemek için;
+      </p>
+      <a href="${href}" style="display:inline-block;background:#00153d;color:#fff;font-size:14px;font-weight:700;padding:10px 22px;border-radius:8px;text-decoration:none">Bileti incele →</a>
     </td>
   </tr>
 </table>`.trim();
 }
 
+/** Şehir başına yalnızca en ucuz fırsat (spam hissi olmasın). */
+function pickEmailDeals(deals: Deal[]) {
+  return cheapestDealPerCity(deals)
+    .sort(
+      (a, b) =>
+        displayDealPrice(a.price) - displayDealPrice(b.price),
+    )
+    .slice(0, 6);
+}
+
 export function dealAlertEmailContent(deals: Deal[]) {
-  const top = deals.slice(0, 6);
+  const top = pickEmailDeals(deals);
   const origin = siteOrigin();
 
   const subject =
     top.length === 1
-      ? `✈ ${dealCityTitle(top[0])} — ${shownMoney(top[0])}`
+      ? `✈ ${dealCityTitle(top[0])} — ${shownMoney(top[0]!)}`
       : `✈ ${top.length} yeni dip fırsat — Dip Bilet`;
 
   /* ----- düz metin (fallback) ----- */
@@ -96,12 +113,14 @@ export function dealAlertEmailContent(deals: Deal[]) {
     "",
     ...lines,
     "",
+    "Bu bileti ve diğer tarihli fırsatları görüntülemek için vitrine git.",
+    "",
     "Sevgiler,",
     "Dip Bilet — " + origin,
   ].join("\n");
 
   /* ----- HTML ----- */
-  const cards = top.map((d) => dealCard(d, origin)).join("\n");
+  const cards = top.map((d) => dealCard(d)).join("\n");
 
   const html = `<!DOCTYPE html>
 <html lang="tr">
@@ -115,7 +134,7 @@ export function dealAlertEmailContent(deals: Deal[]) {
     <tr>
       <td style="padding:0 0 16px">
         <a href="${origin}" style="text-decoration:none">
-          <img src="${origin}/logo-db-badge.png" alt="Dip Bilet" height="36" style="height:36px;border:0">
+          <img src="${emailAssetOrigin()}/logo-db-badge.png" alt="Dip Bilet" height="36" style="height:36px;border:0">
         </a>
       </td>
     </tr>
@@ -131,7 +150,7 @@ export function dealAlertEmailContent(deals: Deal[]) {
     </tr>
   </table>
 
-  <!-- Fırsat kartları -->
+  <!-- Fırsat kartları (şehir başına en ucuz) -->
   ${cards}
 
   <!-- Footer -->
@@ -153,18 +172,19 @@ export function dealAlertEmailContent(deals: Deal[]) {
 }
 
 export function dealAlertSmsContent(deals: Deal[]) {
-  const top = deals.slice(0, 2);
+  const cities = pickEmailDeals(deals);
+  const top = cities.slice(0, 2);
   const bits = top.map((d) => {
     const name = dealCityTitle(d).replace(/,.*$/, "").trim();
     return `${name} ${shownMoney(d)}`;
   });
-  const extra = deals.length > 2 ? ` +${deals.length - 2}` : "";
+  const extra = cities.length > 2 ? ` +${cities.length - 2}` : "";
   const link =
-    deals.length === 1
-      ? dealAbsoluteHref(deals[0]).replace(/^https?:\/\//, "")
+    cities.length === 1
+      ? dealAbsoluteHref(cities[0]!).replace(/^https?:\/\//, "")
       : siteOrigin().replace(/^https?:\/\//, "") + "/firsatlarim";
-  if (deals.length === 1) {
+  if (cities.length === 1) {
     return `Dip Bilet: ${bits[0]}. ${link}`;
   }
-  return `Dip Bilet: ${deals.length} yeni dip. ${bits.join(", ")}${extra}. ${link}`;
+  return `Dip Bilet: ${cities.length} yeni dip. ${bits.join(", ")}${extra}. ${link}`;
 }
