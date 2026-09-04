@@ -48,6 +48,7 @@ export function CarRentalCarousel({
     }
 
     let cancelled = false;
+    setData(null);
     setLoading(true);
     setHidden(false);
 
@@ -61,7 +62,10 @@ export function CarRentalCarousel({
     fetch(`/api/car-rentals?${q}`, { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
-          if (!cancelled) setHidden(true);
+          if (!cancelled) {
+            setData(null);
+            setHidden(true);
+          }
           return;
         }
         const json = (await res.json()) as Payload;
@@ -71,7 +75,10 @@ export function CarRentalCarousel({
         }
       })
       .catch(() => {
-        if (!cancelled) setHidden(true);
+        if (!cancelled) {
+          setData(null);
+          setHidden(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

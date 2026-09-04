@@ -54,7 +54,7 @@ export default async function DealDetailPage({ params }: PageProps) {
 
   return (
     <AccountShell title={dealCityTitle(deal)} wide hideTitle>
-      <DealDetail deal={deal} cityDeals={cityDeals} focusId={id} />
+      <DealDetail key={id} deal={deal} cityDeals={cityDeals} focusId={id} />
     </AccountShell>
   );
 }

@@ -39,6 +39,7 @@ export function HotelOffersCarousel({
     }
 
     let cancelled = false;
+    setData(null);
     setLoading(true);
     setHidden(false);
 
@@ -49,10 +50,13 @@ export function HotelOffersCarousel({
       dropoff: dropoffDate,
     });
 
-    fetch(`/api/hotel-offers?${q}`)
+    fetch(`/api/hotel-offers?${q}`, { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) {
-          if (!cancelled) setHidden(true);
+          if (!cancelled) {
+            setData(null);
+            setHidden(true);
+          }
           return;
         }
         const json = (await res.json()) as Payload;
@@ -62,7 +66,10 @@ export function HotelOffersCarousel({
         }
       })
       .catch(() => {
-        if (!cancelled) setHidden(true);
+        if (!cancelled) {
+          setData(null);
+          setHidden(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -31,6 +31,7 @@ export function ActivitiesCarousel({
     }
 
     let cancelled = false;
+    setData(null);
     setLoading(true);
     setHidden(false);
 
@@ -39,9 +40,13 @@ export function ActivitiesCarousel({
       q.set("destination", destinationLabel.trim());
     }
 
-    fetch(`/api/activities?${q}`, { cache: "no-store" })      .then(async (res) => {
+    fetch(`/api/activities?${q}`, { cache: "no-store" })
+      .then(async (res) => {
         if (!res.ok) {
-          if (!cancelled) setHidden(true);
+          if (!cancelled) {
+            setData(null);
+            setHidden(true);
+          }
           return;
         }
         const json = (await res.json()) as ActivityOfferResult;
@@ -51,7 +56,10 @@ export function ActivitiesCarousel({
         }
       })
       .catch(() => {
-        if (!cancelled) setHidden(true);
+        if (!cancelled) {
+          setData(null);
+          setHidden(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -30,10 +30,8 @@ export async function GET(request: Request) {
     }
     return NextResponse.json(result, {
       headers: {
-        "Cache-Control":
-          process.env.NODE_ENV === "development"
-            ? "no-store"
-            : "public, s-maxage=3600, stale-while-revalidate=7200",
+        // Şehir değişiminde CDN/edge eski yanıtı karıştırmasın
+        "Cache-Control": "private, no-cache, no-store, must-revalidate",
       },
     });
   } catch (err) {

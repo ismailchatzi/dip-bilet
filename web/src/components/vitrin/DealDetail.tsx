@@ -31,7 +31,16 @@ import {
 } from "@/lib/deal-display";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+function initialPickedKey(deal: Deal, focusId?: string) {
+  const choices = dealDateChoices(deal);
+  const focused = focusId
+    ? choices.find((c) => dealWithDateChoice(deal, c).id === focusId)
+    : null;
+  const start = focused ?? choices[0];
+  return `${start?.outboundDate ?? deal.outboundDate ?? ""}|${start?.returnDate ?? deal.returnDate ?? ""}`;
+}
 
 export function DealDetail({
   deal,
@@ -44,18 +53,17 @@ export function DealDetail({
 }) {
   const [copied, setCopied] = useState(false);
   const [bookModal, setBookModal] = useState(false);
-  const [pickedKey, setPickedKey] = useState(() => {
-    const choices = dealDateChoices(deal);
-    const focused = focusId
-      ? choices.find((c) => dealWithDateChoice(deal, c).id === focusId)
-      : null;
-    const start = focused ?? choices[0];
-    return `${start?.outboundDate ?? deal.outboundDate ?? ""}|${start?.returnDate ?? deal.returnDate ?? ""}`;
-  });
+  const [pickedKey, setPickedKey] = useState(() => initialPickedKey(deal, focusId));
   const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
   const cityLabel = dealCityName(deal);
   const dest = dealDestCode(deal);
+
+  useEffect(() => {
+    setPickedKey(initialPickedKey(deal, focusId));
+    setBookModal(false);
+    setCopied(false);
+  }, [deal, focusId]);
   const choices = dealDateChoices(deal);
   const cityAlts = otherCityDeals(deal, cityDeals);
   const selected =
@@ -343,6 +351,7 @@ export function DealDetail({
 
       {dest && od && rd ? (
         <TripExtrasPanel
+          key={`${deal.id}|${dest}|${od}|${rd}`}
           cityLabel={cityLabel}
           destIata={dest}
           destinationLabel={deal.destination}
