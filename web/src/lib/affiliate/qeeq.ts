@@ -226,6 +226,49 @@ function buildCards(
   }));
 }
 
+function qeeqResultShell(
+  code: string,
+  location: string,
+  effective: { pickup: string; dropoff: string; adjusted: boolean },
+) {
+  const deepSearch = qeeqSearchUrl(code, effective.pickup, effective.dropoff);
+  const searchUrl = qeeqAffiliateUrl(deepSearch, `qeeq-${code.toLowerCase()}`);
+  return { deepSearch, searchUrl, location, effective };
+}
+
+/** Liste API düşerse bile QEEQ arama linki (EconomyBookings yedeği yok). */
+export function fetchQeeqSearchFallback(
+  iata: string,
+  cityLabel: string,
+  pickupDate: string,
+  dropoffDate: string,
+): CarRentalResult {
+  const code = iata.trim().toUpperCase();
+  const effective = effectiveCarRentalDates(pickupDate, dropoffDate);
+  const location = bookingCityQuery(code, cityLabel) || cityLabel || code;
+  const { searchUrl } = qeeqResultShell(code, location, effective);
+  return {
+    location,
+    cards: [
+      {
+        id: `qeeq-search-${code.toLowerCase()}`,
+        name: `${location} araç kiralama`,
+        imageUrl:
+          "https://imgcdn1.qeeq.com/aligz-ccrc/public/vehicle/std/57/57233fc0ab11270796e33e0f05d1d47b.png?imageView2/2/w/240/q/150/format/jpg",
+        category: "QEEQ · canlı arama",
+        priceFormatted: "Fiyatları gör",
+        bookUrl: searchUrl,
+      },
+    ],
+    searchUrl,
+    pickupDate: effective.pickup,
+    dropoffDate: effective.dropoff,
+    datesAdjusted: effective.adjusted,
+    provider: "qeeq",
+    livePrices: false,
+  };
+}
+
 /** QEEQ canlı arama — car-api/list */
 export async function fetchQeeqCarRentalCards(
   iata: string,
@@ -247,8 +290,7 @@ export async function fetchQeeqCarRentalCards(
   const rentalDays = data?.summary_info?.rental_days ?? 1;
   if (total <= 0 || list.length === 0) return null;
 
-  const deepSearch = qeeqSearchUrl(code, effective.pickup, effective.dropoff);
-  const searchUrl = qeeqAffiliateUrl(deepSearch, `qeeq-${code.toLowerCase()}`);
+  const { searchUrl } = qeeqResultShell(code, location, effective);
   const offers = pickShowcaseOffers(list, rentalDays, 4);
   const cards = buildCards(offers, location, searchUrl);
   if (cards.length === 0) return null;

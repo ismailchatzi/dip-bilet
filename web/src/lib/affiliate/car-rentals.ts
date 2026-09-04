@@ -1,6 +1,8 @@
 import type { CarRentalResult } from "@/lib/affiliate/car-rental-types";
-import { fetchEconomyBookingsCarRentalCards } from "@/lib/affiliate/economybookings";
-import { fetchQeeqCarRentalCards } from "@/lib/affiliate/qeeq";
+import {
+  fetchQeeqCarRentalCards,
+  fetchQeeqSearchFallback,
+} from "@/lib/affiliate/qeeq";
 
 export type {
   CarRentalCard,
@@ -8,14 +10,22 @@ export type {
   CarRentalResult,
 } from "@/lib/affiliate/car-rental-types";
 
-/** QEEQ (canlı API) → yoksa EconomyBookings (Hertz/Sixt/Enterprise) */
+/**
+ * QEEQ canlı liste → olmazsa yine QEEQ arama linki.
+ * EconomyBookings yedeği kaldırıldı: IATA deep-link locasyonu doldurmuyor,
+ * fiyatsız “Teklif al” kartları yanıltıcıydı.
+ */
 export async function fetchCarRentalCards(
   iata: string,
   cityLabel: string,
   pickupDate: string,
   dropoffDate: string,
 ): Promise<CarRentalResult | null> {
-  const qeeq = await fetchQeeqCarRentalCards(iata, cityLabel, pickupDate, dropoffDate);
-  if (qeeq) return qeeq;
-  return fetchEconomyBookingsCarRentalCards(iata, cityLabel, pickupDate, dropoffDate);
+  try {
+    const qeeq = await fetchQeeqCarRentalCards(iata, cityLabel, pickupDate, dropoffDate);
+    if (qeeq) return qeeq;
+  } catch (err) {
+    console.error("qeeq car rentals:", err);
+  }
+  return fetchQeeqSearchFallback(iata, cityLabel, pickupDate, dropoffDate);
 }
