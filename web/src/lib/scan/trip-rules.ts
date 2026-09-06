@@ -1,4 +1,4 @@
-const LONG_HAUL = new Set(["DPS", "HKT", "MLE"]);
+const LONG_HAUL = new Set(["DPS", "HKT", "MLE", "BKK"]);
 
 export function isLongHaulDest(code: string) {
   return LONG_HAUL.has(code.toUpperCase());
@@ -8,7 +8,7 @@ export function stayRange(code: string): [number, number] {
   return isLongHaulDest(code) ? [7, 10] : [4, 10];
 }
 
-/** Bali / Phuket / Maldivler: 2 aktarma. Diğer şehirler: 1. */
+/** Bali / Phuket / Maldivler / Bangkok: 2 aktarma. Diğer şehirler: 1. */
 export function maxStopsForDest(code: string) {
   return isLongHaulDest(code) ? 2 : 1;
 }

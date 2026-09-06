@@ -54,7 +54,6 @@ export function DealDetail({
   const [copied, setCopied] = useState(false);
   const [bookModal, setBookModal] = useState(false);
   const [pickedKey, setPickedKey] = useState(() => initialPickedKey(deal, focusId));
-  const found = dealFoundLabel(deal);
   const title = dealCityTitle(deal);
   const cityLabel = dealCityName(deal);
   const dest = dealDestCode(deal);
@@ -70,6 +69,7 @@ export function DealDetail({
     choices.find((c) => `${c.outboundDate}|${c.returnDate}` === pickedKey) ??
     choices[0];
   const view = selected ? dealWithDateChoice(deal, selected) : deal;
+  const found = dealFoundLabel(view);
   const shownPrice = displayDealPrice(view.price);
   const shownOff = displayDealDiscountPercent(view);
   const out = dealOutOrigin(view);
@@ -80,7 +80,7 @@ export function DealDetail({
   const kiwiUrl = kiwiAffiliateUrl(out, dealDestCode(view), od, rd, dealDestCode(view));
   const aviasalesUrl = aviasalesAffiliateUrl(out, dealDestCode(view), od, rd, dealDestCode(view));
   const tripUrl = od && rd ? tripcomUrl(out, dealDestCode(view), od, rd) : undefined;
-  const oldDeal = isOldShowcaseDeal(deal);
+  const oldDeal = isOldShowcaseDeal(view);
   const altRows = useMemo(() => {
     const heroPrice = deal.price;
     const fromChoices = choices

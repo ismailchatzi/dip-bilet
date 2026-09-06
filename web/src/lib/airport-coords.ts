@@ -38,6 +38,8 @@ const COORDS: Record<string, AirportCoord> = {
   LHR: { lat: 51.47, lng: -0.4543 },
   LGW: { lat: 51.1537, lng: -0.1821 },
   STN: { lat: 51.886, lng: 0.2389 },
+  LTN: { lat: 51.8747, lng: -0.3683 },
+  BKK: { lat: 13.69, lng: 100.7501 },
   MAN: { lat: 53.3537, lng: -2.275 },
   DUB: { lat: 53.4264, lng: -6.2499 },
   BRU: { lat: 50.9014, lng: 4.4844 },

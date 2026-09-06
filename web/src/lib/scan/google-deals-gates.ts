@@ -30,5 +30,13 @@ export function passesGoogleDealGates(input: {
 
 /** @deprecated Tavan kaldırıldı; hard floor kullan. */
 export function googleDealPriceCeilingUsd(destCode: string) {
-  return hardFloorUsd(destCode) ?? (destCode === "MLE" || destCode === "HKT" || destCode === "DPS" ? 800 : 450);
+  return (
+    hardFloorUsd(destCode) ??
+    (destCode === "MLE" ||
+    destCode === "HKT" ||
+    destCode === "DPS" ||
+    destCode === "BKK"
+      ? 800
+      : 450)
+  );
 }

@@ -1,4 +1,11 @@
-import { dealDestCode, isDomesticDeal } from "@/lib/deal-display";
+import {
+  dealDestCode,
+  familyLastDealFoundAt,
+  isDomesticDeal,
+  isFoundAtWithinKeep,
+  promoteFreshHeroDeal,
+  SHOWCASE_FOUND_KEEP_DAYS,
+} from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import { mergeSeenDestinations } from "@/lib/scan/seen-destinations";
 import { clampDealStrikePrices } from "@/lib/scan/showcase-config";
@@ -12,7 +19,7 @@ export const ARCHIVE_KEEP_DAYS = 60;
 /** Anasayfada gösterilecek kart tavanı. */
 export const ARCHIVE_SHOW_MAX = 12;
 
-export { familyLastDealFoundAt } from "@/lib/deal-display";
+export { SHOWCASE_FOUND_KEEP_DAYS, familyLastDealFoundAt };
 
 export function sortByFoundAt(deals: Deal[]) {
   return [...deals].sort((a, b) => {
@@ -23,8 +30,22 @@ export function sortByFoundAt(deals: Deal[]) {
   });
 }
 
-export function isLiveDeal(deal: Deal, today = turkeyTodayIso()) {
+/**
+ * Kart kalsın mı: hero veya diğer tarihlerde keep içi yakalanma var mı?
+ * (Etiket eski olsa bile taze seçenek varsa true.)
+ */
+export function isWithinFoundAge(deal: Deal, today = turkeyTodayIso()) {
+  const latest = familyLastDealFoundAt(deal) || deal.foundAt;
+  return isFoundAtWithinKeep(latest, today);
+}
+
+function isLiveByOutbound(deal: Deal, today: string) {
   return !deal.outboundDate || deal.outboundDate >= today;
+}
+
+/** Canlı vitrin: keep içi + uçuşu gelmemiş en az bir seçenek (hero taze/ucuz yükseltilir). */
+export function isLiveDeal(deal: Deal, today = turkeyTodayIso()) {
+  return promoteFreshHeroDeal(deal, today) != null;
 }
 
 export function isArchiveReady(deal: Deal, today = turkeyTodayIso()) {
@@ -49,10 +70,17 @@ export function splitLiveAndArchive(
   const live = sortByFoundAt(
     candidates.filter((d) => isLiveDeal(d, today)),
   );
-  const expired = candidates.filter((d) => !isLiveDeal(d, today));
+  // Yalnız uçuşu geçenler arşive; foundAt aşımı vitrinden silinir, arşive de yazılmaz.
+  const flightExpired = candidates.filter(
+    (d) => isWithinFoundAge(d, today) && !isLiveByOutbound(d, today),
+  );
   const seen = new Set<string>();
   const archive: Deal[] = [];
-  for (const deal of [...expired, ...previousArchive]) {
+  for (const deal of [...flightExpired, ...previousArchive]) {
+    // Yakalanma aşımı + uçuş gelecekte → ne vitrin ne arşiv
+    if (!isWithinFoundAge(deal, today) && isLiveByOutbound(deal, today)) {
+      continue;
+    }
     if (!isWithinArchiveKeep(deal, today)) continue;
     const key = archiveTripKey(deal);
     if (seen.has(key)) continue;
@@ -76,7 +104,8 @@ export function foldShowcase(
   );
   const held = [
     ...(previous?.archive ?? []),
-    ...(previous?.deals ?? []).filter((d) => !isLiveDeal(d, today)),
+    // Yalnız uçuşu geçenler arşiv adayı; foundAt aşımı burada tutulmaz.
+    ...(previous?.deals ?? []).filter((d) => !isLiveByOutbound(d, today)),
   ];
   const { live, archive } = splitLiveAndArchive(
     nextLiveCandidates,

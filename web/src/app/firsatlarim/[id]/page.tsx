@@ -8,8 +8,8 @@ import {
   dealDestCode,
   dealWithDateChoice,
   dealWithinStopLimit,
-  foldOneCardPerCity,
   isUnverifiedOneWaySum,
+  vitrinHeroDeals,
 } from "@/lib/deal-display";
 import { requireAuthOnboarding } from "@/lib/onboarding";
 import { readScanBoard } from "@/lib/scan/board";
@@ -37,7 +37,7 @@ export default async function DealDetailPage({ params }: PageProps) {
   if (!supabase) notFound();
 
   const board = await readScanBoard(supabase);
-  const live = foldOneCardPerCity(
+  const live = vitrinHeroDeals(
     (board.deals?.deals ?? []).filter(
       (d) =>
         isLiveDeal(d) && dealWithinStopLimit(d) && !isUnverifiedOneWaySum(d),

@@ -70,17 +70,24 @@ export const HARD_FLOORS: Record<string, HardFloorEntry> = {
   ATH: { floor: 100, version: "v1.0", source: "manual_initial_heuristic" },
   BUD: { floor: 135, version: "v1.0", source: "manual_initial_heuristic" },
   VIE: { floor: 145, version: "v1.0", source: "manual_initial_heuristic" },
+  SOF: { floor: 115, version: "v1.0", source: "manual_initial_heuristic" },
   PRG: { floor: 150, version: "v1.0", source: "manual_initial_heuristic" },
   FCO: { floor: 150, version: "v1.0", source: "manual_initial_heuristic" },
   VCE: { floor: 145, version: "v1.0", source: "manual_initial_heuristic" },
+  MXP: { floor: 150, version: "v1.0", source: "manual_initial_heuristic" },
   MUC: { floor: 155, version: "v1.0", source: "manual_initial_heuristic" },
   BER: { floor: 140, version: "v1.0", source: "manual_initial_heuristic" },
+  FRA: { floor: 150, version: "v1.0", source: "manual_initial_heuristic" },
+  AMS: { floor: 165, version: "v1.0", source: "manual_initial_heuristic" },
   CDG: { floor: 170, version: "v1.0", source: "manual_initial_heuristic" },
   MAD: { floor: 165, version: "v1.0", source: "manual_initial_heuristic" },
   BCN: { floor: 160, version: "v1.0", source: "manual_initial_heuristic" },
+  LTN: { floor: 175, version: "v1.0", source: "manual_initial_heuristic" },
+  DXB: { floor: 200, version: "v1.0", source: "manual_initial_heuristic" },
   HKT: { floor: 580, version: "v1.0", source: "manual_initial_heuristic" },
   MLE: { floor: 620, version: "v1.0", source: "manual_initial_heuristic" },
   DPS: { floor: 680, version: "v1.0", source: "manual_initial_heuristic" },
+  BKK: { floor: 500, version: "v1.0", source: "manual_initial_heuristic" },
 };
 
 const BALKAN_VIZESIZ = new Set([
@@ -91,9 +98,11 @@ const BALKAN_VIZESIZ = new Set([
   "TBS",
   "GYD",
   "SSH",
+  "SOF",
+  "DXB",
 ]);
 
-const TROPIK = new Set(["HKT", "MLE", "DPS"]);
+const TROPIK = new Set(["HKT", "MLE", "DPS", "BKK"]);
 
 export function routeLaneForDest(destCode: string): RouteLane {
   const c = destCode.trim().toUpperCase();

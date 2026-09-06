@@ -5,30 +5,38 @@ import {
   maxStopsForDest,
   nightsBetween,
   turkeyTodayIso,
+  addDaysIso,
 } from "@/lib/scan/trip-rules";
 
 const DEST_COUNTRY: Record<string, string> = {
   ATH: "Yunanistan",
   BUD: "Macaristan",
   VIE: "Avusturya",
+  SOF: "Bulgaristan",
   PRG: "Çekya",
   FCO: "İtalya",
   VCE: "İtalya",
+  MXP: "İtalya",
   MUC: "Almanya",
   BER: "Almanya",
+  FRA: "Almanya",
   TBS: "Gürcistan",
   GYD: "Azerbaycan",
   SJJ: "Bosna-Hersek",
   BEG: "Sırbistan",
+  AMS: "Hollanda",
   TIA: "Arnavutluk",
   SKP: "Kuzey Makedonya",
   SSH: "Mısır",
+  DXB: "BAE",
   CDG: "Fransa",
   MAD: "İspanya",
   BCN: "İspanya",
+  LTN: "Birleşik Krallık",
   DPS: "Endonezya",
   HKT: "Tayland",
   MLE: "Maldivler",
+  BKK: "Tayland",
 };
 
 /** Bileti incele (Aviasales) vitrin fiyatından ~%3 düşük; yalnızca ekran. */
@@ -125,6 +133,8 @@ export function dealFoundDateTr(foundAt?: string) {
 /**
  * Eski fırsat damgası (takvim günü): bugün 21 ise 18 ve öncesi damgalı
  * → nightsBetween >= 3.
+ * Not: ailede keep penceresi içi seçenek yoksa kart vitrinden düşer;
+ * varsa hero taze+ucuz seçeneğe yükseltilir.
  */
 export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
   const day = dealFoundDateTr(deal.foundAt);
@@ -642,6 +652,60 @@ function capDateOptions(opts: DealDateOption[]): DealDateOption[] {
     .slice(0, MAX_DATE_OPTIONS);
 }
 
+/**
+ * Vitrin keep: yakalanma günü bugünden geriye bu kadar gün (dahil).
+ * Örn. 7 Eyl → 28 Ağu ve sonrası taze sayılır.
+ */
+export const SHOWCASE_FOUND_KEEP_DAYS = 10;
+
+export function isFoundAtWithinKeep(
+  foundAt: string | undefined,
+  today = turkeyTodayIso(),
+) {
+  const day = dealFoundDateTr(foundAt);
+  if (!day) return true;
+  return day >= addDaysIso(today, -SHOWCASE_FOUND_KEEP_DAYS);
+}
+
+/**
+ * Ailede keep içi + uçuşu gelmemiş seçenek varsa: hero = en ucuz (eşitlikte en yeni).
+ * Hiç taze seçenek yoksa null (vitrinden düş).
+ */
+export function promoteFreshHeroDeal(
+  deal: Deal,
+  today = turkeyTodayIso(),
+): Deal | null {
+  const fresh = flattenDateOptions(deal).filter((o) => {
+    if (!isFoundAtWithinKeep(o.foundAt, today)) return false;
+    if (o.outboundDate && o.outboundDate < today) return false;
+    return true;
+  });
+  if (fresh.length === 0) return null;
+
+  fresh.sort(
+    (a, b) =>
+      a.price - b.price || compareFoundAtDesc(a.foundAt, b.foundAt),
+  );
+  const head = fresh[0]!;
+  const hero = applyDateOption(deal, head);
+  const headKey = optionTripKey(head);
+  const others = flattenDateOptions(deal).filter(
+    (o) => optionTripKey(o) !== headKey,
+  );
+  hero.dateOptions = capDateOptions(others);
+  if (
+    typeof hero.averagePrice === "number" &&
+    hero.averagePrice > 0 &&
+    hero.price > 0
+  ) {
+    hero.discountPercent = Math.max(
+      0,
+      Math.round(((hero.averagePrice - hero.price) / hero.averagePrice) * 100),
+    );
+  }
+  return hero;
+}
+
 /** Şehir başına 1 kart: kahraman = en ucuz tarih; diğerleri max 10, yenilik sırası. */
 export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   const byCity = new Map<string, Deal[]>();
@@ -677,9 +741,11 @@ export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   return heroes;
 }
 
-/** Şehir başına 1 kart; yakın tarihler tek kahramanda birleşir. */
-export function vitrinHeroDeals(deals: Deal[]) {
-  return foldOneCardPerCity(deals);
+/** Vitrin okuma: şehir kartı + taze (≤10 gün) en ucuz hero. */
+export function vitrinHeroDeals(deals: Deal[], today = turkeyTodayIso()) {
+  return foldOneCardPerCity(deals)
+    .map((d) => promoteFreshHeroDeal(d, today))
+    .filter((d): d is Deal => d != null);
 }
 
 export function otherCityDeals(current: Deal, all: Deal[]) {

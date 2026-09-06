@@ -8,26 +8,26 @@ alwaysApply: true
 Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda + VPS cron’a ekle.
 
 ## Ürün
-Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW → 21 varış.
+Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW → 28 varış.
 
 ## Tarama (near + günde 2 full)
 - Tek yön IST + SAW, gidiş + dönüş ayrı; DB’de sentetik gidiş-dönüş matrisi; vitrine yalnız **canlı paket doğrulama** geçenler.
 - **Gün 1–4:** tarama yok
-- **Near gün 5–21:** günde **1×**
-- **Full gün 22–180:** günde **2 dilim** (6 şehir); full dilimleri arasında rematch yok. Aynı gün 1→7 yok.
+- **Near gün 5–21:** günde **1×** (28 şehir)
+- **Full gün 22–180:** günde **2 dilim** (8 şehir); full dilimleri arasında rematch yok. Aynı gün 1→7 yok.
 - `sort_by=cheapest`. Kota ~1M/ay Scrappa.
-- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE en fazla 2.
+- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE/BKK en fazla 2.
 
 ### Full dilimler (liste sırası, bölge gate’i değil)
 | Dilim | Şehirler |
 |------|----------|
-| 1 | ATH, BUD, VIE |
-| 2 | PRG, FCO, VCE |
-| 3 | MUC, BER, TBS |
-| 4 | GYD, SJJ, BEG |
-| 5 | TIA, SKP, SSH |
-| 6 | CDG, MAD, BCN |
-| 7 | DPS, HKT, MLE |
+| 1 | ATH, BUD, VIE, SOF |
+| 2 | PRG, FCO, VCE, MXP |
+| 3 | MUC, BER, TBS, FRA |
+| 4 | GYD, SJJ, BEG, AMS |
+| 5 | TIA, SKP, SSH, DXB |
+| 6 | CDG, MAD, BCN, LTN |
+| 7 | DPS, HKT, MLE, BKK |
 
 ### Haftalık full çiftleri (TR)
 | Gün | Full A + B |
@@ -68,11 +68,11 @@ Paralel dilim / çoklu drain **yok**. Elle ikinci `drain --force` açma. Rematch
    - Gate: Balkan/vizesiz 0.70 · Schengen/Avrupa 0.75 · Uzak 0.82
 3. Çakışmada MUTLAK ezer SEZONLUK.
 4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10 (eşikten aşağı düşmez).
-5. Kart uçuş gününe kadar kalır; 12 saat otomatik silme yok. `verifiedAt` / `lastCheckedAt` tutulur.
+5. Kart uçuş gününe kadar kalır. Ailede **10 gün** içi yakalanma yoksa vitrinden düşer; varsa hero = o penceredeki **en ucuz** (eşitlikte en yeni). `verifiedAt` / `lastCheckedAt` tutulur.
 6. Dedup: şehir başına 1 kart; aynı tarih ucuzsa güncelle; pahalı ama geçerli → diğer tarihler (≤3).
 
 ## Hard floor v1 (GD toplam USD)
-TIA 110, SJJ 120, SKP 115, BEG 135, TBS 110, GYD 140, SSH 120, ATH 100, BUD 135, VIE 145, PRG 150, FCO 150, VCE 145, MUC 155, BER 140, CDG 170, MAD 165, BCN 160, HKT 580, MLE 620, DPS 680.
+TIA 110, SJJ 120, SKP 115, BEG 135, TBS 110, GYD 140, SSH 120, ATH 100, BUD 135, VIE 145, SOF 115, PRG 150, FCO 150, VCE 145, MXP 150, MUC 155, BER 140, FRA 150, AMS 165, CDG 170, MAD 165, BCN 160, LTN 175, DXB 200, HKT 580, MLE 620, DPS 680, BKK 500.
 
 ## Google Deals (SerpAPI)
 Aynı kalite: hard floor **veya** Google avg × 0.75. Ayrı “direkt bas” yok.

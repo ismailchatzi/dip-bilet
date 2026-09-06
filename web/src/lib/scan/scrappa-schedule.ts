@@ -21,8 +21,8 @@ export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 5 * 60 * 1000;
  */
 export const SCRAPPA_PHASE_BREATHER_MS = 90_000;
 
-/** Full tarama: 21 şehir → 7 dilim × 3. */
-export const FULL_CHUNK_SIZE = 3;
+/** Full tarama: 28 şehir → 7 dilim × 4. */
+export const FULL_CHUNK_SIZE = 4;
 export const FULL_CHUNK_COUNT = Math.ceil(
   SCRAPPA_DESTINATIONS.length / FULL_CHUNK_SIZE,
 );
