@@ -5,7 +5,7 @@ import {
   mergeSeenDestinations,
   unionSeenDestinationRows,
 } from "@/lib/scan/seen-destinations";
-import type { DealsPayload, ScrappaJob } from "@/lib/types";
+import type { DealsPayload, ScrappaJob, ScrappaRematchJob } from "@/lib/types";
 
 export type ScanBoard = {
   deals: DealsPayload | null;
@@ -45,11 +45,24 @@ export async function readScanBoard(
   };
 }
 
-function newerScrappaJob(a?: ScrappaJob | null, b?: ScrappaJob | null) {
+function newerByHeartbeat<T extends { heartbeatAt: string }>(
+  a?: T | null,
+  b?: T | null,
+) {
   if (!a) return b ?? undefined;
   if (!b) return a;
-  // Askı bayrağı tek başına “daha yeni” sayılmaz; nabız kazanır.
   return Date.parse(a.heartbeatAt) >= Date.parse(b.heartbeatAt) ? a : b;
+}
+
+function newerScrappaJob(a?: ScrappaJob | null, b?: ScrappaJob | null) {
+  return newerByHeartbeat(a, b);
+}
+
+function newerRematchJob(
+  a?: ScrappaRematchJob | null,
+  b?: ScrappaRematchJob | null,
+) {
+  return newerByHeartbeat(a, b);
 }
 
 /** Cron: sadece güncellenen parçayı yazar, diğerini korur */
@@ -69,6 +82,13 @@ export async function patchScanBoard(
         scrappaJob: newerScrappaJob(
           incoming.scrappaJob,
           newerScrappaJob(latest.deals?.scrappaJob, current.deals?.scrappaJob),
+        ),
+        scrappaRematchJob: newerRematchJob(
+          incoming.scrappaRematchJob,
+          newerRematchJob(
+            latest.deals?.scrappaRematchJob,
+            current.deals?.scrappaRematchJob,
+          ),
         ),
         // Katalog küçülmesin: önceki board + gelen payload birleşir.
         seenDestinations: mergeSeenDestinations(

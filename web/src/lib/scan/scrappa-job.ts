@@ -2,7 +2,12 @@ import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import type { ScrappaCursor } from "@/lib/scan/scrappa-oneway-runner";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import { fullChunkRange } from "@/lib/scan/scrappa-schedule";
-import type { DealsPayload, ScrappaJob, ScrappaQueueItem } from "@/lib/types";
+import type {
+  DealsPayload,
+  ScrappaJob,
+  ScrappaQueueItem,
+  ScrappaRematchJob,
+} from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export function jobFromPayload(deals: DealsPayload | null | undefined) {
@@ -22,6 +27,14 @@ export function isJobStale(job: ScrappaJob | null, maxAgeMs = 15 * 60 * 1000) {
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return true;
   return Date.now() - t > maxAgeMs;
+}
+
+function isRematchBlocking(job: ScrappaRematchJob | null | undefined) {
+  if (!job || job.status !== "running") return false;
+  const t = Date.parse(job.heartbeatAt);
+  if (!Number.isFinite(t)) return false;
+  // Bayat rematch one-way’i kilitlemesin (15 dk).
+  return Date.now() - t <= 15 * 60 * 1000;
 }
 
 /** Eski string kuyruk / bozuk kayıtları normalize et. */
@@ -90,6 +103,7 @@ export async function enqueueScrappaWindow(
 ): Promise<{ ok: boolean; skipped?: string; job?: ScrappaJob }> {
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
+  const rematch = board.deals?.scrappaRematchJob;
   const now = new Date().toISOString();
   if (current?.halted && !opts?.force) {
     const halted: ScrappaJob = {
@@ -102,6 +116,11 @@ export async function enqueueScrappaWindow(
     };
     await saveScrappaJob(admin, halted);
     return { ok: false, skipped: "halted", job: halted };
+  }
+
+  // Rematch sürerken one-way başlatma (aynı Scrappa oturumu).
+  if (isRematchBlocking(rematch) && !opts?.force) {
+    return { ok: false, skipped: "rematch sürüyor", job: current ?? undefined };
   }
 
   // Dilimler çakışmasın: canlı job varken yenisi yok.

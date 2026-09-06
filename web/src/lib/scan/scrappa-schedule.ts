@@ -17,6 +17,7 @@ export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 5 * 60 * 1000;
 
 /**
  * One-way dilim bitince → RT rematch → booking arasında nefes (1–2 dk).
+ * Rematch tick’te sleep yok: pausedUntil ile drain bekler.
  */
 export const SCRAPPA_PHASE_BREATHER_MS = 90_000;
 

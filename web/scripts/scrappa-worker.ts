@@ -3,7 +3,7 @@
  *
  *   0 5 * * *   start day     — near → rematch → full A → full B → rematch
  *   30 22 * * * rematch       — güvenlik (tarama varken skip)
- *   her 4 dk      drain         — yedek devam (canlı drain varken anında çık)
+ *   her 4 dk      drain         — one-way + rematch/booking kaldığı yerden
  *
  * One-way gap 2s. Art arda 7× 502/503 → 5 dk pause, kaldığı yerden.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
@@ -11,15 +11,21 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  isAnyScrappaWorkFresh,
   runScrappaTick,
   startScrappaDay,
   startScrappaWindow,
   stopScrappaScans,
 } from "@/lib/scan/scrappa-tick";
-import { publishAllShowcase } from "@/lib/scan/scrappa-match";
+import {
+  isRematchJobFresh,
+  isRematchJobStale,
+  rematchJobFromPayload,
+  startRematchJob,
+} from "@/lib/scan/scrappa-rematch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readScanBoard } from "@/lib/scan/board";
-import { jobFromPayload, isJobFresh } from "@/lib/scan/scrappa-job";
+import { isJobFresh, isJobStale, jobFromPayload } from "@/lib/scan/scrappa-job";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -171,14 +177,22 @@ async function main() {
     if (!force) {
       const admin = createAdminClient();
       if (admin) {
-        const job = jobFromPayload((await readScanBoard(admin)).deals);
-        if (
-          job?.status === "running" &&
-          !job.halted &&
-          !isJobFresh(job)
-        ) {
-          console.log("drain: bayat heartbeat — force takeover");
-          force = true;
+        const deals = (await readScanBoard(admin)).deals;
+        if (!isAnyScrappaWorkFresh(deals)) {
+          const job = jobFromPayload(deals);
+          const rematch = rematchJobFromPayload(deals);
+          const needs =
+            (job?.status === "running" && !job.halted && !isJobFresh(job)) ||
+            (rematch?.status === "running" && !isRematchJobFresh(rematch));
+          if (needs || isJobStale(job) || isRematchJobStale(rematch)) {
+            if (
+              (job?.status === "running" && !job.halted) ||
+              rematch?.status === "running"
+            ) {
+              console.log("drain: bayat heartbeat — force takeover");
+              force = true;
+            }
+          }
         }
       }
     }
@@ -192,7 +206,8 @@ async function main() {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
       process.exit(1);
     }
-    const job = jobFromPayload((await readScanBoard(admin)).deals);
+    const deals = (await readScanBoard(admin)).deals;
+    const job = jobFromPayload(deals);
     if (job?.status === "running" && !job.halted) {
       console.log("rematch skip — tarama sürüyor", {
         window: job.window,
@@ -201,8 +216,21 @@ async function main() {
       });
       return;
     }
-    const result = await publishAllShowcase(admin, { notify: true });
-    console.log("rematch done", result);
+    const existing = rematchJobFromPayload(deals);
+    if (existing?.status === "running" && !isRematchJobStale(existing)) {
+      console.log("rematch: mevcut job devam (drain)", {
+        phase: existing.phase,
+        dest: existing.destIndex,
+      });
+    } else {
+      const started = await startRematchJob(admin, {
+        force: true,
+        notify: true,
+      });
+      console.log("rematch start", started);
+      if (!started.ok) process.exit(1);
+    }
+    await drain(true);
     return;
   }
 

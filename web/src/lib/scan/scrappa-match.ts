@@ -26,7 +26,6 @@ import {
 import { hardFloorUsd, strikeFromThreshold } from "@/lib/scan/showcase-config";
 import { nightsBetween, stayRange, maxStopsForDest } from "@/lib/scan/trip-rules";
 import {
-  SCRAPPA_PHASE_BREATHER_MS,
   SCRAPPA_REQUEST_GAP_MS,
 } from "@/lib/scan/scrappa-schedule";
 import type { Deal, DealDateOption } from "@/lib/types";
@@ -51,7 +50,7 @@ type Obs = {
   self_transfer?: boolean;
 };
 
-type BookingHook = {
+export type BookingHook = {
   origin: "IST" | "SAW";
   destCode: string;
   departureDate: string;
@@ -62,7 +61,7 @@ type BookingHook = {
   monthStats: MonthSampleStats;
 };
 
-type RtPending = {
+export type RtPending = {
   deal: Deal;
   booking?: BookingHook;
 };
@@ -453,7 +452,9 @@ async function verifyWithRoundTrip(
   };
 }
 
-async function applyBookingToDeal(pending: RtPending): Promise<Deal | null> {
+export async function applyBookingToDeal(
+  pending: RtPending,
+): Promise<Deal | null> {
   const hook = pending.booking;
   if (!hook) return pending.deal;
   const booked = await scrappaCheapestBookingPrice({
@@ -533,7 +534,7 @@ export async function matchDestFromDb(
   return { card, pending: verified };
 }
 
-function cardFromPending(pending: RtPending[]): Deal | null {
+export function cardFromPending(pending: RtPending[]): Deal | null {
   if (pending.length === 0) return null;
   const sorted = [...pending].sort(
     (a, b) =>
@@ -553,7 +554,7 @@ function cardFromPending(pending: RtPending[]): Deal | null {
   };
 }
 
-function destCodeFromDeal(deal: Deal) {
+export function destCodeFromDeal(deal: Deal) {
   if (
     deal.id.startsWith("scrappa:") ||
     deal.id.startsWith("gdeals:") ||
@@ -564,11 +565,11 @@ function destCodeFromDeal(deal: Deal) {
   return deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ?? "";
 }
 
-function isGoogleDeal(deal: Deal) {
+export function isGoogleDeal(deal: Deal) {
   return deal.id.startsWith("gdeals:");
 }
 
-function isManualDeal(deal: Deal) {
+export function isManualDeal(deal: Deal) {
   return deal.id.startsWith("manual:");
 }
 
@@ -603,7 +604,7 @@ export async function publishDestShowcase(
   return { ok: true, count: fresh.length };
 }
 
-function foldAutoAndManual(
+export function foldAutoAndManual(
   boardDeals: Deal[] | undefined,
   scrappaCards: Deal[],
   googleKept: Deal[],
@@ -626,142 +627,18 @@ function foldAutoAndManual(
 }
 
 /**
- * One-way dilim sonrası:
- * nefes → round-trip → nefes → booking-details → vitrin.
+ * One-way dilim sonrası / elle rematch.
+ * Artık abort = bitiş değil; job + drain kaldığı yerden devam eder.
+ * Sync çağrılar bitene (veya idle) kadar tick eder.
  */
 export async function publishAllShowcase(
   admin: SupabaseClient,
   opts?: { notify?: boolean; skipBreather?: boolean },
 ): Promise<{ ok: boolean; count: number; error?: string; aborted?: boolean }> {
-  const board = await readScanBoard(admin);
-  const previous = board.deals?.deals ?? [];
-  const googleKept = previous.filter(isGoogleDeal);
-  const manualKept = previous.filter(isManualDeal);
-
-  if (!opts?.skipBreather) {
-    console.log(
-      `rematch: one-way sonrası ${SCRAPPA_PHASE_BREATHER_MS / 1000}s nefes`,
-    );
-    await sleep(SCRAPPA_PHASE_BREATHER_MS);
-  }
-
-  console.log("rematch: round-trip fazı");
-  const pendingByDest = new Map<string, RtPending[]>();
-  const scrappaCards: Deal[] = [];
-  let aborted = false;
-
-  for (let i = 0; i < SCRAPPA_DESTINATIONS.length; i++) {
-    const dest = SCRAPPA_DESTINATIONS[i]!;
-    try {
-      const matched = await matchDestFromDb(admin, dest, {
-        withBooking: false,
-      });
-      console.log(
-        `rematch RT ${dest.code} scrappa=${matched.card ? 1 : 0}`,
-      );
-      if (matched.card) scrappaCards.push(matched.card);
-      if (matched.pending.length > 0) {
-        pendingByDest.set(dest.code, matched.pending);
-      }
-    } catch (err) {
-      if (!(err instanceof ScrappaUnavailableError)) throw err;
-      aborted = true;
-      console.log(
-        `rematch RT abort @${dest.code}: ${err instanceof Error ? err.message : "unavailable"}`,
-      );
-      for (let j = i; j < SCRAPPA_DESTINATIONS.length; j++) {
-        const code = SCRAPPA_DESTINATIONS[j]!.code;
-        for (const deal of previous) {
-          if (
-            !isGoogleDeal(deal) &&
-            !isManualDeal(deal) &&
-            destCodeFromDeal(deal) === code
-          ) {
-            scrappaCards.push(deal);
-          }
-        }
-      }
-      break;
-    }
-  }
-
-  {
-    const collapsed = foldAutoAndManual(
-      board.deals?.deals,
-      scrappaCards,
-      googleKept,
-      manualKept,
-    );
-    const { payload } = foldShowcase(board.deals, collapsed);
-    const saved = await patchScanBoard(admin, { deals: payload });
-    if (!saved.ok) return { ok: false, count: 0, error: saved.error };
-  }
-
-  if (aborted) {
-    console.log("rematch: RT abort — booking fazı atlandı");
-    const liveBoard = await readScanBoard(admin);
-    return {
-      ok: true,
-      count: liveBoard.deals?.deals?.length ?? 0,
-      aborted: true,
-    };
-  }
-
-  if (!opts?.skipBreather) {
-    console.log(
-      `rematch: booking öncesi ${SCRAPPA_PHASE_BREATHER_MS / 1000}s nefes`,
-    );
-    await sleep(SCRAPPA_PHASE_BREATHER_MS);
-  }
-
-  console.log("rematch: booking-details fazı");
-  const bookedCards: Deal[] = [];
-  bookingLoop: for (const dest of SCRAPPA_DESTINATIONS) {
-    const pending = pendingByDest.get(dest.code);
-    if (!pending?.length) continue;
-    const updated: RtPending[] = [];
-    for (const item of pending) {
-      try {
-        const deal = await applyBookingToDeal(item);
-        if (deal) updated.push({ deal, booking: undefined });
-      } catch (err) {
-        if (!(err instanceof ScrappaUnavailableError)) throw err;
-        aborted = true;
-        console.log(
-          `rematch booking abort @${dest.code}: ${err instanceof Error ? err.message : "unavailable"}`,
-        );
-        // Bu şehir + kalanlar: RT fiyatı veya önceki kart
-        const rtCard = cardFromPending(pending);
-        if (rtCard) bookedCards.push(rtCard);
-        for (const rest of SCRAPPA_DESTINATIONS) {
-          if (rest.code === dest.code) continue;
-          if (!pendingByDest.has(rest.code)) continue;
-          if (bookedCards.some((d) => destCodeFromDeal(d) === rest.code)) {
-            continue;
-          }
-          const p = pendingByDest.get(rest.code)!;
-          const c = cardFromPending(p);
-          if (c) bookedCards.push(c);
-        }
-        break bookingLoop;
-      }
-    }
-    const card = cardFromPending(updated);
-    if (card) bookedCards.push(card);
-    console.log(`rematch booking ${dest.code} ok=${card ? 1 : 0}`);
-  }
-
-  const collapsed = foldAutoAndManual(
-    board.deals?.deals,
-    bookedCards,
-    googleKept,
-    manualKept,
-  );
-  const { payload, live, previousLive } = foldShowcase(board.deals, collapsed);
-  const saved = await patchScanBoard(admin, { deals: payload });
-  if (!saved.ok) return { ok: false, count: 0, error: saved.error };
-  if (opts?.notify !== false) {
-    await notifyNewDeals(admin, previousLive, live);
-  }
-  return { ok: true, count: live.length, aborted };
+  const { runRematchToCompletion } = await import("@/lib/scan/scrappa-rematch");
+  return runRematchToCompletion(admin, {
+    force: true,
+    notify: opts?.notify,
+    skipBreather: opts?.skipBreather,
+  });
 }

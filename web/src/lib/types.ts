@@ -72,6 +72,53 @@ export type ScrappaJob = {
   chunk?: number;
 };
 
+/**
+ * Rematch + booking — one-way gibi kaldığı yerden (cron drain her 4 dk).
+ * Oturum kopunca pause; cron devam eder.
+ */
+export type ScrappaRematchJob = {
+  status: "running" | "idle";
+  phase: "rt" | "booking";
+  /** SCRAPPA_DESTINATIONS içinde sıradaki şehir index. */
+  destIndex: number;
+  /** Booking fazında şehir içi paket index (kaldığı yerden). */
+  bookingItemIndex?: number;
+  heartbeatAt: string;
+  startedAt: string;
+  pausedUntil?: string;
+  sessionFailStreak?: number;
+  lastError?: string;
+  /** Rematch bitince one-way kuyruğu (near→full zinciri). */
+  continueQueue?: ScrappaQueueItem[];
+  notify?: boolean;
+  rtBreatherDone?: boolean;
+  bookingBreatherDone?: boolean;
+  /**
+   * RT fazında biriken adaylar (şehir kodu → paketler).
+   * JSON-serializable Deal + booking hook.
+   */
+  pendingByDest?: Record<
+    string,
+    Array<{
+      deal: Deal;
+      booking?: {
+        origin: "IST" | "SAW";
+        destCode: string;
+        departureDate: string;
+        listPrice: number;
+        bookingToken?: string;
+        airlineCode?: string;
+        flightNumber?: string;
+        monthStats: {
+          sampleCount: number;
+          distinctOutboundDays: number;
+          median: number | null;
+        };
+      };
+    }>
+  >;
+};
+
 /** Vitrine girip çıkmış şehirler — hayal destinasyon seçenekleri (kalıcı). */
 export type SeenDestination = {
   code: string;
@@ -90,6 +137,8 @@ export type DealsPayload = {
   warning?: string;
   /** Scrappa tarama defteri — vitrine gitmez. */
   scrappaJob?: ScrappaJob;
+  /** Rematch+booking kaldığı yerden — cron drain her 4 dk devam eder. */
+  scrappaRematchJob?: ScrappaRematchJob;
   /**
    * Hayal destinasyon kataloğu: canlı + arşiv + geçmişte görülenler.
    * Kart arşivden silinse de kod burada kalır; yeni şehir vitrine girince eklenir.
