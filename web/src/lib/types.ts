@@ -72,6 +72,14 @@ export type ScrappaJob = {
   chunk?: number;
 };
 
+/** Vitrine girip çıkmış şehirler — hayal destinasyon seçenekleri (kalıcı). */
+export type SeenDestination = {
+  code: string;
+  name: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
 export type DealsPayload = {
   source: "serpapi" | "cache" | "demo";
   fetchedAt: string;
@@ -82,4 +90,9 @@ export type DealsPayload = {
   warning?: string;
   /** Scrappa tarama defteri — vitrine gitmez. */
   scrappaJob?: ScrappaJob;
+  /**
+   * Hayal destinasyon kataloğu: canlı + arşiv + geçmişte görülenler.
+   * Kart arşivden silinse de kod burada kalır; yeni şehir vitrine girince eklenir.
+   */
+  seenDestinations?: SeenDestination[];
 };

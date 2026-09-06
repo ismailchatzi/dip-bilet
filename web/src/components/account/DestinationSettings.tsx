@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toast } from "@/components/Toast";
-import { DESTINATION_OPTIONS, filterDestinations } from "@/lib/destinations";
+import {
+  DESTINATION_OPTIONS,
+  filterDestinations,
+  type DestinationOption,
+} from "@/lib/destinations";
 import { createClient } from "@/lib/supabase/client";
 
 export function DestinationSettings({
@@ -12,16 +16,38 @@ export function DestinationSettings({
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(initialCodes);
+  const [options, setOptions] = useState<DestinationOption[]>(DESTINATION_OPTIONS);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => filterDestinations(query), [query]);
+  const filtered = useMemo(
+    () => filterDestinations(query, options),
+    [query, options],
+  );
   const dismissToast = useCallback(() => setToast(null), []);
 
   useEffect(() => {
     setSelected(initialCodes);
   }, [initialCodes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/destinations", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const json = (await res.json()) as { destinations?: DestinationOption[] };
+        if (!cancelled && json.destinations?.length) {
+          setOptions(json.destinations);
+        }
+      })
+      .catch(() => {
+        /* statik 21 kalır */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function toggle(code: string) {
     setSelected((prev) =>
@@ -75,8 +101,9 @@ export function DestinationSettings({
     <div className="settings-block">
       {toast ? <Toast message={toast} onClose={dismissToast} /> : null}
       <p className="account-muted">
-        Takip etmek istediğin şehirleri işaretle. Vitrin filtresi ve SMS
-        uyarıları bu listedeki destinasyonlara göre çalışır.
+        Takip etmek istediğin şehirleri işaretle. Vitrinde (Scrappa veya Google
+        Deals) görünen tüm şehirler burada seçilebilir; yeni şehir vitrine
+        girince listeye otomatik eklenir. Uyarılar seçtiklerine göre çalışır.
       </p>
       {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
 
@@ -90,12 +117,12 @@ export function DestinationSettings({
 
       <p className="onboarding-hint">
         {selected.length > 0
-          ? `${selected.length} destinasyon seçili`
-          : "Henüz destinasyon seçilmedi"}
+          ? `${selected.length} destinasyon seçili · ${options.length} seçenek`
+          : `Henüz destinasyon seçilmedi · ${options.length} seçenek`}
       </p>
 
       <div className="destination-grid" role="group" aria-label="Destinasyonlar">
-        {(query ? filtered : DESTINATION_OPTIONS).map((dest) => {
+        {(query ? filtered : options).map((dest) => {
           const on = selected.includes(dest.code);
           return (
             <button

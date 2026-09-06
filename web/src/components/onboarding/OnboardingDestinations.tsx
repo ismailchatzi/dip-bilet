@@ -1,8 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { DESTINATION_OPTIONS, filterDestinations } from "@/lib/destinations";
+import { useEffect, useMemo, useState } from "react";
+import {
+  DESTINATION_OPTIONS,
+  filterDestinations,
+  type DestinationOption,
+} from "@/lib/destinations";
 import { createClient } from "@/lib/supabase/client";
 
 export function OnboardingDestinations({
@@ -13,10 +17,32 @@ export function OnboardingDestinations({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(initialCodes);
+  const [options, setOptions] = useState<DestinationOption[]>(DESTINATION_OPTIONS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filtered = useMemo(() => filterDestinations(query), [query]);
+  const filtered = useMemo(
+    () => filterDestinations(query, options),
+    [query, options],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/destinations", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const json = (await res.json()) as { destinations?: DestinationOption[] };
+        if (!cancelled && json.destinations?.length) {
+          setOptions(json.destinations);
+        }
+      })
+      .catch(() => {
+        /* statik 21 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function toggle(code: string) {
     setSelected((prev) =>
@@ -80,12 +106,12 @@ export function OnboardingDestinations({
 
       <p className="onboarding-hint">
         {selected.length > 0
-          ? `${selected.length} destinasyon seçildi`
-          : "Takip etmek istediğin yerleri işaretle"}
+          ? `${selected.length} destinasyon seçildi · ${options.length} seçenek`
+          : `Takip etmek istediğin yerleri işaretle · ${options.length} seçenek`}
       </p>
 
       <div className="destination-grid" role="group" aria-label="Destinasyonlar">
-        {(query ? filtered : DESTINATION_OPTIONS).map((dest) => {
+        {(query ? filtered : options).map((dest) => {
           const on = selected.includes(dest.code);
           return (
             <button

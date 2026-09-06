@@ -136,7 +136,25 @@ export function FlightSettings() {
   }
 
   const destCount = destCodes.length;
-  const destMax = DESTINATION_OPTIONS.length;
+  const [destMax, setDestMax] = useState(DESTINATION_OPTIONS.length);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/destinations", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const json = (await res.json()) as { destinations?: unknown[] };
+        if (!cancelled && json.destinations?.length) {
+          setDestMax(json.destinations.length);
+        }
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="settings-page">

@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CityFaresPayload } from "@/lib/scan/city-cache";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
+import {
+  mergeSeenDestinations,
+  unionSeenDestinationRows,
+} from "@/lib/scan/seen-destinations";
 import type { DealsPayload, ScrappaJob } from "@/lib/types";
 
 export type ScanBoard = {
@@ -65,6 +69,16 @@ export async function patchScanBoard(
         scrappaJob: newerScrappaJob(
           incoming.scrappaJob,
           newerScrappaJob(latest.deals?.scrappaJob, current.deals?.scrappaJob),
+        ),
+        // Katalog küçülmesin: önceki board + gelen payload birleşir.
+        seenDestinations: mergeSeenDestinations(
+          unionSeenDestinationRows(
+            current.deals?.seenDestinations,
+            latest.deals?.seenDestinations,
+            incoming.seenDestinations,
+          ),
+          [...(incoming.deals ?? []), ...(incoming.archive ?? [])],
+          incoming.fetchedAt,
         ),
       }
     : current.deals;

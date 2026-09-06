@@ -1,5 +1,6 @@
 import { dealDestCode, isDomesticDeal } from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
+import { mergeSeenDestinations } from "@/lib/scan/seen-destinations";
 import { clampDealStrikePrices } from "@/lib/scan/showcase-config";
 import { addDaysIso, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal, DealsPayload } from "@/lib/types";
@@ -91,6 +92,11 @@ export function foldShowcase(
       departure: DEPARTURE_LABEL,
       deals: liveSafe,
       archive: archiveSafe,
+      seenDestinations: mergeSeenDestinations(
+        previous?.seenDestinations,
+        [...liveSafe, ...archiveSafe],
+        foundAt,
+      ),
     },
     live: liveSafe,
     previousLive,
