@@ -76,7 +76,7 @@ export function fullChunksForWeekday(now = new Date()): [number, number] {
 
 /**
  * TR takvim — near + 2 full dilim (arka arkaya) + gün sonu rematch.
- * 05:00: start day → near → full A → full B → rematch
+ * 05:00: start day → near → rematch → full A → full B → rematch
  * 22:30: güvenlik rematch
  */
 export const SCRAPPA_CRON_SCHEDULE = [

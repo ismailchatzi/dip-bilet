@@ -1,7 +1,7 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- *   0 5 * * *   start day     — near → full A → full B → rematch
+ *   0 5 * * *   start day     — near → rematch → full A → full B → rematch
  *   30 22 * * * rematch       — güvenlik (tarama varken skip)
  *   her 4 dk      drain         — one-way + rematch/booking kaldığı yerden
  *
