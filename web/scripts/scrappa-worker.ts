@@ -18,14 +18,13 @@ import {
   stopScrappaScans,
 } from "@/lib/scan/scrappa-tick";
 import {
-  isRematchJobFresh,
   isRematchJobStale,
   rematchJobFromPayload,
   startRematchJob,
 } from "@/lib/scan/scrappa-rematch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readScanBoard } from "@/lib/scan/board";
-import { isJobFresh, isJobStale, jobFromPayload } from "@/lib/scan/scrappa-job";
+import { isIntentionallyPaused, isJobStale, jobFromPayload } from "@/lib/scan/scrappa-job";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -172,29 +171,39 @@ async function main() {
 
   if (cmd === "drain") {
     // nohup / elle devam: --force (kendi heartbeat kilidine takılma)
-    // cron */4: canlı drain → no-op; ölü worker + bayat heartbeat → force takeover
+    // cron */4: canlı veya planlı moladaysa çık. Molada heartbeat eski görünür;
+    // takeover ikinci drain açar, ikisi de para yakar, tarama ilerlemez.
     let force = process.argv.includes("--force");
     if (!force) {
       const admin = createAdminClient();
-      if (admin) {
-        const deals = (await readScanBoard(admin)).deals;
-        if (!isAnyScrappaWorkFresh(deals)) {
-          const job = jobFromPayload(deals);
-          const rematch = rematchJobFromPayload(deals);
-          const needs =
-            (job?.status === "running" && !job.halted && !isJobFresh(job)) ||
-            (rematch?.status === "running" && !isRematchJobFresh(rematch));
-          if (needs || isJobStale(job) || isRematchJobStale(rematch)) {
-            if (
-              (job?.status === "running" && !job.halted) ||
-              rematch?.status === "running"
-            ) {
-              console.log("drain: bayat heartbeat — force takeover");
-              force = true;
-            }
-          }
-        }
+      if (!admin) {
+        await drain(false);
+        return;
       }
+      const deals = (await readScanBoard(admin)).deals;
+      const job = jobFromPayload(deals);
+      const rematch = rematchJobFromPayload(deals);
+      const paused =
+        isIntentionallyPaused(job) || isIntentionallyPaused(rematch);
+      if (paused) {
+        console.log("drain: planlı mola — ikinci süreç yok");
+        return;
+      }
+      if (isAnyScrappaWorkFresh(deals)) {
+        console.log("drain: canlı iş var — çık");
+        return;
+      }
+      const running =
+        (job?.status === "running" && !job.halted) ||
+        rematch?.status === "running";
+      const dead =
+        running && (isJobStale(job) || isRematchJobStale(rematch));
+      if (!dead) {
+        console.log("drain: devralınacak ölü iş yok");
+        return;
+      }
+      console.log("drain: bayat heartbeat — force takeover");
+      force = true;
     }
     await drain(force);
     return;

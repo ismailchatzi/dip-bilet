@@ -14,8 +14,16 @@ export function jobFromPayload(deals: DealsPayload | null | undefined) {
   return deals?.scrappaJob ?? null;
 }
 
+/** Planlı mola (15 sn / 5 dk). Bu sürede heartbeat eski görünür; ikinci drain açma. */
+export function isIntentionallyPaused(job: { pausedUntil?: string } | null | undefined) {
+  if (!job?.pausedUntil) return false;
+  const t = Date.parse(job.pausedUntil);
+  return Number.isFinite(t) && t > Date.now();
+}
+
 export function isJobFresh(job: ScrappaJob | null, maxAgeMs = 20 * 1000) {
   if (!job || job.status !== "running") return false;
+  if (isIntentionallyPaused(job)) return true;
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return false;
   return Date.now() - t < maxAgeMs;
@@ -24,6 +32,7 @@ export function isJobFresh(job: ScrappaJob | null, maxAgeMs = 20 * 1000) {
 /** Drain ölmüş “running” job — sabah start day üzerine yazabilsin. */
 export function isJobStale(job: ScrappaJob | null, maxAgeMs = 15 * 60 * 1000) {
   if (!job || job.status !== "running") return true;
+  if (isIntentionallyPaused(job)) return false;
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return true;
   return Date.now() - t > maxAgeMs;

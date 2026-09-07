@@ -48,6 +48,7 @@ export function isRematchJobFresh(
   maxAgeMs = 20 * 1000,
 ) {
   if (!job || job.status !== "running") return false;
+  if (job.pausedUntil && Date.parse(job.pausedUntil) > Date.now()) return true;
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return false;
   return Date.now() - t < maxAgeMs;
@@ -58,6 +59,7 @@ export function isRematchJobStale(
   maxAgeMs = 15 * 60 * 1000,
 ) {
   if (!job || job.status !== "running") return true;
+  if (job.pausedUntil && Date.parse(job.pausedUntil) > Date.now()) return false;
   const t = Date.parse(job.heartbeatAt);
   if (!Number.isFinite(t)) return true;
   return Date.now() - t > maxAgeMs;

@@ -69,6 +69,11 @@ export class ScrappaUnavailableError extends Error {
   }
 }
 
+/** 200 gövdesinde "unavailable" da ücretli istek. Dur, sonraki tarihi deneme. */
+function isUpstreamOutage(reason: string) {
+  return /unavailable|cookie_session|request_exhausted|oturum/i.test(reason);
+}
+
 /** Cloudflare bot imzasını yumuşat — istek gövdesi/parametreler aynı. */
 function scrappaHeaders(apiKey: string): HeadersInit {
   return {
@@ -345,7 +350,7 @@ export async function scrappaOneWay(input: {
       await new Promise((r) => setTimeout(r, 2000 * attempt));
       continue;
     }
-    if (res.status === 503 || res.status === 502) {
+    if (res.status === 503 || res.status === 502 || isUpstreamOutage(lastReason)) {
       throw new ScrappaUnavailableError(res.status, lastReason);
     }
     if (!res.ok) {
@@ -405,8 +410,8 @@ export async function scrappaRoundTrip(input: {
       await new Promise((r) => setTimeout(r, 2000 * attempt));
       continue;
     }
-    if (res.status === 503) {
-      throw new ScrappaUnavailableError(503, lastReason);
+    if (res.status === 503 || res.status === 502 || isUpstreamOutage(lastReason)) {
+      throw new ScrappaUnavailableError(res.status, lastReason);
     }
     if (!res.ok) {
       throw new Error(`Scrappa round-trip HTTP ${res.status}: ${lastReason}`);
