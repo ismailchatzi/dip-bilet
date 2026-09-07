@@ -20,6 +20,7 @@
 # deals cache (SerpApi kotasını korur)
 /.cache/
 /.data/
+.scrappa-worker.lock
 
 # production
 /build

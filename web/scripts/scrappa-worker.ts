@@ -1,9 +1,8 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- *   0 5 * * *   start day     — near → rematch → full A → full B → rematch
- *   30 22 * * * rematch       — güvenlik (tarama varken skip)
- *   her 4 dk      drain         — one-way + rematch/booking kaldığı yerden
+ * Tek işçi: .scrappa-worker.lock (canlı pid). 05:00, 22:30 ve */4
+ * ikinci süreç açmaz. Hata olunca aynı süreç bekler, sonra devam eder.
  *
  * One-way gap 2s. Art arda 7× 502/503 → 5 dk pause, kaldığı yerden.
  * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
@@ -11,20 +10,19 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  isAnyScrappaWorkFresh,
   runScrappaTick,
   startScrappaDay,
   startScrappaWindow,
   stopScrappaScans,
 } from "@/lib/scan/scrappa-tick";
 import {
-  isRematchJobStale,
   rematchJobFromPayload,
   startRematchJob,
 } from "@/lib/scan/scrappa-rematch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readScanBoard } from "@/lib/scan/board";
-import { isIntentionallyPaused, isJobStale, jobFromPayload } from "@/lib/scan/scrappa-job";
+import { jobFromPayload } from "@/lib/scan/scrappa-job";
+import { acquireWorkerLock, otherLiveWorkerPid } from "@/lib/scan/scrappa-worker-lock";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -62,6 +60,20 @@ function parseChunk(raw: string | undefined): number | undefined {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1 || n > FULL_CHUNK_COUNT) return undefined;
   return Math.floor(n);
+}
+
+/** İkinci süreç yok. Kilit varsa çık; yoksa al ve tek döngüye gir. */
+function claimWorkerOrExit(why: string) {
+  const other = otherLiveWorkerPid();
+  if (other != null) {
+    console.log(`${why}: işçi zaten var pid=${other} — ikinci açılmadı`);
+    process.exit(0);
+  }
+  const lock = acquireWorkerLock();
+  if (!lock.ok) {
+    console.log(`${why}: işçi zaten var pid=${lock.pid} — ikinci açılmadı`);
+    process.exit(0);
+  }
 }
 
 async function drain(force = false) {
@@ -124,6 +136,7 @@ async function main() {
   }
 
   if (cmd === "start") {
+    claimWorkerOrExit("start");
     const mode = process.argv[3];
     if (mode === "day") {
       const chunkArg = parseChunk(process.argv[4]);
@@ -170,46 +183,31 @@ async function main() {
   }
 
   if (cmd === "drain") {
-    // nohup / elle devam: --force (kendi heartbeat kilidine takılma)
-    // cron */4: canlı veya planlı moladaysa çık. Molada heartbeat eski görünür;
-    // takeover ikinci drain açar, ikisi de para yakar, tarama ilerlemez.
-    let force = process.argv.includes("--force");
-    if (!force) {
-      const admin = createAdminClient();
-      if (!admin) {
-        await drain(false);
-        return;
-      }
-      const deals = (await readScanBoard(admin)).deals;
-      const job = jobFromPayload(deals);
-      const rematch = rematchJobFromPayload(deals);
-      const paused =
-        isIntentionallyPaused(job) || isIntentionallyPaused(rematch);
-      if (paused) {
-        console.log("drain: planlı mola — ikinci süreç yok");
-        return;
-      }
-      if (isAnyScrappaWorkFresh(deals)) {
-        console.log("drain: canlı iş var — çık");
-        return;
-      }
-      const running =
-        (job?.status === "running" && !job.halted) ||
-        rematch?.status === "running";
-      const dead =
-        running && (isJobStale(job) || isRematchJobStale(rematch));
-      if (!dead) {
-        console.log("drain: devralınacak ölü iş yok");
-        return;
-      }
-      console.log("drain: bayat heartbeat — force takeover");
-      force = true;
+    // cron */4 ve elle: canlı pid varsa çık. Kalp atışı / mola / yavaş istek ikinci açmaz.
+    // Kilit yoksa ve DB'de running iş varsa ölü işçiyi tek başına devral.
+    const other = otherLiveWorkerPid();
+    if (other != null) {
+      console.log(`drain: işçi zaten var pid=${other} — çık`);
+      return;
     }
-    await drain(force);
+    const admin = createAdminClient();
+    const deals = admin ? (await readScanBoard(admin)).deals : null;
+    const job = jobFromPayload(deals);
+    const rematch = rematchJobFromPayload(deals);
+    const running =
+      (job?.status === "running" && !job.halted) || rematch?.status === "running";
+    if (!running && !process.argv.includes("--force")) {
+      console.log("drain: devam edecek iş yok");
+      return;
+    }
+    claimWorkerOrExit("drain");
+    console.log("drain: tek işçi devraldı");
+    await drain(true);
     return;
   }
 
   if (cmd === "rematch") {
+    claimWorkerOrExit("rematch");
     const admin = createAdminClient();
     if (!admin) {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
@@ -217,19 +215,16 @@ async function main() {
     }
     const deals = (await readScanBoard(admin)).deals;
     const job = jobFromPayload(deals);
-    if (job?.status === "running" && !job.halted) {
-      console.log("rematch skip — tarama sürüyor", {
-        window: job.window,
-        dest: job.destIndex,
-        scanned: job.scanned,
-      });
-      return;
-    }
     const existing = rematchJobFromPayload(deals);
-    if (existing?.status === "running" && !isRematchJobStale(existing)) {
-      console.log("rematch: mevcut job devam (drain)", {
+    if (existing?.status === "running") {
+      console.log("rematch: kaldığı yerden", {
         phase: existing.phase,
         dest: existing.destIndex,
+      });
+    } else if (job?.status === "running" && !job.halted) {
+      console.log("rematch skip — tek yön kaldığı yerden", {
+        window: job.window,
+        dest: job.destIndex,
       });
     } else {
       const started = await startRematchJob(admin, {
