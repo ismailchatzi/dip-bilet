@@ -1,7 +1,7 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- * Tek işçi: .scrappa-worker.lock (canlı pid). 05:00, 22:30 ve */4
+ * Tek işçi: .scrappa-worker.lock (canlı pid). 05:00, 22:30 ve 4 dk yedek
  * ikinci süreç açmaz. Hata olunca aynı süreç bekler, sonra devam eder.
  *
  * One-way gap 2s. Art arda 7× 502/503 → 5 dk pause, kaldığı yerden.
