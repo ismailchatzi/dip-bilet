@@ -47,7 +47,7 @@ Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW �
 3. full B bitince **otomatik rematch** (RT + booking)
 4. idle
 
-Önceki takvim gününden kalan / bayat `running` job varsa 05:00 **force** ile yeni güne geçer (dünkü yarım iş sabahı bloklamaz).
+Önceki gün 04:55 kesilir (işçi + tek yön + rematch idle). 05:00 yeni gün boş sayfa ile başlar. Bitmeyen parça taşınmaz.
 Oturum: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola, kaldığı yerden. 200’de streak sıfır.
 Dilim bitince rematch: 90s nefes → round-trip → 90s nefes → booking-details (ara full rematch yok).
 Rematch/booking da one-way gibi **kaldığı yerden**: `scrappaRematchJob` + aynı `*/4 drain` (abort = bitiş değil; pause + devam).

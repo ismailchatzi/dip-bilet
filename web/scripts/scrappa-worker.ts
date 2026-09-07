@@ -17,12 +17,13 @@ import {
 } from "@/lib/scan/scrappa-tick";
 import {
   rematchJobFromPayload,
+  saveRematchJob,
   startRematchJob,
 } from "@/lib/scan/scrappa-rematch";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readScanBoard } from "@/lib/scan/board";
-import { jobFromPayload } from "@/lib/scan/scrappa-job";
-import { acquireWorkerLock, otherLiveWorkerPid } from "@/lib/scan/scrappa-worker-lock";
+import { jobFromPayload, stopScrappaJob } from "@/lib/scan/scrappa-job";
+import { acquireWorkerLock, otherLiveWorkerPid, stopLockedWorker } from "@/lib/scan/scrappa-worker-lock";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -124,6 +125,31 @@ async function main() {
 
   if (cmd === "crontab") {
     for (const line of scrappaCrontabLines()) console.log(line);
+    return;
+  }
+
+  if (cmd === "cutoff") {
+    const admin = createAdminClient();
+    if (!admin) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY yok");
+      process.exit(1);
+    }
+    const reason = "04:55 kesim — 05:00 yeni gün";
+    await stopScrappaJob(admin, reason);
+    const now = new Date().toISOString();
+    await saveRematchJob(admin, {
+      status: "idle",
+      phase: "rt",
+      destIndex: 0,
+      heartbeatAt: now,
+      startedAt: now,
+      lastError: reason,
+      continueQueue: [],
+      pausedUntil: undefined,
+      sessionFailStreak: 0,
+    });
+    stopLockedWorker();
+    console.log("cutoff: tek yön ve rematch durdu, işçi kapatıldı");
     return;
   }
 

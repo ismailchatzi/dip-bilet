@@ -32,7 +32,22 @@ function dropDeadLock() {
   }
 }
 
-/** Başka canlı işçi varsa pid. Ölü kilit dosyasını siler. */
+export function lockPath() {
+  return LOCK_PATH;
+}
+
+/** Sabah kesimi: kayıtlar boşaldıktan sonra canlı işçiyi kapat, kilidi düşür. */
+export function stopLockedWorker() {
+  const pid = readLockPid();
+  if (pid != null && pid !== process.pid && pidAlive(pid)) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      /* */
+    }
+  }
+  dropDeadLock();
+}
 export function otherLiveWorkerPid(): number | null {
   const pid = readLockPid();
   if (pid == null) return null;

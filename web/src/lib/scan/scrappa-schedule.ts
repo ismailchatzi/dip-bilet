@@ -88,6 +88,7 @@ export const SCRAPPA_CRON_SCHEDULE = [
 export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
   const bin = `cd ${webDir} && /usr/bin/npx tsx scripts/scrappa-worker.ts`;
   return [
+    `55 4 * * * ${bin} cutoff >> /var/log/scrappa.log 2>&1`,
     `0 5 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
     `30 22 * * * ${bin} rematch >> /var/log/scrappa.log 2>&1`,
     `*/4 * * * * ${bin} drain >> /var/log/scrappa.log 2>&1`,
