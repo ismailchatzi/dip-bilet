@@ -24,6 +24,7 @@ const FILES: Record<string, string[]> = {
   HKT: ["phuket1.jpg", "phuket2.jpg", "phuket3.jpg"],
   MLE: ["maldives1.jpg", "maldives2.jpg", "maldives3.jpg"],
   BHX: ["birmingham1.jpg", "birmingham2.jpg", "birmingham3.jpg"],
+  SOF: ["sofia1.jpg", "sofia2.jpg", "sofia3.jpg"],
   FRA: ["frankfurt1.jpg", "frankfurt2.jpg", "frankfurt3.jpg"],
   DLM: ["dalaman1.jpg", "dalaman2.jpg", "dalaman3.jpg"],
   KYA: ["konya1.jpg", "konya2.jpg", "konya3.jpg"],
