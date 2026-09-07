@@ -42,14 +42,14 @@ Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW �
 
 ### Günlük kuyruk (saat beklemeden zincir)
 **05:00 TR** `start day`:
-1. `start near` → bitince **otomatik rematch** (RT + booking)
-2. hemen `start full A` → bitince **rematch yok**, doğrudan `start full B`
+1. `start near` → bitince **hemen full A** (rematch yok — oturum kırıkken günü yemesin)
+2. full A bitince **rematch yok**, doğrudan `start full B`
 3. full B bitince **otomatik rematch** (RT + booking)
 4. idle
 
 Önceki takvim gününden kalan / bayat `running` job varsa 05:00 **force** ile yeni güne geçer (dünkü yarım iş sabahı bloklamaz).
 Oturum: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola, kaldığı yerden. 200’de streak sıfır.
-Dilim bitince rematch: 90s nefes → round-trip → 90s nefes → booking-details (ara full rematch yok).
+Dilim bitince rematch yalnız **kuyruk boşsa** (full B): 90s nefes → round-trip → 90s nefes → booking-details. Near ve ara full rematch yok.
 Rematch/booking da one-way gibi **kaldığı yerden**: `scrappaRematchJob` + aynı `*/4 drain` (abort = bitiş değil; pause + devam).
 One-way istek aralığı **2 sn**.
 **22:30 TR** güvenlik rematch.

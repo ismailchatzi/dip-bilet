@@ -166,8 +166,8 @@ export async function startScrappaWindow(
 }
 
 /**
- * Günlük kuyruk: near → rematch → full A → full B → rematch.
- * Full A/B arasında rematch yok (arka arkaya).
+ * Günlük kuyruk: near → full A → full B → rematch.
+ * Near/full arasında rematch yok — oturum kırıkken full günü yemesin.
  * Önceki takvim gününden kalan running job 05:00'ı bloklamasın → force.
  */
 export async function startScrappaDay(opts?: {
@@ -384,12 +384,13 @@ export async function runScrappaTick(force = false) {
 
   const becameIdle = prevStatus === "running" && job.status === "idle";
   const pendingQueue = normalizeQueue(job.queue);
-  // Near bitince veya günün son full'ü bitince rematch; ara full'ler arasında yok.
-  const shouldRematch =
-    becameIdle &&
-    (finishedWindow === "near" || pendingQueue.length === 0);
+  // Rematch yalnız gün kuyruğu boşalınca (full B bitti). Near sonrası full bekliyorsa
+  // hemen full'a geç — oturum yokken rematch all-day kilidi full'u ertesi 05:00'a yedirir.
+  const shouldRematch = becameIdle && pendingQueue.length === 0;
   if (becameIdle && !shouldRematch) {
-    console.log("auto-rematch skip — sıradaki full dilim bekliyor");
+    console.log(
+      `auto-rematch skip — ${finishedWindow} bitti, sıradaki full`,
+    );
   }
 
   let rematch:
