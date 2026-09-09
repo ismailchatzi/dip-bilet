@@ -328,6 +328,17 @@ export async function runScrappaTick(force = false) {
   let job = jobFromPayload(board.deals);
   const rematchJob = rematchJobFromPayload(board.deals);
 
+  // Elle start day --force, bugünkü iptal bayrağını siler. Global halt (halt.ts) force'u da keser.
+  if (job?.halted && force && !SCANS_HALTED) {
+    job = {
+      ...job,
+      halted: false,
+      lastError: undefined,
+      heartbeatAt: new Date().toISOString(),
+    };
+    await saveScrappaJob(admin, job);
+  }
+
   if (SCANS_HALTED || job?.halted) {
     if (job && (job.status === "running" || !job.halted)) {
       job = {
