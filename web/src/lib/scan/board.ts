@@ -90,6 +90,25 @@ export async function patchScanBoard(
             current.deals?.scrappaRematchJob,
           ),
         ),
+        scrappaJobB: newerScrappaJob(
+          incoming.scrappaJobB,
+          newerScrappaJob(latest.deals?.scrappaJobB, current.deals?.scrappaJobB),
+        ),
+        scrappaRematchJobB: newerRematchJob(
+          incoming.scrappaRematchJobB,
+          newerRematchJob(
+            latest.deals?.scrappaRematchJobB,
+            current.deals?.scrappaRematchJobB,
+          ),
+        ),
+        deals:
+          Date.parse(incoming.fetchedAt) >= Date.parse(latest.deals?.fetchedAt ?? "")
+            ? incoming.deals
+            : (latest.deals?.deals ?? incoming.deals),
+        archive:
+          Date.parse(incoming.fetchedAt) >= Date.parse(latest.deals?.fetchedAt ?? "")
+            ? incoming.archive
+            : (latest.deals?.archive ?? incoming.archive),
         // Katalog küçülmesin: önceki board + gelen payload birleşir.
         seenDestinations: mergeSeenDestinations(
           unionSeenDestinationRows(

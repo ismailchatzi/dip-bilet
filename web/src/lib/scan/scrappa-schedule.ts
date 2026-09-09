@@ -75,22 +75,26 @@ export function fullChunksForWeekday(now = new Date()): [number, number] {
 }
 
 /**
- * TR takvim — near + 2 full dilim (arka arkaya) + gün sonu rematch.
- * 05:00: start day → near → rematch → full A → full B → rematch
- * 22:30: güvenlik rematch
+ * İki hesap, aynı kurallar, ayrı kilit.
+ * A 05:00: near → rematch → günün 2. full → B'nin 1. full'ü yazılınca ikisinin rematch'i
+ * B 05:00: günün 1. full. 22:30: 28 şehir rematch.
+ * 04:55 ikisini de keser.
  */
 export const SCRAPPA_CRON_SCHEDULE = [
-  { time: "05:00", cmd: "start day" },
-  { time: "22:30", cmd: "rematch" },
+  { time: "05:00", cmd: "a start day" },
+  { time: "05:00", cmd: "b start day" },
+  { time: "22:30", cmd: "b rematch" },
 ] as const;
 
 /** crontab satırları (TZ=Europe/Istanbul, web/ kökü). */
 export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
   const bin = `cd ${webDir} && /usr/bin/npx tsx scripts/scrappa-worker.ts`;
   return [
-    `55 4 * * * ${bin} cutoff >> /var/log/scrappa.log 2>&1`,
-    `0 5 * * * ${bin} start day >> /var/log/scrappa.log 2>&1`,
-    `30 22 * * * ${bin} rematch >> /var/log/scrappa.log 2>&1`,
-    `*/4 * * * * ${bin} drain >> /var/log/scrappa.log 2>&1`,
+    `55 4 * * * ${bin} cutoff >> /var/log/scrappa-a.log 2>&1`,
+    `0 5 * * * ${bin} a start day >> /var/log/scrappa-a.log 2>&1`,
+    `0 5 * * * ${bin} b start day >> /var/log/scrappa-b.log 2>&1`,
+    `30 22 * * * ${bin} b rematch >> /var/log/scrappa-b.log 2>&1`,
+    `*/4 * * * * ${bin} a drain >> /var/log/scrappa-a.log 2>&1`,
+    `*/4 * * * * ${bin} b drain >> /var/log/scrappa-b.log 2>&1`,
   ];
 }

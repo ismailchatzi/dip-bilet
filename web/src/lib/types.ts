@@ -70,6 +70,10 @@ export type ScrappaJob = {
   destLimit?: number;
   /** 1..7 full chunk. */
   chunk?: number;
+  /** Diğer hesabın full dilimi. A, full bitince bunun yazılmasını bekler. */
+  partnerChunk?: number;
+  /** Bu one-way bitince rematch yok (B'nin 05:00 full'ü). */
+  skipRematch?: boolean;
 };
 
 /**
@@ -93,6 +97,9 @@ export type ScrappaRematchJob = {
   notify?: boolean;
   rtBreatherDone?: boolean;
   bookingBreatherDone?: boolean;
+  /** Doluysa yalnız bu şehirler. Boşsa 28 şehir. */
+  destCodes?: string[];
+  partnerChunk?: number;
   /**
    * RT fazında biriken adaylar (şehir kodu → paketler).
    * JSON-serializable Deal + booking hook.
@@ -139,6 +146,9 @@ export type DealsPayload = {
   scrappaJob?: ScrappaJob;
   /** Rematch+booking kaldığı yerden — cron drain her 4 dk devam eder. */
   scrappaRematchJob?: ScrappaRematchJob;
+  /** B hesabı one-way defteri. A ile aynı satıra yazılmaz. */
+  scrappaJobB?: ScrappaJob;
+  scrappaRematchJobB?: ScrappaRematchJob;
   /**
    * Hayal destinasyon kataloğu: canlı + arşiv + geçmişte görülenler.
    * Kart arşivden silinse de kod burada kalır; yeni şehir vitrine girince eklenir.

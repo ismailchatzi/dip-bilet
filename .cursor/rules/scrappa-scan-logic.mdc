@@ -10,12 +10,16 @@ Kullanıcı **"zeki cursor olarak ayarla"** derse bunu koda + VPS cron’a ekle.
 ## Ürün
 Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW → 28 varış.
 
-## Tarama (near + günde 2 full)
-- Tek yön IST + SAW, gidiş + dönüş ayrı; DB’de sentetik gidiş-dönüş matrisi; vitrine yalnız **canlı paket doğrulama** geçenler.
+## Tarama (iki hesap, aynı gün paralel)
+İki Scrappa hesabı, **aynı IP**, ayrı kota. Gözlem tablosu ortak; vitrine yalnız **canlı paket doğrulama** geçenler.
+A = `SCRAPPA_API_KEY` · B = `SCRAPPA_API_KEY_B` (yalnız VPS `.env`, Netlify’a yazılmaz, sohbete yapıştırılmaz).
+Defter: `scrappaJob` / `scrappaRematchJob` (A) ve `scrappaJobB` / `scrappaRematchJobB`. Kilit: `.scrappa-worker-a.lock` / `.scrappa-worker-b.lock`. Bir hesap diğerinin kilidine bakmaz. **Aynı hesapta ikinci süreç yok.**
+
+- Tek yön IST + SAW, gidiş + dönüş ayrı; DB’de sentetik gidiş-dönüş matrisi.
 - **Gün 1–4:** tarama yok
-- **Near gün 5–21:** günde **1×** (28 şehir)
-- **Full gün 22–180:** günde **2 dilim** (8 şehir); full dilimleri arasında rematch yok. Aynı gün 1→7 yok.
-- `sort_by=cheapest`. Kota ~1M/ay Scrappa.
+- **Near gün 5–21:** A, günde **1×** (28 şehir)
+- **Full gün 22–180:** günde **2 dilim** (8 şehir). Aynı gün 1→7 yok. Haftanın çifti: ilk dilim B, ikinci dilim A.
+- `sort_by=cheapest`. Hesap başı kota ~1M/ay.
 - Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE/BKK en fazla 2.
 
 ### Full dilimler (liste sırası, bölge gate’i değil)
@@ -30,35 +34,36 @@ Fırsat vitrini (arama motoru değil). Az ama sağlam kart. İstanbul IST+SAW �
 | 7 | DPS, HKT, MLE, BKK |
 
 ### Haftalık full çiftleri (TR)
-| Gün | Full A + B |
-|-----|------------|
-| Pzt | 1 + 2 |
-| Sal | 3 + 4 |
-| Çar | 5 + 6 |
-| Per | 7 + 1 |
-| Cum | 2 + 3 |
-| Cmt | 4 + 5 |
-| Paz | 6 + 7 |
+| Gün | B 05:00 (1. full) | A (near sonrası 2. full) |
+|-----|-------------------|--------------------------|
+| Pzt | 1 | 2 |
+| Sal | 3 | 4 |
+| Çar | 5 | 6 |
+| Per | 7 | 1 |
+| Cum | 2 | 3 |
+| Cmt | 4 | 5 |
+| Paz | 6 | 7 |
 
-### Günlük kuyruk (saat beklemeden zincir)
-**05:00 TR** `start day`:
-1. `start near` → bitince **otomatik rematch** (RT + booking)
-2. hemen `start full A` → bitince **rematch yok**, doğrudan `start full B`
-3. full B bitince **otomatik rematch** (RT + booking)
-4. idle
+### Günlük kuyruk
+**05:00 TR** `a start day` ve `b start day` aynı anda, ayrı kilit:
+1. A: `near` (28) → bitince **otomatik rematch** (RT + booking, 28 şehir)
+2. B: günün **1. full** — bitince rematch yok (`skipRematch`)
+3. A rematch bitince → günün **2. full**
+4. A’nın full’ü bitince, B’nin 1. full’ü hâlâ `running` ise A 60 sn ara ile bekler (`B full bekleniyor`). Yazılınca A, **1. + 2. full şehirlerini** rematch eder (tarihler ortak gözlem tablosundan).
+5. **22:30** yalnız B: **28 şehir** rematch. A’nın gün sonu rematch’i yok.
 
-Önceki gün 04:55 kesilir (işçi + tek yön + rematch idle). 05:00 yeni gün boş sayfa ile başlar. Bitmeyen parça taşınmaz.
-Oturum: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola, kaldığı yerden. 200’de streak sıfır.
-Dilim bitince rematch: 90s nefes → round-trip → 90s nefes → booking-details (ara full rematch yok).
-Rematch/booking da one-way gibi **kaldığı yerden**: `scrappaRematchJob` + aynı `*/4 drain` (abort = bitiş değil; pause + devam).
-One-way istek aralığı **2 sn**.
-**22:30 TR** güvenlik rematch.
-**\*/4 drain** (force yok): canlı drain varken anında çık; ölünce kaldığı yerden devam (one-way **veya** rematch/booking).
+Önceki gün **04:55** `cutoff` A ve B’yi keser (işçi + tek yön + rematch idle, iki kilit). 05:00 yeni gün boş sayfa. Bitmeyen parça taşınmaz. Dünün halt’ı yarının `start day`’ini kilitlemez (`startedAt` bugünden eskiyse force).
+Oturum, **hat başına**: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola, kaldığı yerden. 200’de streak sıfır.
+Dilim bitince rematch: 90s nefes → round-trip → 90s nefes → booking-details. Full’ler arasında ara rematch yok (A’nın near rematch’i hariç).
+Rematch/booking da one-way gibi **kaldığı yerden**: A `scrappaRematchJob`, B `scrappaRematchJobB`. Abort = bitiş değil; pause + aynı hattın `*/4 drain`’i.
+One-way istek aralığı **2 sn** (hat başı).
+**\*/4 drain** hat başı (force yok): o hattın canlı işçisi varken çık; ölünce kaldığı yerden (one-way **veya** rematch/booking).
 
-Worker: `npx tsx scripts/scrappa-worker.ts start day [chunk]` · `stop` · `crontab` (satırları basar).
-Cron: `0 5 start day` + `30 22 rematch` + `*/4 drain`. Eski full 1…7 / near×2–3 **iptal**.
+Worker: `npx tsx scripts/scrappa-worker.ts crontab` satırları basar.
+Cron: `55 4 cutoff` + `0 5 a start day` + `0 5 b start day` + `30 22 b rematch` + `*/4 a drain` + `*/4 b drain`.
+Eski tek hesap `start day` / full 1…7 / near×2–3 **iptal** (argv `start` hâlâ A sayılır, takvim bu değil).
 
-Paralel dilim / çoklu drain **yok**. Elle ikinci `drain --force` açma. Rematch ile one-way aynı anda **yok** (sıralı oturum).
+Aynı hesapta paralel dilim / ikinci drain **yok**. İki hesap birbirine paralel olabilir. Bir hesabın kendi rematch’i ile one-way’i aynı anda **yok**. Elle ikinci `drain --force` açma. Bugünkü taramayı elle başlatma.
 
 ## Vitrin kapıları (showcase-config + showcase-eligibility)
 `benchmark_mode = synthetic_rt_candidate` (ileride `verified_rt`).

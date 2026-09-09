@@ -7,7 +7,7 @@ alwaysApply: true
 
 Kullanıcı tarama durumu / raporu istediğinde **her gün** (yalnızca yarın değil):
 
-1. Near / full: oldu mu (günlük kuyruk: near→rematch→full N→rematch), `scanned/total`, `saved`, cursor (dest/tarih), `lastError`, heartbeat. Full N = haftanın dilimi (Pzt1…Paz7).
+1. İki hat: A near→rematch→günün 2. full→(B yazınca) 1.+2. rematch; B 05:00 1. full, 22:30 28 şehir rematch. `scanned/total`, `saved`, cursor, `lastError`, heartbeat. `scrappaJob` = A, `scrappaJobB` = B.
 2. Oturum: `cookie_session_unavailable` var mı?
 3. Vitrin: Scrappa kartı eklendi mi / doğrulandı mı?
 4. **Yapılacaklar listesi** — gerekirse madde madde. Gerek yoksa açıkça yaz:
@@ -25,6 +25,6 @@ Kullanıcı tarama durumu / raporu istediğinde **her gün** (yalnızca yarın d
 
 ## Rematch
 
-`cd web && npx tsx scripts/scrappa-worker.ts rematch` (laptop veya VPS).
+`cd web && npx tsx scripts/scrappa-worker.ts a rematch` (eski hesap). B için `b rematch`. Laptop veya VPS.
 
 Boşa taratıp bekletme: oturum yokken start/rematch önerme.

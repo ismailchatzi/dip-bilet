@@ -27,6 +27,7 @@ import {
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
 } from "@/lib/scan/scrappa-schedule";
+import { currentLane } from "@/lib/scan/scrappa-lane";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import type { DealsPayload, ScrappaJob, ScrappaQueueItem } from "@/lib/types";
 
@@ -136,6 +137,8 @@ export async function startScrappaWindow(
     force?: boolean;
     chunk?: number;
     queue?: ScrappaQueueItem[];
+    partnerChunk?: number;
+    skipRematch?: boolean;
   },
 ) {
   const admin = createAdminClient();
@@ -147,6 +150,8 @@ export async function startScrappaWindow(
     force: opts?.force === true,
     chunk: opts?.chunk,
     queue: opts?.queue,
+    partnerChunk: opts?.partnerChunk,
+    skipRematch: opts?.skipRematch,
   });
   if (!enqueued.ok) {
     return {
@@ -165,10 +170,22 @@ export async function startScrappaWindow(
   };
 }
 
+function shouldForceNewDay(
+  current: ScrappaJob | null,
+  now: Date,
+  forceFlag: boolean,
+) {
+  if (forceFlag) return true;
+  if (!current) return false;
+  const startedDay = trDateString(new Date(current.startedAt));
+  const today = trDateString(now);
+  if (startedDay < today) return true;
+  return current.status === "running" && !current.halted && isJobStale(current);
+}
+
 /**
- * Günlük kuyruk: near → rematch → full A → full B → rematch.
- * Full A/B arasında rematch yok (arka arkaya).
- * Önceki takvim gününden kalan running job 05:00'ı bloklamasın → force.
+ * A: 05:00 near → rematch → günün 2. full'ü → B'nin 1. full'ü yazılınca ikisinin rematch'i.
+ * B: 05:00 günün 1. full'ü, bitince rematch yok. 22:30 ayrı.
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;
@@ -177,42 +194,40 @@ export async function startScrappaDay(opts?: {
 }) {
   const now = opts?.now ?? new Date();
   const [c1, c2] = fullChunksForWeekday(now);
-  const chunks =
-    opts?.chunk != null ? [opts.chunk] : [c1, c2];
-  const ranges = chunks.map((c) => fullChunkRange(c));
+  const lane = currentLane();
 
   let force = opts?.force === true;
-  if (!force) {
-    const admin = createAdminClient();
-    if (admin) {
-      const current = jobFromPayload((await readScanBoard(admin)).deals);
-      if (current?.status === "running" && !current.halted) {
-        if (isJobStale(current)) {
-          force = true;
-          console.log("start day: bayat job → force");
-        } else {
-          const startedDay = trDateString(new Date(current.startedAt));
-          const today = trDateString(now);
-          if (startedDay < today) {
-            force = true;
-            console.log(
-              `start day: önceki gün işi (${startedDay}) → force, bugün ${today}`,
-            );
-          }
-        }
-      }
+  const admin = createAdminClient();
+  if (admin) {
+    const current = jobFromPayload((await readScanBoard(admin)).deals);
+    if (shouldForceNewDay(current, now, force)) {
+      force = true;
+      console.log(`start day ${lane}: yeni gün / bayat → force`);
     }
   }
 
+  if (lane === "b") {
+    const chunk = opts?.chunk ?? c1;
+    const range = fullChunkRange(chunk);
+    console.log(`start day B: full ${chunk}`, range.codes, { force });
+    return startScrappaWindow("full", {
+      force,
+      chunk,
+      queue: [],
+      skipRematch: true,
+    });
+  }
+
+  const range = fullChunkRange(c2);
   console.log(
-    `start day: near → full ${ranges.map((r) => r.chunk).join("+")}`,
-    ranges.flatMap((r) => r.codes),
-    { force },
+    `start day A: near → rematch → full ${c2}`,
+    range.codes,
+    { partner: c1, force },
   );
-  const queue = chunks.map((chunk) => ({ window: "full" as const, chunk }));
   return startScrappaWindow("near", {
     force,
-    queue,
+    queue: [{ window: "full", chunk: c2 }],
+    partnerChunk: c1,
   });
 }
 
@@ -227,7 +242,7 @@ export async function stopScrappaScans(reason?: string) {
  * Rematch sonrası günlük kuyruktaki sıradaki pencereyi başlat.
  */
 async function continueDayQueue(
-  finished: { queue?: ScrappaQueueItem[] },
+  finished: { queue?: ScrappaQueueItem[]; partnerChunk?: number },
 ): Promise<{
   ok: boolean;
   window?: ScrappaWindow;
@@ -245,6 +260,7 @@ async function continueDayQueue(
     force: true,
     chunk: next.window === "full" ? next.chunk : undefined,
     queue,
+    partnerChunk: finished.partnerChunk,
   });
   if (!started.ok) {
     console.log(`day-queue skip`, started.error ?? started.skipped);
@@ -267,6 +283,7 @@ async function continueDayQueue(
 async function enqueueAutoRematch(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   continueQueue: ScrappaQueueItem[],
+  extra?: { destCodes?: string[]; partnerChunk?: number },
 ): Promise<{ ok: boolean; skipped?: string; error?: string }> {
   const board = await readScanBoard(admin);
   const existing = rematchJobFromPayload(board.deals);
@@ -279,6 +296,8 @@ async function enqueueAutoRematch(
       await saveRematchJob(admin, {
         ...existing,
         continueQueue: normalizeQueue(continueQueue),
+        destCodes: extra?.destCodes ?? existing.destCodes,
+        partnerChunk: extra?.partnerChunk ?? existing.partnerChunk,
         heartbeatAt: new Date().toISOString(),
       });
     }
@@ -289,6 +308,8 @@ async function enqueueAutoRematch(
     force: true,
     notify: true,
     continueQueue,
+    destCodes: extra?.destCodes,
+    partnerChunk: extra?.partnerChunk,
   });
   if (!started.ok) {
     console.log(`auto-rematch enqueue skip`, started.skipped);
@@ -332,7 +353,10 @@ export async function runScrappaTick(force = false) {
       skipped?: string;
     } | null = null;
     if (step.finished && step.continueQueue && step.continueQueue.length > 0) {
-      chain = await continueDayQueue({ queue: step.continueQueue });
+      chain = await continueDayQueue({
+        queue: step.continueQueue,
+        partnerChunk: step.partnerChunk,
+      });
       if (chain?.ok) {
         const refreshed = jobFromPayload((await readScanBoard(admin)).deals);
         if (refreshed) job = refreshed;
@@ -376,6 +400,48 @@ export async function runScrappaTick(force = false) {
     return { ok: true, running: true, skipped: "dilim çalışıyor" };
   }
 
+  if (job.lastError === "B full bekleniyor" && job.partnerChunk != null) {
+    const peer = jobFromPayload((await readScanBoard(admin)).deals, "b");
+    const peerLive =
+      peer?.status === "running" &&
+      !peer.halted &&
+      peer.chunk === job.partnerChunk;
+    if (peerLive) {
+      const waiting: ScrappaJob = {
+        ...job,
+        status: "running",
+        pausedUntil: new Date(Date.now() + 60_000).toISOString(),
+        heartbeatAt: new Date().toISOString(),
+      };
+      await saveScrappaJob(admin, waiting);
+      return {
+        ok: true,
+        running: true,
+        paused: true,
+        skipped: "B full bekleniyor",
+        lastError: waiting.lastError,
+        pausedUntil: waiting.pausedUntil,
+      };
+    }
+    const partnerChunk = job.partnerChunk;
+    job = { ...job, status: "idle", lastError: undefined, pausedUntil: undefined };
+    await saveScrappaJob(admin, job);
+    const destCodes = [
+      ...fullChunkRange(partnerChunk).codes,
+      ...(job.chunk != null ? fullChunkRange(job.chunk).codes : []),
+    ];
+    const rematch = await enqueueAutoRematch(admin, normalizeQueue(job.queue), {
+      destCodes,
+      partnerChunk,
+    });
+    return {
+      ok: rematch.ok,
+      running: true,
+      rematch: { ...rematch, enqueued: true },
+      skipped: rematch.skipped,
+    };
+  }
+
   const batch = await runScrappaOneWayBatch(admin, cursorFromJob(job));
   const prevStatus = job.status;
   const finishedWindow = job.window;
@@ -384,10 +450,46 @@ export async function runScrappaTick(force = false) {
 
   const becameIdle = prevStatus === "running" && job.status === "idle";
   const pendingQueue = normalizeQueue(job.queue);
-  // Near bitince veya günün son full'ü bitince rematch; ara full'ler arasında yok.
+  // Near bitince rematch. Full bitince: B skipRematch ise yok; A partner varsa B yazsın diye bekler.
   const shouldRematch =
     becameIdle &&
+    !job.skipRematch &&
     (finishedWindow === "near" || pendingQueue.length === 0);
+
+  if (
+    becameIdle &&
+    shouldRematch &&
+    finishedWindow === "full" &&
+    job.partnerChunk != null
+  ) {
+    const peer = jobFromPayload((await readScanBoard(admin)).deals, "b");
+    const peerLive =
+      peer?.status === "running" &&
+      !peer.halted &&
+      peer.chunk === job.partnerChunk;
+    if (peerLive) {
+      const waiting: ScrappaJob = {
+        ...job,
+        status: "running",
+        lastError: "B full bekleniyor",
+        pausedUntil: new Date(Date.now() + 60_000).toISOString(),
+        heartbeatAt: new Date().toISOString(),
+      };
+      await saveScrappaJob(admin, waiting);
+      console.log("A: B full yazılmadan rematch yok");
+      return {
+        ok: true,
+        running: true,
+        paused: true,
+        dest: batch.dest,
+        scanned: batch.scanned,
+        saved: batch.saved,
+        skipped: "B full bekleniyor",
+        lastError: waiting.lastError,
+        pausedUntil: waiting.pausedUntil,
+      };
+    }
+  }
   if (becameIdle && !shouldRematch) {
     console.log("auto-rematch skip — sıradaki full dilim bekliyor");
   }
@@ -403,9 +505,18 @@ export async function runScrappaTick(force = false) {
   } | null = null;
 
   if (shouldRematch) {
-    // Kuyruk rematch bitince; one-way’i şimdi başlatma.
+    const destCodes =
+      finishedWindow === "full" && job.partnerChunk != null
+        ? [
+            ...fullChunkRange(job.partnerChunk).codes,
+            ...(job.chunk != null ? fullChunkRange(job.chunk).codes : []),
+          ]
+        : undefined;
     rematch = {
-      ...(await enqueueAutoRematch(admin, pendingQueue)),
+      ...(await enqueueAutoRematch(admin, pendingQueue, {
+        destCodes,
+        partnerChunk: job.partnerChunk,
+      })),
       enqueued: true,
     };
   } else if (becameIdle) {

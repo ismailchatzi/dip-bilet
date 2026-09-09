@@ -1,7 +1,11 @@
 import { closeSync, openSync, readFileSync, unlinkSync, writeSync } from "node:fs";
 import { resolve } from "node:path";
+import type { ScrappaLane } from "@/lib/scan/scrappa-lane";
+import { currentLane } from "@/lib/scan/scrappa-lane";
 
-const LOCK_PATH = resolve(process.cwd(), ".scrappa-worker.lock");
+function lockFile(lane: ScrappaLane = currentLane()) {
+  return resolve(process.cwd(), `.scrappa-worker-${lane}.lock`);
+}
 
 function pidAlive(pid: number) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -14,9 +18,9 @@ function pidAlive(pid: number) {
   }
 }
 
-function readLockPid(): number | null {
+function readLockPid(lane: ScrappaLane = currentLane()): number | null {
   try {
-    const raw = JSON.parse(readFileSync(LOCK_PATH, "utf8")) as { pid?: number };
+    const raw = JSON.parse(readFileSync(lockFile(lane), "utf8")) as { pid?: number };
     const pid = Number(raw.pid);
     return Number.isInteger(pid) && pid > 0 ? pid : null;
   } catch {
@@ -24,21 +28,21 @@ function readLockPid(): number | null {
   }
 }
 
-function dropDeadLock() {
+function dropDeadLock(lane: ScrappaLane = currentLane()) {
   try {
-    unlinkSync(LOCK_PATH);
+    unlinkSync(lockFile(lane));
   } catch {
     /* yok */
   }
 }
 
-export function lockPath() {
-  return LOCK_PATH;
+export function lockPath(lane: ScrappaLane = currentLane()) {
+  return lockFile(lane);
 }
 
 /** Sabah kesimi: kayıtlar boşaldıktan sonra canlı işçiyi kapat, kilidi düşür. */
-export function stopLockedWorker() {
-  const pid = readLockPid();
+export function stopLockedWorker(lane: ScrappaLane = currentLane()) {
+  const pid = readLockPid(lane);
   if (pid != null && pid !== process.pid && pidAlive(pid)) {
     try {
       process.kill(pid, "SIGTERM");
@@ -46,45 +50,46 @@ export function stopLockedWorker() {
       /* */
     }
   }
-  dropDeadLock();
+  dropDeadLock(lane);
 }
-export function otherLiveWorkerPid(): number | null {
-  const pid = readLockPid();
+export function otherLiveWorkerPid(lane: ScrappaLane = currentLane()): number | null {
+  const pid = readLockPid(lane);
   if (pid == null) return null;
   if (pid === process.pid) return null;
   if (pidAlive(pid)) return pid;
-  dropDeadLock();
+  dropDeadLock(lane);
   return null;
 }
 
 let releaseHooked = false;
 
 function releaseLock() {
-  const pid = readLockPid();
+  const lane = currentLane();
+  const pid = readLockPid(lane);
   if (pid !== process.pid) return;
-  dropDeadLock();
+  dropDeadLock(lane);
 }
 
 /**
  * Tek işçi. Kalp atışına bakmaz: süreç yaşıyorsa ikinci açılmaz.
  * Mola, yavaş istek, 22:30 ve 05:00 aynı kapıdan geçer.
  */
-export function acquireWorkerLock():
+export function acquireWorkerLock(lane: ScrappaLane = currentLane()):
   | { ok: true }
   | { ok: false; pid: number } {
-  const other = otherLiveWorkerPid();
+  const other = otherLiveWorkerPid(lane);
   if (other != null) return { ok: false, pid: other };
 
   try {
-    const fd = openSync(LOCK_PATH, "wx");
+    const fd = openSync(lockFile(lane), "wx");
     writeSync(fd, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }));
     closeSync(fd);
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== "EEXIST") throw err;
-    const raced = otherLiveWorkerPid();
+    const raced = otherLiveWorkerPid(lane);
     if (raced != null) return { ok: false, pid: raced };
-    return acquireWorkerLock();
+    return acquireWorkerLock(lane);
   }
 
   if (!releaseHooked) {

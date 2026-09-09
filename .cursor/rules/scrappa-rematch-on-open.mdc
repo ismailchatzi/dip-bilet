@@ -8,7 +8,7 @@ alwaysApply: true
 Kullanıcı Scrappa’da **Google paketinin açıldığını / oturumun geldiğini** söylerse (ör. “scrappa açıldı”, “paketi açtım”, “google oturumu var”):
 
 1. Ayrı “doğrulanmış fiyatları çek” demesini **bekleme**.
-2. Hemen `web` içinde `npx tsx scripts/scrappa-worker.ts rematch` çalıştır.
+2. Hemen `web` içinde `npx tsx scripts/scrappa-worker.ts a rematch` çalıştır. Yeni hesap (B) oturumuysa `b rematch`.
 3. Vitrindeki Scrappa kartlarını canlı paket fiyatıyla yenile; sonucu kısaca bildir.
 
 Kart silme / soft restore sonrası da aynı: oturum haberi = rematch.

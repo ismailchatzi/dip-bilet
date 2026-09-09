@@ -1,13 +1,13 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- * Tek işçi: .scrappa-worker.lock (canlı pid). 05:00, 22:30 ve 4 dk yedek
- * ikinci süreç açmaz. Hata olunca aynı süreç bekler, sonra devam eder.
+ * İki hesap, ayrı kilit: .scrappa-worker-a.lock / .scrappa-worker-b.lock
+ * A ve B birbirinin kilidine bakmaz. Aynı hesapta ikinci süreç yok.
  *
  * One-way gap 2s. Art arda 7× 502/503 → 5 dk pause, kaldığı yerden.
- * Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SCRAPPA_API_KEY
+ * Env: SCRAPPA_API_KEY (A), SCRAPPA_API_KEY_B (B)
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   runScrappaTick,
@@ -24,6 +24,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { readScanBoard } from "@/lib/scan/board";
 import { jobFromPayload, stopScrappaJob } from "@/lib/scan/scrappa-job";
 import { acquireWorkerLock, otherLiveWorkerPid, stopLockedWorker } from "@/lib/scan/scrappa-worker-lock";
+import { bindLaneApiKey, parseLane, type ScrappaLane } from "@/lib/scan/scrappa-lane";
 import {
   FULL_CHUNK_COUNT,
   SCRAPPA_REQUEST_GAP_MS,
@@ -64,13 +65,13 @@ function parseChunk(raw: string | undefined): number | undefined {
 }
 
 /** İkinci süreç yok. Kilit varsa çık; yoksa al ve tek döngüye gir. */
-function claimWorkerOrExit(why: string) {
-  const other = otherLiveWorkerPid();
+function claimWorkerOrExit(why: string, lane: ScrappaLane) {
+  const other = otherLiveWorkerPid(lane);
   if (other != null) {
     console.log(`${why}: işçi zaten var pid=${other} — ikinci açılmadı`);
     process.exit(0);
   }
-  const lock = acquireWorkerLock();
+  const lock = acquireWorkerLock(lane);
   if (!lock.ok) {
     console.log(`${why}: işçi zaten var pid=${lock.pid} — ikinci açılmadı`);
     process.exit(0);
@@ -91,6 +92,7 @@ async function drain(force = false) {
     const skipped = "skipped" in result ? result.skipped : undefined;
     console.log(
       new Date().toISOString(),
+      process.env.SCRAPPA_LANE ?? "a",
       JSON.stringify({
         running: result.running,
         paused: "paused" in result ? result.paused : false,
@@ -121,51 +123,79 @@ async function drain(force = false) {
 
 async function main() {
   loadEnv();
-  const cmd = process.argv[2] ?? "drain";
+  const first = process.argv[2] ?? "";
 
-  if (cmd === "crontab") {
+  if (first === "crontab") {
     for (const line of scrappaCrontabLines()) console.log(line);
     return;
   }
 
-  if (cmd === "cutoff") {
+  if (first === "cutoff") {
     const admin = createAdminClient();
     if (!admin) {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
       process.exit(1);
     }
     const reason = "04:55 kesim — 05:00 yeni gün";
-    await stopScrappaJob(admin, reason);
     const now = new Date().toISOString();
-    await saveRematchJob(admin, {
-      status: "idle",
-      phase: "rt",
-      destIndex: 0,
-      heartbeatAt: now,
-      startedAt: now,
-      lastError: reason,
-      continueQueue: [],
-      pausedUntil: undefined,
-      sessionFailStreak: 0,
-    });
-    stopLockedWorker();
-    console.log("cutoff: tek yön ve rematch durdu, işçi kapatıldı");
+    for (const lane of ["a", "b"] as const) {
+      bindLaneApiKey(lane);
+      await stopScrappaJob(admin, reason);
+      await saveRematchJob(admin, {
+        status: "idle",
+        phase: "rt",
+        destIndex: 0,
+        heartbeatAt: now,
+        startedAt: now,
+        lastError: reason,
+        continueQueue: [],
+        pausedUntil: undefined,
+        sessionFailStreak: 0,
+      });
+      stopLockedWorker(lane);
+    }
+    const legacyLock = resolve(process.cwd(), ".scrappa-worker.lock");
+    if (existsSync(legacyLock)) {
+      try {
+        unlinkSync(legacyLock);
+      } catch {
+        /* yok */
+      }
+    }
+    console.log("cutoff: A ve B durdu, işçiler kapatıldı");
     return;
+  }
+
+  const prefixed = parseLane(first);
+  const legacy = first === "start" || first === "drain" || first === "rematch" || first === "stop";
+  const lane = prefixed ?? (legacy ? "a" : null);
+  if (!lane) {
+    console.error(
+      "kullanım: a|b start day | a|b drain | a|b rematch | a|b stop | cutoff | crontab",
+    );
+    process.exit(1);
+  }
+  const cmd = prefixed ? (process.argv[3] ?? "drain") : first;
+  const arg = (n: number) => process.argv[(prefixed ? 4 : 3) + n];
+  const bound = bindLaneApiKey(lane);
+  if (!bound.ok && cmd !== "stop") {
+    console.error(bound.error);
+    process.exit(1);
   }
 
   if (cmd === "stop") {
     const stopped = await stopScrappaScans(
-      process.argv[3] ?? "worker stop — eski takvim iptal",
+      arg(0) ?? "worker stop — eski takvim iptal",
     );
     console.log("stop", stopped);
     return;
   }
 
   if (cmd === "start") {
-    claimWorkerOrExit("start");
-    const mode = process.argv[3];
+    claimWorkerOrExit("start", lane);
+    const mode = arg(0);
     if (mode === "day") {
-      const chunkArg = parseChunk(process.argv[4]);
+      const chunkArg = parseChunk(arg(1));
       if (chunkArg != null) {
         console.log("day chunk (override)", fullChunkRange(chunkArg));
       } else {
@@ -185,13 +215,13 @@ async function main() {
     const window = parseWindow(mode);
     if (!window) {
       console.error(
-        "kullanım: start day [chunk] | start near|full [chunk] | stop | drain | rematch | crontab",
+        "kullanım: a|b start day | a|b start near|full [chunk] | a|b stop | a|b drain | a|b rematch | cutoff | crontab",
       );
       process.exit(1);
     }
     const chunk =
-      window === "full" ? parseChunk(process.argv[4]) : undefined;
-    if (window === "full" && process.argv[4] != null && chunk == null) {
+      window === "full" ? parseChunk(arg(1)) : undefined;
+    if (window === "full" && arg(1) != null && chunk == null) {
       console.error(`full chunk 1..${FULL_CHUNK_COUNT} olmalı`);
       process.exit(1);
     }
@@ -211,7 +241,7 @@ async function main() {
   if (cmd === "drain") {
     // cron */4 ve elle: canlı pid varsa çık. Kalp atışı / mola / yavaş istek ikinci açmaz.
     // Kilit yoksa ve DB'de running iş varsa ölü işçiyi tek başına devral.
-    const other = otherLiveWorkerPid();
+    const other = otherLiveWorkerPid(lane);
     if (other != null) {
       console.log(`drain: işçi zaten var pid=${other} — çık`);
       return;
@@ -226,14 +256,14 @@ async function main() {
       console.log("drain: devam edecek iş yok");
       return;
     }
-    claimWorkerOrExit("drain");
+    claimWorkerOrExit("drain", lane);
     console.log("drain: tek işçi devraldı");
     await drain(true);
     return;
   }
 
   if (cmd === "rematch") {
-    claimWorkerOrExit("rematch");
+    claimWorkerOrExit("rematch", lane);
     const admin = createAdminClient();
     if (!admin) {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
@@ -265,7 +295,7 @@ async function main() {
   }
 
   console.error(
-    "kullanım: start day [chunk] | start near|full [chunk] | stop | drain | rematch | crontab",
+    "kullanım: a|b start day | a|b start near|full [chunk] | a|b stop | a|b drain | a|b rematch | cutoff | crontab",
   );
   process.exit(1);
 }

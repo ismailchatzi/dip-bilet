@@ -1,4 +1,5 @@
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
+import { currentLane, type ScrappaLane } from "@/lib/scan/scrappa-lane";
 import type { ScrappaCursor } from "@/lib/scan/scrappa-oneway-runner";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
 import { fullChunkRange } from "@/lib/scan/scrappa-schedule";
@@ -10,8 +11,12 @@ import type {
 } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export function jobFromPayload(deals: DealsPayload | null | undefined) {
-  return deals?.scrappaJob ?? null;
+export function jobFromPayload(
+  deals: DealsPayload | null | undefined,
+  lane: ScrappaLane = currentLane(),
+) {
+  if (!deals) return null;
+  return lane === "b" ? (deals.scrappaJobB ?? null) : (deals.scrappaJob ?? null);
 }
 
 /** Planlı mola (15 sn / 5 dk). Bu sürede heartbeat eski görünür; ikinci drain açma. */
@@ -93,11 +98,16 @@ export async function saveScrappaJob(
         deals: [],
         archive: [],
         scrappaJob: job ?? undefined,
+        scrappaJobB: undefined,
       },
     });
   }
+  const lane = currentLane();
   return patchScanBoard(admin, {
-    deals: { ...deals, scrappaJob: job ?? undefined },
+    deals:
+      lane === "b"
+        ? { ...deals, scrappaJobB: job ?? undefined }
+        : { ...deals, scrappaJob: job ?? undefined },
   });
 }
 
@@ -108,11 +118,16 @@ export async function enqueueScrappaWindow(
     force?: boolean;
     chunk?: number;
     queue?: ScrappaQueueItem[];
+    partnerChunk?: number;
+    skipRematch?: boolean;
   },
 ): Promise<{ ok: boolean; skipped?: string; job?: ScrappaJob }> {
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
-  const rematch = board.deals?.scrappaRematchJob;
+  const rematch =
+    currentLane() === "b"
+      ? board.deals?.scrappaRematchJobB
+      : board.deals?.scrappaRematchJob;
   const now = new Date().toISOString();
   if (current?.halted && !opts?.force) {
     const halted: ScrappaJob = {
@@ -171,6 +186,8 @@ export async function enqueueScrappaWindow(
     destStart,
     destLimit,
     chunk,
+    partnerChunk: opts?.partnerChunk,
+    skipRematch: opts?.skipRematch === true,
   };
   await saveScrappaJob(admin, job);
   return { ok: true, job };
@@ -202,6 +219,8 @@ export async function stopScrappaJob(
     destStart: current?.destStart,
     destLimit: current?.destLimit,
     chunk: current?.chunk,
+    partnerChunk: current?.partnerChunk,
+    skipRematch: current?.skipRematch,
   };
   await saveScrappaJob(admin, job);
   return job;

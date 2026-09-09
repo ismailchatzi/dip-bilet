@@ -16,7 +16,7 @@ import {
   matchDestFromDb,
   type RtPending,
 } from "@/lib/scan/scrappa-match";
-import { normalizeQueue } from "@/lib/scan/scrappa-job";
+import { jobFromPayload, normalizeQueue } from "@/lib/scan/scrappa-job";
 import {
   SCRAPPA_PHASE_BREATHER_MS,
   SCRAPPA_SESSION_CIRCUIT_AFTER,
@@ -24,6 +24,7 @@ import {
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
 } from "@/lib/scan/scrappa-schedule";
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
+import { currentLane } from "@/lib/scan/scrappa-lane";
 import { ScrappaUnavailableError } from "@/lib/providers/scrappa";
 import type {
   Deal,
@@ -40,7 +41,17 @@ function sleep(ms: number) {
 export function rematchJobFromPayload(
   deals: DealsPayload | null | undefined,
 ): ScrappaRematchJob | null {
-  return deals?.scrappaRematchJob ?? null;
+  if (!deals) return null;
+  return currentLane() === "b"
+    ? (deals.scrappaRematchJobB ?? null)
+    : (deals.scrappaRematchJob ?? null);
+}
+
+function rematchDestList(job: ScrappaRematchJob) {
+  const allow = job.destCodes?.filter(Boolean);
+  if (!allow?.length) return SCRAPPA_DESTINATIONS;
+  const set = new Set(allow);
+  return SCRAPPA_DESTINATIONS.filter((d) => set.has(d.code));
 }
 
 export function isRematchJobFresh(
@@ -89,11 +100,16 @@ export async function saveRematchJob(
         deals: [],
         archive: [],
         scrappaRematchJob: job ?? undefined,
+        scrappaRematchJobB: undefined,
       },
     });
   }
+  const lane = currentLane();
   return patchScanBoard(admin, {
-    deals: { ...deals, scrappaRematchJob: job ?? undefined },
+    deals:
+      lane === "b"
+        ? { ...deals, scrappaRematchJobB: job ?? undefined }
+        : { ...deals, scrappaRematchJob: job ?? undefined },
   });
 }
 
@@ -117,10 +133,13 @@ function buildScrappaCards(
 ): Deal[] {
   const cards: Deal[] = [];
   const doneCodes = new Set<string>();
+  const cities = rematchDestList(job);
+  const scoped = new Set(cities.map((d) => d.code));
 
   if (job.phase === "rt") {
     for (let i = 0; i < job.destIndex; i++) {
-      const code = SCRAPPA_DESTINATIONS[i]!.code;
+      const code = cities[i]?.code;
+      if (!code) continue;
       const pending = pendingList(job, code);
       if (pending.length === 0) continue;
       const c = cardFromPending(pending);
@@ -129,8 +148,8 @@ function buildScrappaCards(
         doneCodes.add(code);
       }
     }
-    for (let i = job.destIndex; i < SCRAPPA_DESTINATIONS.length; i++) {
-      const code = SCRAPPA_DESTINATIONS[i]!.code;
+    for (let i = job.destIndex; i < cities.length; i++) {
+      const code = cities[i]!.code;
       if (doneCodes.has(code)) continue;
       for (const deal of previous) {
         if (
@@ -144,15 +163,32 @@ function buildScrappaCards(
         }
       }
     }
+    for (const deal of previous) {
+      const code = destCodeFromDeal(deal);
+      if (!code || scoped.has(code) || doneCodes.has(code)) continue;
+      if (isGoogleDeal(deal) || isManualDeal(deal)) continue;
+      cards.push(deal);
+      doneCodes.add(code);
+    }
     return cards;
   }
 
   // booking: RT’den gelen tüm pending (doğrulanmış veya liste fiyatı)
-  for (const dest of SCRAPPA_DESTINATIONS) {
+  for (const dest of cities) {
     const pending = pendingList(job, dest.code);
     if (pending.length === 0) continue;
     const c = cardFromPending(pending);
-    if (c) cards.push(c);
+    if (c) {
+      cards.push(c);
+      doneCodes.add(dest.code);
+    }
+  }
+  for (const deal of previous) {
+    const code = destCodeFromDeal(deal);
+    if (!code || scoped.has(code) || doneCodes.has(code)) continue;
+    if (isGoogleDeal(deal) || isManualDeal(deal)) continue;
+    cards.push(deal);
+    doneCodes.add(code);
   }
   return cards;
 }
@@ -175,7 +211,10 @@ async function foldRematchProgress(
   ).filter((d) => !isUnverifiedOneWaySum(d));
   const { payload, live, previousLive } = foldShowcase(board.deals, collapsed);
   const saved = await patchScanBoard(admin, {
-    deals: { ...payload, scrappaRematchJob: job },
+    deals:
+      currentLane() === "b"
+        ? { ...payload, scrappaRematchJobB: job }
+        : { ...payload, scrappaRematchJob: job },
   });
   if (!saved.ok) return { ok: false, count: 0, error: saved.error, live: [] };
   if (opts?.notify) {
@@ -217,6 +256,8 @@ export async function startRematchJob(
     notify?: boolean;
     skipBreather?: boolean;
     continueQueue?: ScrappaQueueItem[];
+    destCodes?: string[];
+    partnerChunk?: number;
   },
 ): Promise<{
   ok: boolean;
@@ -225,7 +266,7 @@ export async function startRematchJob(
 }> {
   const board = await readScanBoard(admin);
   const current = rematchJobFromPayload(board.deals);
-  const oneWay = board.deals?.scrappaJob;
+  const oneWay = jobFromPayload(board.deals);
   const now = new Date().toISOString();
 
   if (
@@ -264,6 +305,8 @@ export async function startRematchJob(
     rtBreatherDone: opts?.skipBreather === true,
     bookingBreatherDone: false,
     pendingByDest: {},
+    destCodes: opts?.destCodes,
+    partnerChunk: opts?.partnerChunk,
   };
   await saveRematchJob(admin, job);
   console.log("rematch: job başladı (RT fazı, drain ile devam)");
@@ -289,6 +332,7 @@ export async function runRematchTick(
   pausedUntil?: string;
   finished?: boolean;
   continueQueue?: ScrappaQueueItem[];
+  partnerChunk?: number;
 }> {
   const board = await readScanBoard(admin);
   let job = rematchJobFromPayload(board.deals);
@@ -342,7 +386,7 @@ export async function runRematchTick(
   }
 
   if (job.phase === "rt") {
-    if (job.destIndex >= SCRAPPA_DESTINATIONS.length) {
+    if (job.destIndex >= rematchDestList(job).length) {
       job = {
         ...job,
         phase: "booking",
@@ -364,7 +408,7 @@ export async function runRematchTick(
       };
     }
 
-    const dest = SCRAPPA_DESTINATIONS[job.destIndex]!;
+    const dest = rematchDestList(job)[job.destIndex]!;
     try {
       console.log(`rematch RT ${dest.code}`);
       const matched = await matchDestFromDb(admin, dest, { withBooking: false });
@@ -436,8 +480,8 @@ export async function runRematchTick(
   }
 
   // Boş pending şehirleri atla
-  while (job.destIndex < SCRAPPA_DESTINATIONS.length) {
-    const code = SCRAPPA_DESTINATIONS[job.destIndex]!.code;
+  while (job.destIndex < rematchDestList(job).length) {
+    const code = rematchDestList(job)[job.destIndex]!.code;
     const list = pendingList(job, code);
     if (list.length === 0) {
       job = {
@@ -461,7 +505,7 @@ export async function runRematchTick(
     break;
   }
 
-  if (job.destIndex >= SCRAPPA_DESTINATIONS.length) {
+  if (job.destIndex >= rematchDestList(job).length) {
     const continueQueue = normalizeQueue(job.continueQueue);
     const finished: ScrappaRematchJob = {
       ...job,
@@ -484,11 +528,12 @@ export async function runRematchTick(
       phase: "booking",
       count: folded.count,
       continueQueue,
+      partnerChunk: job.partnerChunk,
       lastError: folded.error,
     };
   }
 
-  const dest = SCRAPPA_DESTINATIONS[job.destIndex]!;
+  const dest = rematchDestList(job)[job.destIndex]!;
   const list = [...pendingList(job, dest.code)];
   const itemIndex = job.bookingItemIndex ?? 0;
   const item = list[itemIndex]!;
