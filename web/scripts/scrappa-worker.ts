@@ -142,12 +142,13 @@ async function drain(force = false) {
 
 async function main() {
   loadEnv();
-  console.log(
+  const first = process.argv[2] ?? "";
+  // stderr: crontab stdout'u kirletmesin (pipe | crontab -)
+  console.error(
     new Date().toISOString(),
     "boot",
     process.argv.slice(2).join(" ") || "(bos)",
   );
-  const first = process.argv[2] ?? "";
 
   if (first === "crontab") {
     for (const line of scrappaCrontabLines()) console.log(line);
