@@ -49,6 +49,12 @@ export function stopLockedWorker(lane: ScrappaLane = currentLane()) {
     } catch {
       /* */
     }
+    // Takılı kaldıysa zorla (05:00 start'ın önünde kilit bırakmasın)
+    try {
+      if (pidAlive(pid)) process.kill(pid, "SIGKILL");
+    } catch {
+      /* */
+    }
   }
   dropDeadLock(lane);
 }

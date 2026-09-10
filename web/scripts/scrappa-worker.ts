@@ -64,15 +64,34 @@ function parseChunk(raw: string | undefined): number | undefined {
   return Math.floor(n);
 }
 
-/** İkinci süreç yok. Kilit varsa çık; yoksa al ve tek döngüye gir. */
-function claimWorkerOrExit(why: string, lane: ScrappaLane) {
-  const other = otherLiveWorkerPid(lane);
+/** İkinci süreç yok. start day için eski kilidi çal (05:00 kaçmasın). */
+function claimWorkerOrExit(
+  why: string,
+  lane: ScrappaLane,
+  opts?: { steal?: boolean },
+) {
+  let other = otherLiveWorkerPid(lane);
+  if (other != null && opts?.steal) {
+    console.log(
+      `${why}: eski işçi pid=${other} — ${lane} start devralıyor`,
+    );
+    stopLockedWorker(lane);
+    other = otherLiveWorkerPid(lane);
+  }
   if (other != null) {
     console.log(`${why}: işçi zaten var pid=${other} — ikinci açılmadı`);
     process.exit(0);
   }
   const lock = acquireWorkerLock(lane);
   if (!lock.ok) {
+    if (opts?.steal) {
+      console.log(
+        `${why}: kilit yarışı pid=${lock.pid} — tekrar devralınıyor`,
+      );
+      stopLockedWorker(lane);
+      const again = acquireWorkerLock(lane);
+      if (again.ok) return;
+    }
     console.log(`${why}: işçi zaten var pid=${lock.pid} — ikinci açılmadı`);
     process.exit(0);
   }
@@ -123,6 +142,11 @@ async function drain(force = false) {
 
 async function main() {
   loadEnv();
+  console.log(
+    new Date().toISOString(),
+    "boot",
+    process.argv.slice(2).join(" ") || "(bos)",
+  );
   const first = process.argv[2] ?? "";
 
   if (first === "crontab") {
@@ -140,7 +164,7 @@ async function main() {
     const now = new Date().toISOString();
     for (const lane of ["a", "b"] as const) {
       bindLaneApiKey(lane);
-      await stopScrappaJob(admin, reason);
+      await stopScrappaJob(admin, reason, { resetStartedAt: true });
       await saveRematchJob(admin, {
         status: "idle",
         phase: "rt",
@@ -192,7 +216,7 @@ async function main() {
   }
 
   if (cmd === "start") {
-    claimWorkerOrExit("start", lane);
+    claimWorkerOrExit("start", lane, { steal: true });
     const mode = arg(0);
     if (mode === "day") {
       const chunkArg = parseChunk(arg(1));
@@ -263,7 +287,7 @@ async function main() {
   }
 
   if (cmd === "rematch") {
-    claimWorkerOrExit("rematch", lane);
+    claimWorkerOrExit("rematch", lane, { steal: true });
     const admin = createAdminClient();
     if (!admin) {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");

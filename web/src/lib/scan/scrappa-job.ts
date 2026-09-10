@@ -197,6 +197,7 @@ export async function enqueueScrappaWindow(
 export async function stopScrappaJob(
   admin: SupabaseClient,
   reason = "elle durduruldu",
+  opts?: { resetStartedAt?: boolean },
 ): Promise<ScrappaJob | null> {
   const board = await readScanBoard(admin);
   const current = jobFromPayload(board.deals);
@@ -209,7 +210,7 @@ export async function stopScrappaJob(
     legIndex: current?.legIndex ?? 0,
     queue: [],
     heartbeatAt: now,
-    startedAt: current?.startedAt ?? now,
+    startedAt: opts?.resetStartedAt ? now : (current?.startedAt ?? now),
     scanned: current?.scanned ?? 0,
     saved: current?.saved ?? 0,
     lastError: reason,

@@ -45,25 +45,25 @@ Defter: `scrappaJob` / `scrappaRematchJob` (A) ve `scrappaJobB` / `scrappaRematc
 | Paz | 6 | 7 |
 
 ### Günlük kuyruk
-**05:00 TR** `a start day` ve `b start day` aynı anda, ayrı kilit:
+**05:00 TR** `a start day`; **05:01 TR** `b start day` (aynı dakikada npx çakışmasın):
 1. A: `near` (28) → bitince **otomatik rematch** (RT + booking, 28 şehir)
 2. B: günün **1. full** — bitince rematch yok (`skipRematch`)
 3. A rematch bitince → günün **2. full**
 4. A’nın full’ü bitince, B’nin 1. full’ü hâlâ `running` ise A 60 sn ara ile bekler (`B full bekleniyor`). Yazılınca A, **1. + 2. full şehirlerini** rematch eder (tarihler ortak gözlem tablosundan).
 5. **22:30** yalnız B: **28 şehir** rematch. A’nın gün sonu rematch’i yok.
 
-Önceki gün **04:55** `cutoff` A ve B’yi keser (işçi + tek yön + rematch idle, iki kilit). 05:00 yeni gün boş sayfa. Bitmeyen parça taşınmaz. Dünün halt’ı yarının `start day`’ini kilitlemez (`startedAt` bugünden eskiyse force).
+Önceki gün **04:55** `cutoff` A ve B’yi keser (işçi + tek yön + rematch idle, iki kilit; takılı pid SIGKILL). 05:00 yeni gün boş sayfa. Bitmeyen parça taşınmaz. Dünün halt’ı yarının `start day`’ini kilitlemez (`startedAt` bugünden eskiyse force; cutoff `startedAt` sıfırlar).
 Oturum, **hat başına**: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola, kaldığı yerden. 200’de streak sıfır.
 Dilim bitince rematch: 90s nefes → round-trip → 90s nefes → booking-details. Full’ler arasında ara rematch yok (A’nın near rematch’i hariç).
-Rematch/booking da one-way gibi **kaldığı yerden**: A `scrappaRematchJob`, B `scrappaRematchJobB`. Abort = bitiş değil; pause + aynı hattın `*/4 drain`’i.
+Rematch/booking da one-way gibi **kaldığı yerden**: A `scrappaRematchJob`, B `scrappaRematchJobB`. Abort = bitiş değil; pause + aynı hattın drain’i.
 One-way istek aralığı **2 sn** (hat başı).
-**\*/4 drain** hat başı (force yok): o hattın canlı işçisi varken çık; ölünce kaldığı yerden (one-way **veya** rematch/booking).
+**Drain** `1-59/4` hat başı (force yok): o hattın canlı işçisi varken çık; ölünce kaldığı yerden. `:00` start ile çakışmaz.
 
 Worker: `npx tsx scripts/scrappa-worker.ts crontab` satırları basar.
-Cron: `55 4 cutoff` + `0 5 a start day` + `0 5 b start day` + `30 22 b rematch` + `*/4 a drain` + `*/4 b drain`.
+Cron: `55 4 cutoff` + `0 5 a start day` + `1 5 b start day` + `30 22 b rematch` + `1-59/4 a drain` + `1-59/4 b drain`.
 Eski tek hesap `start day` / full 1…7 / near×2–3 **iptal** (argv `start` hâlâ A sayılır, takvim bu değil).
 
-Aynı hesapta paralel dilim / ikinci drain **yok**. İki hesap birbirine paralel olabilir. Bir hesabın kendi rematch’i ile one-way’i aynı anda **yok**. Elle ikinci `drain --force` açma. Bugünkü taramayı elle başlatma.
+Aynı hesapta paralel dilim / ikinci drain **yok**. İki hesap birbirine paralel olabilir. Bir hesabın kendi rematch’i ile one-way’i aynı anda **yok**. `start day` eski kilidi devralır (steal). Elle ikinci `drain --force` açma. Bugünkü taramayı elle başlatma.
 
 ## Vitrin kapıları (showcase-config + showcase-eligibility)
 `benchmark_mode = synthetic_rt_candidate` (ileride `verified_rt`).
