@@ -19,7 +19,12 @@ type ScrappaFlight = {
   booking_token?: string;
   bookingToken?: string;
   token?: string;
+  departure_token?: string;
   stops?: number;
+  outbound_stops?: number | null;
+  return_stops?: number | null;
+  itinerary_complete?: boolean;
+  price_type?: string;
   total_duration_minutes?: number;
   self_transfer?: boolean;
   is_self_transfer?: boolean;
@@ -30,6 +35,11 @@ type ScrappaFlight = {
 
 function flightStops(f: ScrappaFlight) {
   if (typeof f.stops === "number") return f.stops;
+  const out =
+    typeof f.outbound_stops === "number" ? f.outbound_stops : null;
+  const ret = typeof f.return_stops === "number" ? f.return_stops : null;
+  if (out != null && ret != null) return Math.max(out, ret);
+  if (out != null) return out;
   if (typeof f.legs?.[0]?.stops === "number") return f.legs[0].stops;
   return null;
 }
@@ -366,7 +376,7 @@ export async function scrappaOneWay(input: {
   throw new Error(`Scrappa one-way retry bitti HTTP ${lastStatus} ${lastReason}`);
 }
 
-/** Gidiş-dönüş paket fiyatı — sort_by=cheapest (En iyi değil). */
+/** Gidiş-dönüş paket — Scrappa v2 (2 istek: outbound token → complete total). */
 export async function scrappaRoundTrip(input: {
   origin: string;
   destination: string;
@@ -388,49 +398,75 @@ export async function scrappaRoundTrip(input: {
     sort_by: "cheapest",
     max_stops: scrappaMaxStopsParam(input.destination),
   });
-  let lastStatus = 0;
-  let lastReason = "";
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const res = await fetch(
-      `https://scrappa.co/api/flights/round-trip?${params}`,
-      {
-        headers: scrappaHeaders(apiKey),
-        cache: "no-store",
-      },
-    );
-    lastStatus = res.status;
-    const json = await readScrappaJson(res);
-    lastReason =
-      json.last_failure_reason ||
-      json.failed_stage ||
-      json.error ||
-      json.message ||
-      "";
-    if (res.status === 429) {
-      await new Promise((r) => setTimeout(r, 2000 * attempt));
-      continue;
+
+  async function fetchV2(p: URLSearchParams) {
+    let lastStatus = 0;
+    let lastReason = "";
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const res = await fetch(
+        `https://scrappa.co/api/flights/v2/round-trip?${p}`,
+        {
+          headers: scrappaHeaders(apiKey!),
+          cache: "no-store",
+        },
+      );
+      lastStatus = res.status;
+      const json = await readScrappaJson(res);
+      lastReason =
+        json.last_failure_reason ||
+        json.failed_stage ||
+        json.error ||
+        json.message ||
+        "";
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        continue;
+      }
+      if (
+        res.status === 503 ||
+        res.status === 502 ||
+        res.status === 410 ||
+        isUpstreamOutage(lastReason)
+      ) {
+        throw new ScrappaUnavailableError(res.status, lastReason);
+      }
+      if (!res.ok) {
+        throw new Error(`Scrappa round-trip HTTP ${res.status}: ${lastReason}`);
+      }
+      if (json.error || json.message?.toLowerCase().includes("error")) {
+        throw new Error(json.error || json.message || "Scrappa round-trip hata");
+      }
+      return json;
     }
-    if (res.status === 503 || res.status === 502 || isUpstreamOutage(lastReason)) {
-      throw new ScrappaUnavailableError(res.status, lastReason);
-    }
-    if (!res.ok) {
-      throw new Error(`Scrappa round-trip HTTP ${res.status}: ${lastReason}`);
-    }
-    if (json.error || json.message?.toLowerCase().includes("error")) {
-      throw new Error(json.error || json.message || "Scrappa round-trip hata");
-    }
-    const best = pickCheapest(json.flights ?? [], maxStops);
-    if (!best || typeof best.price !== "number") return null;
-    return toFare(
-      {
-        origin: input.origin,
-        destination: input.destination,
-        date: input.departureDate,
-      },
-      best,
+    throw new Error(
+      `Scrappa round-trip retry bitti HTTP ${lastStatus} ${lastReason}`,
     );
   }
-  throw new Error(
-    `Scrappa round-trip retry bitti HTTP ${lastStatus} ${lastReason}`,
+
+  const outJson = await fetchV2(params);
+  const outbounds = (outJson.flights ?? []).filter(
+    (f) => typeof f.departure_token === "string" && f.departure_token.length > 0,
+  );
+  const bestOut = pickCheapest(outbounds, maxStops);
+  const token = bestOut?.departure_token?.trim();
+  if (!bestOut || !token) return null;
+
+  params.set("departure_token", token);
+  const totalJson = await fetchV2(params);
+  const completes = (totalJson.flights ?? []).filter(
+    (f) =>
+      f.itinerary_complete === true ||
+      f.price_type === "round_trip_total" ||
+      (typeof f.price === "number" && f.price > 0),
+  );
+  const best = pickCheapest(completes, maxStops);
+  if (!best || typeof best.price !== "number") return null;
+  return toFare(
+    {
+      origin: input.origin,
+      destination: input.destination,
+      date: input.departureDate,
+    },
+    best,
   );
 }
