@@ -429,7 +429,7 @@ export async function runRematchTick(
         pausedUntil: undefined,
       };
       await saveRematchJob(admin, job);
-      await foldRematchProgress(admin, job, { notify: false });
+      await foldRematchProgress(admin, job, { notify: true });
       return {
         ok: true,
         running: true,
@@ -578,7 +578,7 @@ export async function runRematchTick(
       pausedUntil: undefined,
     };
     await saveRematchJob(admin, job);
-    await foldRematchProgress(admin, job, { notify: false });
+    await foldRematchProgress(admin, job, { notify: true });
     return {
       ok: true,
       running: true,

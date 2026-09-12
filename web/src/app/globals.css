@@ -3165,8 +3165,63 @@ a {
 .deal-detail__head-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.55rem;
   justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dream-dest-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 16rem;
+  border: 1px solid #d8dde6;
+  background: #fff;
+  color: #2a3340;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-decoration: none;
+  text-align: left;
+  padding: 0.42rem 0.7rem 0.42rem 0.55rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: normal;
+}
+
+.dream-dest-btn svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.dream-dest-btn--on {
+  border-color: #f0b6bf;
+  background: #fff4f6;
+  color: #9b1c3a;
+}
+
+.dream-dest-btn--ghost {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.dream-dest-btn:hover:not(:disabled):not(.dream-dest-btn--ghost) {
+  border-color: #b8c0cc;
+  color: #111;
+}
+
+.dream-dest-btn--on:hover:not(:disabled) {
+  border-color: #e08a98;
+  color: #7a102c;
+}
+
+.dream-dest-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .deal-detail__ghost {

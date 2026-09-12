@@ -1,6 +1,7 @@
 "use client";
 
 import { DestGallery } from "@/components/vitrin/DestGallery";
+import { DreamDestToggle } from "@/components/vitrin/DreamDestToggle";
 import { TripExtrasPanel } from "@/components/vitrin/TripExtrasPanel";
 import {
   dealCabin,
@@ -137,10 +138,7 @@ export function DealDetail({
           {oldDeal ? <p className="deal-detail__old-label">Eski fırsat</p> : null}
         </div>
         <div className="deal-detail__head-actions">
-          <Link href="/hedef-destinasyonlar" className="deal-detail__ghost">
-            <HeartIcon />
-            Hayal destinasyon
-          </Link>
+          <DreamDestToggle destCode={dest} />
           <button type="button" className="deal-detail__ghost" onClick={() => void share()}>
             <ShareIcon />
             {copied ? "Kopyalandı" : "Paylaş"}
