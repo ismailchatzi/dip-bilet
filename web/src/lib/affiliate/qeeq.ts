@@ -177,8 +177,13 @@ function searchParams(iata: string, pickupDate: string, dropoffDate: string) {
   };
 }
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function fetchQeeqClid(base: Record<string, string>) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(400);
     const res = await fetch(
       `${QEEQ_ORIGIN}/car-api/search/getClid?${new URLSearchParams({ ...base, start: qeeqStartId() })}`,
       { headers: FETCH_HEADERS, cache: "no-store" },
@@ -191,8 +196,13 @@ async function fetchQeeqClid(base: Record<string, string>) {
   return null;
 }
 
+/**
+ * getClid 200 verse bile arama henüz bitmemiş olabilir (code 4002:
+ * "can not find the car_details of this clid"). Şehir farkı değil — yarış.
+ */
 async function fetchQeeqList(base: Record<string, string>, clid: string, limit: number) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    if (attempt > 0) await sleep(500);
     const res = await fetch(
       `${QEEQ_ORIGIN}/car-api/search/list?${new URLSearchParams({
         ...base,
@@ -206,7 +216,9 @@ async function fetchQeeqList(base: Record<string, string>, clid: string, limit: 
     if (!res.ok) continue;
     const json = (await res.json()) as { code?: string; data?: QeeqListData };
     if (String(json.code) !== "0") continue;
-    return json.data ?? null;
+    const data = json.data ?? null;
+    if (!data?.list?.length) continue;
+    return data;
   }
   return null;
 }
@@ -283,6 +295,7 @@ export async function fetchQeeqCarRentalCards(
 
   const clid = await fetchQeeqClid(base);
   if (!clid) return null;
+  await sleep(400);
 
   const data = await fetchQeeqList(base, clid, 40);
   const total = data?.summary_info?.total_cars ?? 0;
