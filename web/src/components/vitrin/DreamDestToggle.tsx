@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+function destCodesFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((c): c is string => typeof c === "string" && c.trim() !== "")
+    .map((c) => c.trim().toUpperCase());
+}
+
 export function DreamDestToggle({ destCode }: { destCode: string }) {
   const code = destCode.trim().toUpperCase();
   const [ready, setReady] = useState(false);
@@ -31,9 +38,7 @@ export function DreamDestToggle({ destCode }: { destCode: string }) {
       .select("destination_codes")
       .eq("id", user.id)
       .maybeSingle();
-    const codes = (data?.destination_codes ?? []).map((c: string) =>
-      c.trim().toUpperCase(),
-    );
+    const codes = destCodesFrom(data?.destination_codes);
     setLoggedIn(true);
     setSaved(codes.includes(code));
     setReady(true);
@@ -57,11 +62,9 @@ export function DreamDestToggle({ destCode }: { destCode: string }) {
       .select("destination_codes")
       .eq("id", user.id)
       .maybeSingle();
-    const current = (data?.destination_codes ?? []).map((c: string) =>
-      c.trim().toUpperCase(),
-    );
+    const current = destCodesFrom(data?.destination_codes);
     const next = current.includes(code)
-      ? current.filter((c) => c !== code)
+      ? current.filter((item) => item !== code)
       : [...current, code];
     const { error } = await supabase.from("profiles").upsert(
       {
