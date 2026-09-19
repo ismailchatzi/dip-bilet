@@ -28,7 +28,12 @@ import {
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
 } from "@/lib/scan/scrappa-schedule";
 import { currentLane } from "@/lib/scan/scrappa-lane";
-import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
+import {
+  obsWindowForFullPair,
+  obsWindowForOneWayJob,
+  type ScrappaObsWindow,
+  type ScrappaWindow,
+} from "@/lib/scan/scrappa-horizon";
 import type { DealsPayload, ScrappaJob, ScrappaQueueItem } from "@/lib/types";
 
 function trDateString(d: Date) {
@@ -184,8 +189,9 @@ function shouldForceNewDay(
 }
 
 /**
- * A: 05:00 near → rematch → günün 2. full'ü → B'nin 1. full'ü yazılınca ikisinin rematch'i.
- * B: 05:00 günün 1. full'ü, bitince rematch yok. 22:30 ayrı.
+ * A: 05:00 near → rematch (yalnız o near yazımları) → günün 2. full'ü →
+ * B'nin 1. full'ü yazılınca ikisinin rematch'i (yalnız o iki full yazımları).
+ * B: 05:01 günün 1. full'ü, bitince rematch yok.
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;
@@ -283,7 +289,11 @@ async function continueDayQueue(
 async function enqueueAutoRematch(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
   continueQueue: ScrappaQueueItem[],
-  extra?: { destCodes?: string[]; partnerChunk?: number },
+  extra?: {
+    destCodes?: string[];
+    partnerChunk?: number;
+    obs?: ScrappaObsWindow;
+  },
 ): Promise<{ ok: boolean; skipped?: string; error?: string }> {
   const board = await readScanBoard(admin);
   const existing = rematchJobFromPayload(board.deals);
@@ -298,18 +308,29 @@ async function enqueueAutoRematch(
         continueQueue: normalizeQueue(continueQueue),
         destCodes: extra?.destCodes ?? existing.destCodes,
         partnerChunk: extra?.partnerChunk ?? existing.partnerChunk,
+        obsObservedAtGte:
+          extra?.obs?.observedAtGte ?? existing.obsObservedAtGte,
+        obsObservedAtLt: extra?.obs?.observedAtLt ?? existing.obsObservedAtLt,
+        obsOutboundDateGte:
+          extra?.obs?.outboundDateGte ?? existing.obsOutboundDateGte,
+        obsOutboundDateLte:
+          extra?.obs?.outboundDateLte ?? existing.obsOutboundDateLte,
         heartbeatAt: new Date().toISOString(),
       });
     }
     return { ok: true };
   }
-  console.log("auto-rematch enqueue (drain devam eder)");
+  console.log("auto-rematch enqueue (drain devam eder)", {
+    destCodes: extra?.destCodes?.length ?? "all",
+    obs: extra?.obs,
+  });
   const started = await startRematchJob(admin, {
     force: true,
     notify: true,
     continueQueue,
     destCodes: extra?.destCodes,
     partnerChunk: extra?.partnerChunk,
+    obs: extra?.obs,
   });
   if (!started.ok) {
     console.log(`auto-rematch enqueue skip`, started.skipped);
@@ -444,6 +465,7 @@ export async function runScrappaTick(force = false) {
     const rematch = await enqueueAutoRematch(admin, normalizeQueue(job.queue), {
       destCodes,
       partnerChunk,
+      obs: obsWindowForFullPair(job, peer),
     });
     return {
       ok: rematch.ok,
@@ -523,10 +545,21 @@ export async function runScrappaTick(force = false) {
             ...(job.chunk != null ? fullChunkRange(job.chunk).codes : []),
           ]
         : undefined;
+    const peer =
+      finishedWindow === "full"
+        ? jobFromPayload((await readScanBoard(admin)).deals, "b")
+        : null;
+    const obs =
+      finishedWindow === "near"
+        ? obsWindowForOneWayJob(job)
+        : finishedWindow === "full"
+          ? obsWindowForFullPair(job, peer)
+          : undefined;
     rematch = {
       ...(await enqueueAutoRematch(admin, pendingQueue, {
         destCodes,
         partnerChunk: job.partnerChunk,
+        obs,
       })),
       enqueued: true,
     };

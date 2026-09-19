@@ -44,4 +44,48 @@ export function allDestinations() {
   return SCRAPPA_DESTINATIONS;
 }
 
+/** Rematch’in one-way gözlem süzgeci (tarihçe değil, o tarama yazımları). */
+export type ScrappaObsWindow = {
+  observedAtGte: string;
+  observedAtLt?: string;
+  outboundDateGte: string;
+  outboundDateLte: string;
+};
+
+/** Tek one-way job → rematch obs penceresi. */
+export function obsWindowForOneWayJob(job: {
+  window: ScrappaWindow;
+  startedAt: string;
+}): ScrappaObsWindow {
+  const dates = horizonDates(job.window, new Date(job.startedAt));
+  return {
+    observedAtGte: job.startedAt,
+    outboundDateGte: dates[0]!,
+    outboundDateLte: dates[dates.length - 1]!,
+  };
+}
+
+/** A + B full job’ları → birleşik obs penceresi (erken başlayan startedAt). */
+export function obsWindowForFullPair(
+  aJob: { startedAt: string },
+  bJob: { startedAt: string } | null | undefined,
+): ScrappaObsWindow {
+  const startedAt =
+    bJob?.startedAt && bJob.startedAt < aJob.startedAt
+      ? bJob.startedAt
+      : aJob.startedAt;
+  return obsWindowForOneWayJob({ window: "full", startedAt });
+}
+
+/** Elle rematch: yalnız bugün TR 00:00’dan itibaren yazılanlar. */
+export function obsObservedAtGteTodayTr(now = new Date()): string {
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  return new Date(`${day}T00:00:00+03:00`).toISOString();
+}
+
 export { SCRAPPA_ORIGINS };

@@ -23,6 +23,10 @@ import {
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
 } from "@/lib/scan/scrappa-schedule";
+import {
+  obsObservedAtGteTodayTr,
+  type ScrappaObsWindow,
+} from "@/lib/scan/scrappa-horizon";
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 import { currentLane } from "@/lib/scan/scrappa-lane";
 import { ScrappaUnavailableError } from "@/lib/providers/scrappa";
@@ -33,9 +37,41 @@ import type {
   ScrappaRematchJob,
 } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MatchObsFilter } from "@/lib/scan/scrappa-match";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function obsFilterFromJob(job: ScrappaRematchJob): MatchObsFilter | undefined {
+  if (
+    !job.obsObservedAtGte &&
+    !job.obsObservedAtLt &&
+    !job.obsOutboundDateGte &&
+    !job.obsOutboundDateLte
+  ) {
+    return undefined;
+  }
+  return {
+    observedAtGte: job.obsObservedAtGte,
+    observedAtLt: job.obsObservedAtLt,
+    outboundDateGte: job.obsOutboundDateGte,
+    outboundDateLte: job.obsOutboundDateLte,
+  };
+}
+
+function applyObsWindow(
+  job: ScrappaRematchJob,
+  window?: ScrappaObsWindow | MatchObsFilter | null,
+): ScrappaRematchJob {
+  if (!window) return job;
+  return {
+    ...job,
+    obsObservedAtGte: window.observedAtGte ?? job.obsObservedAtGte,
+    obsObservedAtLt: window.observedAtLt ?? job.obsObservedAtLt,
+    obsOutboundDateGte: window.outboundDateGte ?? job.obsOutboundDateGte,
+    obsOutboundDateLte: window.outboundDateLte ?? job.obsOutboundDateLte,
+  };
 }
 
 export function rematchJobFromPayload(
@@ -258,6 +294,8 @@ export async function startRematchJob(
     continueQueue?: ScrappaQueueItem[];
     destCodes?: string[];
     partnerChunk?: number;
+    /** Yoksa yalnız bugün TR yazımları (tarihçe rematch yok). */
+    obs?: ScrappaObsWindow | MatchObsFilter | null;
   },
 ): Promise<{
   ok: boolean;
@@ -290,7 +328,14 @@ export async function startRematchJob(
     return { ok: false, skipped: "rematch sürüyor", job: current };
   }
 
-  const job: ScrappaRematchJob = {
+  const obs =
+    opts?.obs === null
+      ? undefined
+      : (opts?.obs ?? {
+          observedAtGte: obsObservedAtGteTodayTr(),
+        });
+
+  let job: ScrappaRematchJob = {
     status: "running",
     phase: "rt",
     destIndex: 0,
@@ -308,8 +353,15 @@ export async function startRematchJob(
     destCodes: opts?.destCodes,
     partnerChunk: opts?.partnerChunk,
   };
+  job = applyObsWindow(job, obs);
   await saveRematchJob(admin, job);
-  console.log("rematch: job başladı (RT fazı, drain ile devam)");
+  console.log("rematch: job başladı (RT fazı, drain ile devam)", {
+    destCodes: job.destCodes?.length ?? "all",
+    obsObservedAtGte: job.obsObservedAtGte,
+    obsOutbound: job.obsOutboundDateGte
+      ? `${job.obsOutboundDateGte}..${job.obsOutboundDateLte}`
+      : undefined,
+  });
   return { ok: true, job };
 }
 
@@ -411,7 +463,10 @@ export async function runRematchTick(
     const dest = rematchDestList(job)[job.destIndex]!;
     try {
       console.log(`rematch RT ${dest.code}`);
-      const matched = await matchDestFromDb(admin, dest, { withBooking: false });
+      const matched = await matchDestFromDb(admin, dest, {
+        withBooking: false,
+        obs: obsFilterFromJob(job),
+      });
       console.log(`rematch RT ${dest.code} scrappa=${matched.card ? 1 : 0}`);
       const pending = pendingRecord(job);
       if (matched.pending.length > 0) {
@@ -612,6 +667,9 @@ export async function runRematchToCompletion(
     notify?: boolean;
     skipBreather?: boolean;
     continueQueue?: ScrappaQueueItem[];
+    destCodes?: string[];
+    partnerChunk?: number;
+    obs?: ScrappaObsWindow | MatchObsFilter | null;
   },
 ): Promise<{
   ok: boolean;
@@ -624,6 +682,9 @@ export async function runRematchToCompletion(
     notify: opts?.notify,
     skipBreather: opts?.skipBreather,
     continueQueue: opts?.continueQueue,
+    destCodes: opts?.destCodes,
+    partnerChunk: opts?.partnerChunk,
+    obs: opts?.obs,
   });
   if (!started.ok && started.skipped === "rematch sürüyor") {
     // Mevcut işe yapış

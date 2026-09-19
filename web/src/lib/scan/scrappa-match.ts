@@ -87,9 +87,17 @@ function departureLabel(outOrigin: string, retDest: string) {
 const OBS_PAGE = 1000;
 const OBS_PAGE_CAP = 50;
 
+export type MatchObsFilter = {
+  observedAtGte?: string;
+  observedAtLt?: string;
+  outboundDateGte?: string;
+  outboundDateLte?: string;
+};
+
 async function loadObservations(
   admin: SupabaseClient,
   destCode: string,
+  filter?: MatchObsFilter,
 ): Promise<Obs[]> {
   const colsFull =
     "route_key, season_key, price, outbound_date, airline, stops, self_transfer";
@@ -100,12 +108,25 @@ async function loadObservations(
   for (let page = 0; page < OBS_PAGE_CAP; page++) {
     const from = page * OBS_PAGE;
     const to = from + OBS_PAGE - 1;
-    let res = await admin
+    let q = admin
       .from("price_observations")
       .select(cols)
       .eq("destination_code", destCode)
       .eq("source", "scrappa_oneway")
-      .not("outbound_date", "is", null)
+      .not("outbound_date", "is", null);
+    if (filter?.observedAtGte) {
+      q = q.gte("observed_at", filter.observedAtGte);
+    }
+    if (filter?.observedAtLt) {
+      q = q.lt("observed_at", filter.observedAtLt);
+    }
+    if (filter?.outboundDateGte) {
+      q = q.gte("outbound_date", filter.outboundDateGte);
+    }
+    if (filter?.outboundDateLte) {
+      q = q.lte("outbound_date", filter.outboundDateLte);
+    }
+    let res = await q
       .order("outbound_date", { ascending: true })
       .order("id", { ascending: true })
       .range(from, to);
@@ -492,9 +513,9 @@ export async function applyBookingToDeal(
 export async function matchDestFromDb(
   admin: SupabaseClient,
   dest: ScrappaDestination,
-  opts?: { withBooking?: boolean },
+  opts?: { withBooking?: boolean; obs?: MatchObsFilter },
 ): Promise<{ card: Deal | null; pending: RtPending[] }> {
-  const rows = await loadObservations(admin, dest.code);
+  const rows = await loadObservations(admin, dest.code, opts?.obs);
   const pairs = collectPairs(dest, rows);
   const drafts = matchDestDrafts(dest, rows, new Date().toISOString());
   const verified: RtPending[] = [];

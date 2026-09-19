@@ -78,7 +78,7 @@ function releaseLock() {
 
 /**
  * Tek işçi. Kalp atışına bakmaz: süreç yaşıyorsa ikinci açılmaz.
- * Mola, yavaş istek, 22:30 ve 05:00 aynı kapıdan geçer.
+ * Mola, yavaş istek, 05:00 aynı kapıdan geçer.
  */
 export function acquireWorkerLock(lane: ScrappaLane = currentLane()):
   | { ok: true }

@@ -76,14 +76,14 @@ export function fullChunksForWeekday(now = new Date()): [number, number] {
 
 /**
  * İki hesap, aynı kurallar, ayrı kilit.
- * A 05:00: near → rematch → günün 2. full → B'nin 1. full'ü yazılınca ikisinin rematch'i
- * B 05:01: günün 1. full (A ile aynı dakikada npx/kilit çakışmasın). 22:30: 28 şehir rematch.
+ * A 05:00: near → rematch (o near yazımları) → günün 2. full → B'nin 1. full'ü yazılınca
+ * ikisinin rematch'i (yalnız o iki full yazımları).
+ * B 05:01: günün 1. full (A ile aynı dakikada npx/kilit çakışmasın). Sabit gece rematch yok.
  * 04:55 ikisini de keser.
  */
 export const SCRAPPA_CRON_SCHEDULE = [
   { time: "05:00", cmd: "a start day" },
   { time: "05:01", cmd: "b start day" },
-  { time: "22:30", cmd: "b rematch" },
 ] as const;
 
 /** crontab satırları (TZ=Europe/Istanbul, web/ kökü). */
@@ -94,7 +94,6 @@ export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
     // A ve B aynı dakikada değil: 05:00 ikisi birden npx kilidine takılıp B sessizce düşebiliyordu.
     `0 5 * * * ${bin} a start day >> /var/log/scrappa-a.log 2>&1`,
     `1 5 * * * ${bin} b start day >> /var/log/scrappa-b.log 2>&1`,
-    `30 22 * * * ${bin} b rematch >> /var/log/scrappa-b.log 2>&1`,
     // :00 ile start çakışmasın diye drain 1'den (1,5,9…)
     `1-59/4 * * * * ${bin} a drain >> /var/log/scrappa-a.log 2>&1`,
     `1-59/4 * * * * ${bin} b drain >> /var/log/scrappa-b.log 2>&1`,

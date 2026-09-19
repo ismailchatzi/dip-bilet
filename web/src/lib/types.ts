@@ -101,6 +101,14 @@ export type ScrappaRematchJob = {
   destCodes?: string[];
   partnerChunk?: number;
   /**
+   * Rematch adayları yalnız bu one-way yazım penceresinden.
+   * Near → o near job; 2 full → iki full job’unun birleşik penceresi.
+   */
+  obsObservedAtGte?: string;
+  obsObservedAtLt?: string;
+  obsOutboundDateGte?: string;
+  obsOutboundDateLte?: string;
+  /**
    * RT fazında biriken adaylar (şehir kodu → paketler).
    * JSON-serializable Deal + booking hook.
    */
