@@ -4,6 +4,7 @@ import {
   isDomesticDeal,
   isFoundAtWithinKeep,
   promoteFreshHeroDeal,
+  enforceDealThreshold,
   SHOWCASE_FOUND_KEEP_DAYS,
 } from "@/lib/deal-display";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
@@ -108,7 +109,9 @@ export function foldShowcase(
     ...(previous?.deals ?? []).filter((d) => !isLiveByOutbound(d, today)),
   ];
   const { live, archive } = splitLiveAndArchive(
-    nextLiveCandidates,
+    nextLiveCandidates
+      .map(enforceDealThreshold)
+      .filter((d): d is Deal => d != null),
     held,
     today,
   );

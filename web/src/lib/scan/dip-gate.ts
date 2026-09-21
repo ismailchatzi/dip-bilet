@@ -1,28 +1,52 @@
 import type { Deal } from "@/lib/types";
-import { dealDestCode } from "@/lib/deal-display";
 import { hardFloorUsd } from "@/lib/scan/showcase-config";
 
+function destCodeOf(deal: Deal) {
+  if (
+    deal.id.startsWith("scrappa:") ||
+    deal.id.startsWith("gdeals:") ||
+    deal.id.startsWith("manual:")
+  ) {
+    return deal.id.split(":")[1] ?? "";
+  }
+  return deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ?? "";
+}
+
 /**
- * Scrappa kartı hâlâ kapıya uyuyor mu?
- * Eşik snapshot’ı thresholdPrice; yoksa hard floor.
+ * Vitrin fiyat kapısı — kaynak fark etmez (scrappa / gdeals / manual).
+ * Snapshot thresholdPrice; yoksa hard floor; ikisi de yoksa kapı yok.
  */
+export function dealPriceCapUsd(deal: Deal): number | null {
+  if (typeof deal.thresholdPrice === "number" && deal.thresholdPrice > 0) {
+    return deal.thresholdPrice;
+  }
+  const floor = hardFloorUsd(destCodeOf(deal));
+  return floor != null && floor > 0 ? floor : null;
+}
+
+/** Fiyat eşiğin (veya floor’un) üstünde olamaz. */
+export function passesDealThresholdGate(deal: Deal) {
+  const cap = dealPriceCapUsd(deal);
+  if (cap == null) return true;
+  return Number.isFinite(deal.price) && deal.price > 0 && deal.price <= cap;
+}
+
+export function dropOverThresholdDeals(deals: Deal[]) {
+  return deals.filter(passesDealThresholdGate);
+}
+
+/** @deprecated → passesDealThresholdGate */
 export function passesScrappaDipGate(deal: Deal) {
   if (!deal.id.startsWith("scrappa:")) return true;
-  const code = dealDestCode(deal);
-  const floor = hardFloorUsd(code);
-  if (typeof deal.thresholdPrice === "number" && deal.thresholdPrice > 0) {
-    return deal.price <= deal.thresholdPrice;
-  }
-  if (floor != null) return deal.price <= floor;
-  return true;
+  return passesDealThresholdGate(deal);
 }
 
+/** @deprecated → dropOverThresholdDeals */
 export function dropFailedScrappaDips(deals: Deal[]) {
-  return deals.filter((d) => passesScrappaDipGate(d));
+  return dropOverThresholdDeals(deals);
 }
 
-/** Prod vitrinini bozma — paylaşılan Supabase. Yalnız next dev. */
+/** @deprecated Prod’da da aynı kapı; localhost ayrımı kalktı. */
 export function dropFailedScrappaDipsOnLocalhost(deals: Deal[]) {
-  if (process.env.NODE_ENV === "production") return deals;
-  return dropFailedScrappaDips(deals);
+  return dropOverThresholdDeals(deals);
 }

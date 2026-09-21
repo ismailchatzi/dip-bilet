@@ -72,7 +72,7 @@ Aynı hesapta paralel dilim / ikinci drain **yok**. İki hesap birbirine paralel
 2. **SEZONLUK_DIP:** yalnız örneklem yeterliyse: sentetik RT aday sayısı ≥ N (uzak 30 / diğer 50) **ve** farklı gidiş günü ≥ (uzak 7 / diğer 10); paket ≤ ay medyanı × gate.
    - Gate: Balkan/vizesiz 0.70 · Schengen/Avrupa 0.75 · Uzak 0.82
 3. Çakışmada MUTLAK ezer SEZONLUK.
-4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10 (eşikten aşağı düşmez).
+4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10 (eşikten aşağı düşmez). **Kart fiyatı eşiğin üstünde olamaz** — `enforceDealThreshold` / `foldShowcase` + vitrin okuma; eşik üstü düşer.
 5. Kart uçuş gününe kadar kalır. Ailede **10 gün** içi yakalanma yoksa vitrinden düşer; varsa hero = o penceredeki **en ucuz** (eşitlikte en yeni). `verifiedAt` / `lastCheckedAt` tutulur.
 6. Dedup: şehir başına 1 kart; aynı tarih ucuzsa güncelle; pahalı ama geçerli → diğer tarihler (≤3).
 

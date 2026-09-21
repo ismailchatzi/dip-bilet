@@ -1,6 +1,7 @@
 import type { Deal, DealDateOption } from "@/lib/types";
 import { destPhotoCode } from "@/lib/destination-photos";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
+import { dealPriceCapUsd } from "@/lib/scan/dip-gate";
 import {
   maxStopsForDest,
   nightsBetween,
@@ -669,15 +670,17 @@ export function isFoundAtWithinKeep(
 
 /**
  * Ailede keep içi + uçuşu gelmemiş seçenek varsa: hero = en ucuz (eşitlikte en yeni).
- * Hiç taze seçenek yoksa null (vitrinden düş).
+ * Eşik üstü fiyatlar aday bile sayılmaz. Hiç uygun seçenek yoksa null.
  */
 export function promoteFreshHeroDeal(
   deal: Deal,
   today = turkeyTodayIso(),
 ): Deal | null {
+  const cap = dealPriceCapUsd(deal);
   const fresh = flattenDateOptions(deal).filter((o) => {
     if (!isFoundAtWithinKeep(o.foundAt, today)) return false;
     if (o.outboundDate && o.outboundDate < today) return false;
+    if (cap != null && !(o.price > 0 && o.price <= cap)) return false;
     return true;
   });
   if (fresh.length === 0) return null;
@@ -689,10 +692,42 @@ export function promoteFreshHeroDeal(
   const head = fresh[0]!;
   const hero = applyDateOption(deal, head);
   const headKey = optionTripKey(head);
-  const others = flattenDateOptions(deal).filter(
-    (o) => optionTripKey(o) !== headKey,
-  );
+  const others = flattenDateOptions(deal).filter((o) => {
+    if (optionTripKey(o) === headKey) return false;
+    if (cap != null && !(o.price > 0 && o.price <= cap)) return false;
+    return true;
+  });
   hero.dateOptions = capDateOptions(others);
+  if (
+    typeof hero.averagePrice === "number" &&
+    hero.averagePrice > 0 &&
+    hero.price > 0
+  ) {
+    hero.discountPercent = Math.max(
+      0,
+      Math.round(((hero.averagePrice - hero.price) / hero.averagePrice) * 100),
+    );
+  }
+  return hero;
+}
+
+/**
+ * Yazma / okuma: eşik üstü hero veya seçenek bırakma.
+ * Üstündeyse ailede eşik altı tarih varsa onu hero yap; yoksa kartı düşür.
+ */
+export function enforceDealThreshold(deal: Deal): Deal | null {
+  const cap = dealPriceCapUsd(deal);
+  if (cap == null) return deal;
+  const under = flattenDateOptions(deal).filter(
+    (o) => Number.isFinite(o.price) && o.price > 0 && o.price <= cap,
+  );
+  if (under.length === 0) return null;
+  under.sort(
+    (a, b) =>
+      a.price - b.price || compareFoundAtDesc(a.foundAt, b.foundAt),
+  );
+  const hero = applyDateOption(deal, under[0]!);
+  hero.dateOptions = capDateOptions(under.slice(1));
   if (
     typeof hero.averagePrice === "number" &&
     hero.averagePrice > 0 &&
@@ -741,10 +776,12 @@ export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   return heroes;
 }
 
-/** Vitrin okuma: şehir kartı + taze (≤10 gün) en ucuz hero. */
+/** Vitrin okuma: şehir kartı + taze (≤10 gün) en ucuz hero + eşik kapısı. */
 export function vitrinHeroDeals(deals: Deal[], today = turkeyTodayIso()) {
   return foldOneCardPerCity(deals)
     .map((d) => promoteFreshHeroDeal(d, today))
+    .filter((d): d is Deal => d != null)
+    .map(enforceDealThreshold)
     .filter((d): d is Deal => d != null);
 }
 
@@ -777,6 +814,7 @@ export type DealDateChoice = {
 };
 
 export function dealDateChoices(deal: Deal): DealDateChoice[] {
+  const cap = dealPriceCapUsd(deal);
   const origin = dealOutOrigin(deal);
   const head: DealDateChoice[] =
     deal.outboundDate && deal.returnDate
@@ -799,7 +837,9 @@ export function dealDateChoices(deal: Deal): DealDateChoice[] {
       `${o.outboundDate}|${o.returnDate}` !==
         `${deal.outboundDate}|${deal.returnDate}`,
   );
-  return [...head, ...extra];
+  return [...head, ...extra].filter(
+    (o) => cap == null || (o.price > 0 && o.price <= cap),
+  );
 }
 
 export function dealWithDateChoice(deal: Deal, choice: DealDateChoice): Deal {
