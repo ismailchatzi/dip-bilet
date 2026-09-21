@@ -352,6 +352,7 @@ export async function startRematchJob(
     pendingByDest: {},
     destCodes: opts?.destCodes,
     partnerChunk: opts?.partnerChunk,
+    rtVerifyAttempt: 0,
   };
   job = applyObsWindow(job, obs);
   await saveRematchJob(admin, job);
@@ -387,10 +388,11 @@ export async function runRematchTick(
   partnerChunk?: number;
 }> {
   const board = await readScanBoard(admin);
-  let job = rematchJobFromPayload(board.deals);
-  if (!job || job.status !== "running") {
+  const initial = rematchJobFromPayload(board.deals);
+  if (!initial || initial.status !== "running") {
     return { ok: true, running: false, skipped: "rematch yok" };
   }
+  let job: ScrappaRematchJob = initial;
 
   const pausedUntil = job.pausedUntil ? Date.parse(job.pausedUntil) : 0;
   if (Number.isFinite(pausedUntil) && pausedUntil > Date.now()) {
@@ -462,10 +464,37 @@ export async function runRematchTick(
 
     const dest = rematchDestList(job)[job.destIndex]!;
     try {
-      console.log(`rematch RT ${dest.code}`);
+      console.log(
+        `rematch RT ${dest.code} attempt>=${job.rtVerifyAttempt ?? 0}`,
+      );
       const matched = await matchDestFromDb(admin, dest, {
         withBooking: false,
         obs: obsFilterFromJob(job),
+        startAttempt: job.rtVerifyAttempt ?? 0,
+        seedPending: pendingList(job, dest.code),
+        onSessionOk: async () => {
+          if ((job.sessionFailStreak ?? 0) === 0 && !job.lastError) return;
+          job = {
+            ...job,
+            sessionFailStreak: 0,
+            lastError: undefined,
+            heartbeatAt: new Date().toISOString(),
+          };
+          await saveRematchJob(admin, job);
+          console.log(`rematch: oturum 200 @${dest.code} — streak sıfır`);
+        },
+        onAttemptDone: async ({ attempts, pending: cityPending }) => {
+          const pending = pendingRecord(job);
+          if (cityPending.length > 0) pending[dest.code] = cityPending;
+          else delete pending[dest.code];
+          job = {
+            ...job,
+            rtVerifyAttempt: attempts,
+            pendingByDest: pending,
+            heartbeatAt: new Date().toISOString(),
+          };
+          await saveRematchJob(admin, job);
+        },
       });
       console.log(`rematch RT ${dest.code} scrappa=${matched.card ? 1 : 0}`);
       const pending = pendingRecord(job);
@@ -477,6 +506,7 @@ export async function runRematchTick(
       job = {
         ...job,
         destIndex: job.destIndex + 1,
+        rtVerifyAttempt: 0,
         pendingByDest: pending,
         heartbeatAt: new Date().toISOString(),
         lastError: undefined,
@@ -496,6 +526,9 @@ export async function runRematchTick(
       if (!(err instanceof ScrappaUnavailableError)) throw err;
       const msg = err instanceof Error ? err.message : "unavailable";
       console.log(`rematch RT pause @${dest.code}: ${msg}`);
+      // onAttemptDone progress yazdıysa board'dan taze job al
+      const fresh = rematchJobFromPayload((await readScanBoard(admin)).deals);
+      if (fresh) job = fresh;
       job = pauseJob(job, msg);
       await saveRematchJob(admin, job);
       return {
@@ -597,7 +630,19 @@ export async function runRematchTick(
     console.log(
       `rematch booking ${dest.code} [${itemIndex + 1}/${list.length}]`,
     );
-    const deal = await applyBookingToDeal(item);
+    const deal = await applyBookingToDeal(item, {
+      onSessionOk: async () => {
+        if ((job.sessionFailStreak ?? 0) === 0 && !job.lastError) return;
+        job = {
+          ...job,
+          sessionFailStreak: 0,
+          lastError: undefined,
+          heartbeatAt: new Date().toISOString(),
+        };
+        await saveRematchJob(admin, job);
+        console.log(`rematch: oturum 200 booking @${dest.code} — streak sıfır`);
+      },
+    });
     if (deal) {
       list[itemIndex] = { deal, booking: undefined };
     } else {

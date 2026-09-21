@@ -361,7 +361,11 @@ async function verifyWithRoundTrip(
   deal: Deal,
   destCode: string,
   monthStats: MonthSampleStats,
-  opts?: { withBooking?: boolean },
+  opts?: {
+    withBooking?: boolean;
+    /** Scrappa 200 / başarılı cevap — oturum var, streak sıfırlansın. */
+    onSessionOk?: () => void | Promise<void>;
+  },
 ): Promise<RtPending | null> {
   const outDate = deal.outboundDate;
   const retDate = deal.returnDate;
@@ -386,6 +390,7 @@ async function verifyWithRoundTrip(
         departureDate: outDate,
         returnDate: retDate,
       });
+      await opts?.onSessionOk?.();
       await sleep(SCRAPPA_REQUEST_GAP_MS);
       if (!hit) continue;
       if (!best || hit.price < best.price) {
@@ -430,6 +435,7 @@ async function verifyWithRoundTrip(
       airlineCode: booking.airlineCode,
       flightNumber: booking.flightNumber,
     });
+    await opts?.onSessionOk?.();
     await sleep(SCRAPPA_REQUEST_GAP_MS);
     best.price = booked.price;
   }
@@ -475,6 +481,7 @@ async function verifyWithRoundTrip(
 
 export async function applyBookingToDeal(
   pending: RtPending,
+  opts?: { onSessionOk?: () => void | Promise<void> },
 ): Promise<Deal | null> {
   const hook = pending.booking;
   if (!hook) return pending.deal;
@@ -487,6 +494,7 @@ export async function applyBookingToDeal(
     airlineCode: hook.airlineCode,
     flightNumber: hook.flightNumber,
   });
+  await opts?.onSessionOk?.();
   await sleep(SCRAPPA_REQUEST_GAP_MS);
   const el = checkShowcaseEligibility({
     destCode: hook.destCode,
@@ -513,27 +521,64 @@ export async function applyBookingToDeal(
 export async function matchDestFromDb(
   admin: SupabaseClient,
   dest: ScrappaDestination,
-  opts?: { withBooking?: boolean; obs?: MatchObsFilter },
+  opts?: {
+    withBooking?: boolean;
+    obs?: MatchObsFilter;
+    /** Bu kadar deneme zaten yapıldı — kaldığı adaydan devam. */
+    startAttempt?: number;
+    /** Önceki denemelerden biriken RT paketleri. */
+    seedPending?: RtPending[];
+    /** Her tamamlanan deneme sonrası (502 öncesi progress). */
+    onAttemptDone?: (info: {
+      attempts: number;
+      pending: RtPending[];
+    }) => void | Promise<void>;
+    onSessionOk?: () => void | Promise<void>;
+  },
 ): Promise<{ card: Deal | null; pending: RtPending[] }> {
   const rows = await loadObservations(admin, dest.code, opts?.obs);
   const pairs = collectPairs(dest, rows);
   const drafts = matchDestDrafts(dest, rows, new Date().toISOString());
-  const verified: RtPending[] = [];
-  const seen = new Set<string>();
+  const verified: RtPending[] = [...(opts?.seedPending ?? [])];
+  const seen = new Set(
+    verified.map(
+      (p) => `${p.deal.outboundDate ?? ""}|${p.deal.returnDate ?? ""}`,
+    ),
+  );
+  const startAttempt = Math.max(0, opts?.startAttempt ?? 0);
   let attempts = 0;
   for (const draft of drafts) {
     if (verified.length >= MAX_KEEP) break;
     if (attempts >= MAX_VERIFY) break;
+    if (attempts < startAttempt) {
+      attempts += 1;
+      continue;
+    }
     attempts += 1;
     const stats = monthStatsForSeason(pairs, draft.seasonKey);
-    const next = await verifyWithRoundTrip(toDeal(draft), dest.code, stats, {
-      withBooking: opts?.withBooking,
-    });
-    if (!next) continue;
-    const key = `${next.deal.outboundDate}|${next.deal.returnDate}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    verified.push(next);
+    try {
+      const next = await verifyWithRoundTrip(toDeal(draft), dest.code, stats, {
+        withBooking: opts?.withBooking,
+        onSessionOk: opts?.onSessionOk,
+      });
+      if (next) {
+        const key = `${next.deal.outboundDate}|${next.deal.returnDate}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          verified.push(next);
+        }
+      }
+      await opts?.onAttemptDone?.({ attempts, pending: verified });
+    } catch (err) {
+      if (err instanceof ScrappaUnavailableError) {
+        // Bu deneme bitmedi — aynı attempts-1 ile kaldığı yerden.
+        await opts?.onAttemptDone?.({
+          attempts: attempts - 1,
+          pending: verified,
+        });
+      }
+      throw err;
+    }
   }
   if (verified.length === 0) return { card: null, pending: [] };
   verified.sort(

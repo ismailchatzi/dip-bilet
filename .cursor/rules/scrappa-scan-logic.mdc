@@ -53,7 +53,7 @@ Defter: `scrappaJob` / `scrappaRematchJob` (A) ve `scrappaJobB` / `scrappaRematc
 5. ~~22:30 B 28 şehir~~ **iptal**
 
 Önceki gün **04:55** `cutoff` A ve B’yi keser (işçi + tek yön + rematch idle, iki kilit; takılı pid SIGKILL). 05:00 yeni gün boş sayfa. Bitmeyen parça taşınmaz. Dünün halt’ı yarının `start day`’ini kilitlemez (`startedAt` bugünden eskiyse force; cutoff `startedAt` sıfırlar).
-Oturum, **hat başına**: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola, kaldığı yerden. 200’de streak sıfır.
+Oturum, **hat başına**: tek 502/503 ≈15 sn; art arda 7× → **5 dk** mola. **Her Scrappa 200’de streak sıfır.** Rematch şehir içi RT denemesi checkpoint (`rtVerifyAttempt`) — 502’de aynı adaydan devam.
 Dilim bitince rematch: 90s nefes → round-trip → 90s nefes → booking-details. Full’ler arasında ara rematch yok (A’nın near rematch’i hariç).
 Rematch/booking da one-way gibi **kaldığı yerden**: A `scrappaRematchJob`, B `scrappaRematchJobB`. Abort = bitiş değil; pause + aynı hattın drain’i.
 One-way istek aralığı **2 sn** (hat başı).

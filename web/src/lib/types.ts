@@ -87,6 +87,11 @@ export type ScrappaRematchJob = {
   destIndex: number;
   /** Booking fazında şehir içi paket index (kaldığı yerden). */
   bookingItemIndex?: number;
+  /**
+   * RT fazında mevcut şehirde tamamlanan verify denemesi sayısı.
+   * 502 olunca artmaz; kaldığı adaydan devam.
+   */
+  rtVerifyAttempt?: number;
   heartbeatAt: string;
   startedAt: string;
   pausedUntil?: string;

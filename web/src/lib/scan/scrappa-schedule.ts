@@ -7,12 +7,12 @@ export const SCRAPPA_REQUEST_GAP_MS = 2_000;
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 
 /**
- * Art arda bu kadar cookie_session / request_exhausted → uzun mola.
- * Sonra kaldığı yerden devam.
+ * Art arda bu kadar cookie_session / 502 → uzun mola.
+ * Herhangi bir Scrappa 200’de streak sıfırlanır (oturum var demek).
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
-/** Circuit açıkken bekleme — sonra kaldığı cursor’dan devam. */
+/** Circuit açıkken (streak ≥ 7) her oturum hatasında bekleme. */
 export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 5 * 60 * 1000;
 
 /**
