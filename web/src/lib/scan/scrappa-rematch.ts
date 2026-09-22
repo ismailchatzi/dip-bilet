@@ -132,20 +132,33 @@ function pauseJob(
   kind: ScrappaOutageKind = "session",
 ): ScrappaRematchJob {
   const now = new Date().toISOString();
+  const prev = job.sessionFailStreak ?? 0;
+
   if (kind === "transient") {
+    const streak = prev + 1;
+    // Arka arkaya 7× çıplak 502 → 5 dk, sonra sayaç sıfır (sonsuz 5 dk tuzağı yok).
+    if (streak >= SCRAPPA_SESSION_CIRCUIT_AFTER) {
+      return {
+        ...job,
+        heartbeatAt: now,
+        lastError,
+        sessionFailStreak: 0,
+        pausedUntil: new Date(
+          Date.now() + SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
+        ).toISOString(),
+      };
+    }
     return {
       ...job,
       heartbeatAt: now,
       lastError,
-      // Eski yanlış 502 streak’ini temizle; geçici hata circuit açmasın.
-      sessionFailStreak: 0,
+      sessionFailStreak: streak,
       pausedUntil: new Date(Date.now() + SCRAPPA_TRANSIENT_PAUSE_MS).toISOString(),
     };
   }
+
   const sessionOutage = isHardSessionOutageMessage(lastError);
-  const sessionFailStreak = sessionOutage
-    ? (job.sessionFailStreak ?? 0) + 1
-    : 0;
+  const sessionFailStreak = sessionOutage ? prev + 1 : 0;
   const pauseMs =
     sessionOutage && sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER
       ? SCRAPPA_SESSION_CIRCUIT_PAUSE_MS
@@ -154,7 +167,10 @@ function pauseJob(
     ...job,
     heartbeatAt: now,
     lastError,
-    sessionFailStreak,
+    sessionFailStreak:
+      sessionOutage && sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER
+        ? 0
+        : sessionFailStreak,
     pausedUntil: new Date(Date.now() + pauseMs).toISOString(),
   };
 }

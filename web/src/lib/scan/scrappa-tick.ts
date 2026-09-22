@@ -76,14 +76,24 @@ function applyBatch(
 
   if (batch.hold) {
     const rewind = job.saved === 0;
-    const sessionOutage = isHardSessionOutageMessage(batch.lastError);
-    const sessionFailStreak = sessionOutage
-      ? (job.sessionFailStreak ?? 0) + 1
-      : 0;
-    const pauseMs =
-      sessionOutage && sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER
-        ? SCRAPPA_SESSION_CIRCUIT_PAUSE_MS
-        : (batch.pauseMs ?? SCRAPPA_SESSION_SOFT_PAUSE_MS);
+    const hardSession = isHardSessionOutageMessage(batch.lastError);
+    const transient = /geçici upstream/i.test(batch.lastError ?? "");
+    const prev = job.sessionFailStreak ?? 0;
+    let sessionFailStreak = 0;
+    let pauseMs = batch.pauseMs ?? SCRAPPA_SESSION_SOFT_PAUSE_MS;
+
+    if (hardSession || transient) {
+      sessionFailStreak = prev + 1;
+      if (sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER) {
+        pauseMs = SCRAPPA_SESSION_CIRCUIT_PAUSE_MS;
+        sessionFailStreak = 0;
+      } else if (transient) {
+        pauseMs = batch.pauseMs ?? SCRAPPA_TRANSIENT_PAUSE_MS;
+      } else {
+        pauseMs = SCRAPPA_SESSION_SOFT_PAUSE_MS;
+      }
+    }
+
     return {
       ...job,
       queue,

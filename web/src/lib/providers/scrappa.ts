@@ -393,9 +393,9 @@ export async function scrappaOneWay(input: {
     if (
       (res.status === 502 || res.status === 503) &&
       !isScrappaSessionReason(lastReason) &&
-      attempt < 3
+      attempt < 2
     ) {
-      await sleepMs(1000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 400));
+      await sleepMs(2500 + Math.floor(Math.random() * 500));
       continue;
     }
     if (res.status === 503 || res.status === 502 || isUpstreamOutage(lastReason)) {
@@ -463,13 +463,13 @@ export async function scrappaRoundTrip(input: {
         await sleepMs(2000 * attempt);
         continue;
       }
-      // Geçici 502/503: dokümana göre backoff ile yeniden dene (oturum değil).
+      // Geçici 502: en fazla 1 hızlı retry (3× yağmur basmasın), sonra üst katmana bırak.
       if (
         (res.status === 502 || res.status === 503) &&
         !isScrappaSessionReason(lastReason) &&
-        attempt < 3
+        attempt < 2
       ) {
-        await sleepMs(1000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 400));
+        await sleepMs(2500 + Math.floor(Math.random() * 500));
         continue;
       }
       if (

@@ -10,8 +10,8 @@ export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 export const SCRAPPA_TRANSIENT_PAUSE_MS = 20_000;
 
 /**
- * Art arda bu kadar *gerçek oturum* hatası → uzun mola.
- * Çıplak 502 streak’e yazılmaz. Scrappa 200’de streak sıfır.
+ * Art arda bu kadar oturum VEYA çıplak 502 → 5 dk, sonra sayaç sıfır.
+ * Tek 502 (streak < 7) → kısa pause. 200’de streak sıfır.
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
