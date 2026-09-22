@@ -22,6 +22,7 @@ import {
   SCRAPPA_SESSION_CIRCUIT_AFTER,
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
+  SCRAPPA_TRANSIENT_PAUSE_MS,
 } from "@/lib/scan/scrappa-schedule";
 import {
   obsObservedAtGteTodayTr,
@@ -29,7 +30,10 @@ import {
 } from "@/lib/scan/scrappa-horizon";
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 import { currentLane } from "@/lib/scan/scrappa-lane";
-import { ScrappaUnavailableError } from "@/lib/providers/scrappa";
+import {
+  ScrappaUnavailableError,
+  type ScrappaOutageKind,
+} from "@/lib/providers/scrappa";
 import type {
   Deal,
   DealsPayload,
@@ -112,13 +116,47 @@ export function isRematchJobStale(
   return Date.now() - t > maxAgeMs;
 }
 
-function isSessionOutageMessage(msg?: string) {
+/** Yalnız gerçek oturum kopması streak/circuit’e girer — çıplak 502 değil. */
+function isHardSessionOutageMessage(msg?: string) {
   return Boolean(
     msg &&
-      /cookie_session|request_exhausted|\b502\b|\b503\b|oturum|unavailable|API key|validating/i.test(
+      /cookie_session|request_exhausted|oturum yok|validating|API key/i.test(
         msg,
       ),
   );
+}
+
+function pauseJob(
+  job: ScrappaRematchJob,
+  lastError: string,
+  kind: ScrappaOutageKind = "session",
+): ScrappaRematchJob {
+  const now = new Date().toISOString();
+  if (kind === "transient") {
+    return {
+      ...job,
+      heartbeatAt: now,
+      lastError,
+      // Eski yanlış 502 streak’ini temizle; geçici hata circuit açmasın.
+      sessionFailStreak: 0,
+      pausedUntil: new Date(Date.now() + SCRAPPA_TRANSIENT_PAUSE_MS).toISOString(),
+    };
+  }
+  const sessionOutage = isHardSessionOutageMessage(lastError);
+  const sessionFailStreak = sessionOutage
+    ? (job.sessionFailStreak ?? 0) + 1
+    : 0;
+  const pauseMs =
+    sessionOutage && sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER
+      ? SCRAPPA_SESSION_CIRCUIT_PAUSE_MS
+      : SCRAPPA_SESSION_SOFT_PAUSE_MS;
+  return {
+    ...job,
+    heartbeatAt: now,
+    lastError,
+    sessionFailStreak,
+    pausedUntil: new Date(Date.now() + pauseMs).toISOString(),
+  };
 }
 
 export async function saveRematchJob(
@@ -257,28 +295,6 @@ async function foldRematchProgress(
     await notifyNewDeals(admin, previousLive, live);
   }
   return { ok: true, count: live.length, live };
-}
-
-function pauseJob(
-  job: ScrappaRematchJob,
-  lastError: string,
-): ScrappaRematchJob {
-  const now = new Date().toISOString();
-  const sessionOutage = isSessionOutageMessage(lastError);
-  const sessionFailStreak = sessionOutage
-    ? (job.sessionFailStreak ?? 0) + 1
-    : 0;
-  const pauseMs =
-    sessionOutage && sessionFailStreak >= SCRAPPA_SESSION_CIRCUIT_AFTER
-      ? SCRAPPA_SESSION_CIRCUIT_PAUSE_MS
-      : SCRAPPA_SESSION_SOFT_PAUSE_MS;
-  return {
-    ...job,
-    heartbeatAt: now,
-    lastError,
-    sessionFailStreak,
-    pausedUntil: new Date(Date.now() + pauseMs).toISOString(),
-  };
 }
 
 /**
@@ -529,7 +545,7 @@ export async function runRematchTick(
       // onAttemptDone progress yazdıysa board'dan taze job al
       const fresh = rematchJobFromPayload((await readScanBoard(admin)).deals);
       if (fresh) job = fresh;
-      job = pauseJob(job, msg);
+      job = pauseJob(job, msg, err.kind);
       await saveRematchJob(admin, job);
       return {
         ok: true,
@@ -690,7 +706,7 @@ export async function runRematchTick(
     if (!(err instanceof ScrappaUnavailableError)) throw err;
     const msg = err instanceof Error ? err.message : "unavailable";
     console.log(`rematch booking pause @${dest.code}: ${msg}`);
-    job = pauseJob(job, msg);
+    job = pauseJob(job, msg, err.kind);
     await saveRematchJob(admin, job);
     return {
       ok: true,

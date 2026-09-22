@@ -9,7 +9,7 @@ import {
   legsForDest,
   type ScrappaWindow,
 } from "@/lib/scan/scrappa-horizon";
-import { SCRAPPA_SESSION_SOFT_PAUSE_MS } from "@/lib/scan/scrappa-schedule";
+import { SCRAPPA_SESSION_SOFT_PAUSE_MS, SCRAPPA_TRANSIENT_PAUSE_MS } from "@/lib/scan/scrappa-schedule";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ScrappaCursor = {
@@ -141,7 +141,7 @@ export async function runScrappaOneWayBatch(
     const msg = e instanceof Error ? e.message : "hata";
     errors.push(`${leg.origin}>${leg.destination} ${date}: ${msg}`);
     if (e instanceof ScrappaUnavailableError) {
-      // Uzun mola tick/applyBatch’te streak’e göre; burada sadece soft.
+      // Uzun mola tick/applyBatch’te streak’e göre; burada pause süresi.
       return {
         ok: false,
         done: false,
@@ -153,7 +153,10 @@ export async function runScrappaOneWayBatch(
         matched: 0,
         errors: errors.slice(0, 20),
         lastError: msg,
-        pauseMs: SCRAPPA_SESSION_SOFT_PAUSE_MS,
+        pauseMs:
+          e.kind === "transient"
+            ? SCRAPPA_TRANSIENT_PAUSE_MS
+            : SCRAPPA_SESSION_SOFT_PAUSE_MS,
       };
     }
     scanned = 1;

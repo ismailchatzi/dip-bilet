@@ -3,16 +3,19 @@ import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 /** İstekler arası bekleme — oturumu yormamak için. */
 export const SCRAPPA_REQUEST_GAP_MS = 2_000;
 
-/** Tek oturum/503 hatası: kısa nefes, taramayı öldürme. */
+/** Tek oturum hatası (cookie_session vb.): kısa nefes. */
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 
+/** Düz 502/503 geçici upstream — streak şişirmeden kısa bekle. */
+export const SCRAPPA_TRANSIENT_PAUSE_MS = 20_000;
+
 /**
- * Art arda bu kadar cookie_session / 502 → uzun mola.
- * Herhangi bir Scrappa 200’de streak sıfırlanır (oturum var demek).
+ * Art arda bu kadar *gerçek oturum* hatası → uzun mola.
+ * Çıplak 502 streak’e yazılmaz. Scrappa 200’de streak sıfır.
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
-/** Circuit açıkken (streak ≥ 7) her oturum hatasında bekleme. */
+/** Circuit açıkken (oturum streak ≥ 7) bekleme. */
 export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 5 * 60 * 1000;
 
 /**

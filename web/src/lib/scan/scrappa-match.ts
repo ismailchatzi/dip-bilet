@@ -382,7 +382,14 @@ async function verifyWithRoundTrip(
     flightNumber?: string;
   } | null = null;
 
-  for (const origin of ["SAW", "IST"] as const) {
+  const preferred =
+    dealOutOrigin(deal) === "IST" ? ("IST" as const) : ("SAW" as const);
+  const origins =
+    preferred === "SAW"
+      ? (["SAW", "IST"] as const)
+      : (["IST", "SAW"] as const);
+
+  for (const origin of origins) {
     try {
       const hit = await scrappaRoundTrip({
         origin,
@@ -393,18 +400,18 @@ async function verifyWithRoundTrip(
       await opts?.onSessionOk?.();
       await sleep(SCRAPPA_REQUEST_GAP_MS);
       if (!hit) continue;
-      if (!best || hit.price < best.price) {
-        best = {
-          origin,
-          price: hit.price,
-          airline: hit.airline,
-          stops: hit.stops,
-          selfTransfer: hit.selfTransfer,
-          bookingToken: hit.bookingToken,
-          airlineCode: hit.airlineCode,
-          flightNumber: hit.flightNumber,
-        };
-      }
+      best = {
+        origin,
+        price: hit.price,
+        airline: hit.airline,
+        stops: hit.stops,
+        selfTransfer: hit.selfTransfer,
+        bookingToken: hit.bookingToken,
+        airlineCode: hit.airlineCode,
+        flightNumber: hit.flightNumber,
+      };
+      // Sentetik gidiş origin’i tuttu; ikinci origin’e gitme (RT trafiğini yarıla).
+      break;
     } catch (err) {
       if (err instanceof ScrappaUnavailableError) throw err;
     }

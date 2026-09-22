@@ -21,11 +21,12 @@ import {
   startRematchJob,
 } from "@/lib/scan/scrappa-rematch";
 import {
-  fullChunkRange,
-  fullChunksForWeekday,
   SCRAPPA_SESSION_CIRCUIT_AFTER,
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
+  SCRAPPA_TRANSIENT_PAUSE_MS,
+  fullChunkRange,
+  fullChunksForWeekday,
 } from "@/lib/scan/scrappa-schedule";
 import { currentLane } from "@/lib/scan/scrappa-lane";
 import {
@@ -42,10 +43,11 @@ function trDateString(d: Date) {
   }).format(d);
 }
 
-function isSessionOutageMessage(msg?: string) {
+/** Yalnız cookie_session vb. — çıplak 502 streak’e girmez. */
+function isHardSessionOutageMessage(msg?: string) {
   return Boolean(
     msg &&
-      /cookie_session|request_exhausted|\b502\b|\b503\b|oturum|unavailable|API key|validating/i.test(
+      /cookie_session|request_exhausted|oturum yok|validating|API key/i.test(
         msg,
       ),
   );
@@ -74,7 +76,7 @@ function applyBatch(
 
   if (batch.hold) {
     const rewind = job.saved === 0;
-    const sessionOutage = isSessionOutageMessage(batch.lastError);
+    const sessionOutage = isHardSessionOutageMessage(batch.lastError);
     const sessionFailStreak = sessionOutage
       ? (job.sessionFailStreak ?? 0) + 1
       : 0;

@@ -68,20 +68,50 @@ function pickCheapest(flights: ScrappaFlight[], maxStops: number) {
   return priced[0] ?? null;
 }
 
+export type ScrappaOutageKind = "session" | "transient";
+
 export class ScrappaUnavailableError extends Error {
   status: number;
   reason: string;
-  constructor(status: number, reason: string) {
-    super(`Scrappa Google oturumu yok (${reason || status})`);
+  kind: ScrappaOutageKind;
+  constructor(status: number, reason: string, kind?: ScrappaOutageKind) {
+    const resolved = kind ?? classifyScrappaOutage(status, reason);
+    const label =
+      resolved === "session"
+        ? "Scrappa Google oturumu yok"
+        : "Scrappa geçici upstream";
+    super(`${label} (${reason || status})`);
     this.name = "ScrappaUnavailableError";
     this.status = status;
     this.reason = reason;
+    this.kind = resolved;
   }
 }
 
-/** 200 gövdesinde "unavailable" da ücretli istek. Dur, sonraki tarihi deneme. */
+/** Gövde/reason: gerçek oturum kopması mı? */
+export function isScrappaSessionReason(reason: string) {
+  return /cookie_session|request_exhausted|oturum|validating|api[_\s-]?key/i.test(
+    reason,
+  );
+}
+
+export function classifyScrappaOutage(
+  status: number,
+  reason: string,
+): ScrappaOutageKind {
+  if (isScrappaSessionReason(reason)) return "session";
+  if (status === 502 || status === 503 || status === 410) return "transient";
+  if (/unavailable/i.test(reason)) return "transient";
+  return "session";
+}
+
+/** 200 gövdesinde oturum/unavailable — dur. */
 function isUpstreamOutage(reason: string) {
   return /unavailable|cookie_session|request_exhausted|oturum/i.test(reason);
+}
+
+function sleepMs(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 /** Cloudflare bot imzasını yumuşat — istek gövdesi/parametreler aynı. */
@@ -357,7 +387,15 @@ export async function scrappaOneWay(input: {
       "";
 
     if (res.status === 429) {
-      await new Promise((r) => setTimeout(r, 2000 * attempt));
+      await sleepMs(2000 * attempt);
+      continue;
+    }
+    if (
+      (res.status === 502 || res.status === 503) &&
+      !isScrappaSessionReason(lastReason) &&
+      attempt < 3
+    ) {
+      await sleepMs(1000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 400));
       continue;
     }
     if (res.status === 503 || res.status === 502 || isUpstreamOutage(lastReason)) {
@@ -373,7 +411,10 @@ export async function scrappaOneWay(input: {
     if (!best || typeof best.price !== "number") return null;
     return toFare(input, best);
   }
-  throw new Error(`Scrappa one-way retry bitti HTTP ${lastStatus} ${lastReason}`);
+  throw new ScrappaUnavailableError(
+    lastStatus,
+    lastReason || "retry_exhausted",
+  );
 }
 
 /** Gidiş-dönüş paket — Scrappa v2 (2 istek: outbound token → complete total). */
@@ -419,7 +460,16 @@ export async function scrappaRoundTrip(input: {
         json.message ||
         "";
       if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        await sleepMs(2000 * attempt);
+        continue;
+      }
+      // Geçici 502/503: dokümana göre backoff ile yeniden dene (oturum değil).
+      if (
+        (res.status === 502 || res.status === 503) &&
+        !isScrappaSessionReason(lastReason) &&
+        attempt < 3
+      ) {
+        await sleepMs(1000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 400));
         continue;
       }
       if (
@@ -438,9 +488,7 @@ export async function scrappaRoundTrip(input: {
       }
       return json;
     }
-    throw new Error(
-      `Scrappa round-trip retry bitti HTTP ${lastStatus} ${lastReason}`,
-    );
+    throw new ScrappaUnavailableError(lastStatus, lastReason || "retry_exhausted");
   }
 
   const outJson = await fetchV2(params);
