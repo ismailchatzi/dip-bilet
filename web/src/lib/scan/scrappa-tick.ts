@@ -252,7 +252,21 @@ export async function startScrappaDay(opts?: {
 export async function stopScrappaScans(reason?: string) {
   const admin = createAdminClient();
   if (!admin) return { ok: false, error: "Supabase yok" };
-  const job = await stopScrappaJob(admin, reason ?? "elle durduruldu");
+  const why = reason ?? "elle durduruldu";
+  const job = await stopScrappaJob(admin, why);
+  // Rematch running kalırsa cron drain 4 dk’da tekrar basar — ikisini birden kes.
+  const now = new Date().toISOString();
+  await saveRematchJob(admin, {
+    status: "idle",
+    phase: "rt",
+    destIndex: 0,
+    heartbeatAt: now,
+    startedAt: now,
+    lastError: why,
+    continueQueue: [],
+    pausedUntil: undefined,
+    sessionFailStreak: 0,
+  });
   return { ok: true, job };
 }
 

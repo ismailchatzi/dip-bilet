@@ -6,17 +6,17 @@ export const SCRAPPA_REQUEST_GAP_MS = 2_000;
 /** Tek oturum hatası (cookie_session vb.): kısa nefes. */
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 
-/** Düz 502/503 geçici upstream — streak şişirmeden kısa bekle. */
-export const SCRAPPA_TRANSIENT_PAUSE_MS = 20_000;
+/** Düz 502/503 geçici upstream — kısa mola (circuit’e kadar). */
+export const SCRAPPA_TRANSIENT_PAUSE_MS = 90_000;
 
 /**
- * Art arda bu kadar oturum VEYA çıplak 502 → 5 dk, sonra sayaç sıfır.
- * Tek 502 (streak < 7) → kısa pause. 200’de streak sıfır.
+ * Art arda bu kadar oturum VEYA çıplak 502 → uzun mola, sonra sayaç sıfır.
+ * Tek 502 (streak < 7) → TRANSIENT_PAUSE. 200’de streak sıfır.
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
-/** Circuit açıkken (oturum streak ≥ 7) bekleme. */
-export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 5 * 60 * 1000;
+/** Circuit açıkken (streak ≥ 7) bekleme — upstream soğusun. */
+export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 15 * 60 * 1000;
 
 /**
  * One-way dilim bitince → RT rematch → booking arasında nefes (1–2 dk).

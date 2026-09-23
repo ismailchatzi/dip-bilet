@@ -390,14 +390,7 @@ export async function scrappaOneWay(input: {
       await sleepMs(2000 * attempt);
       continue;
     }
-    if (
-      (res.status === 502 || res.status === 503) &&
-      !isScrappaSessionReason(lastReason) &&
-      attempt < 2
-    ) {
-      await sleepMs(2500 + Math.floor(Math.random() * 500));
-      continue;
-    }
+    // 502/503: üst katman transient pause/circuit — burada tekrar basma.
     if (res.status === 503 || res.status === 502 || isUpstreamOutage(lastReason)) {
       throw new ScrappaUnavailableError(res.status, lastReason);
     }
@@ -463,15 +456,7 @@ export async function scrappaRoundTrip(input: {
         await sleepMs(2000 * attempt);
         continue;
       }
-      // Geçici 502: en fazla 1 hızlı retry (3× yağmur basmasın), sonra üst katmana bırak.
-      if (
-        (res.status === 502 || res.status === 503) &&
-        !isScrappaSessionReason(lastReason) &&
-        attempt < 2
-      ) {
-        await sleepMs(2500 + Math.floor(Math.random() * 500));
-        continue;
-      }
+      // 502/503: provider içi retry yok — rematch/tick transient circuit’e bıraksın.
       if (
         res.status === 503 ||
         res.status === 502 ||
