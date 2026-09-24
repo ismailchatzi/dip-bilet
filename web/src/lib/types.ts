@@ -70,9 +70,11 @@ export type ScrappaJob = {
   destLimit?: number;
   /** 1..7 full chunk. */
   chunk?: number;
-  /** Diğer hesabın full dilimi. A, full bitince bunun yazılmasını bekler. */
+  /** Diğer full dilim (B: 1. full chunk; rematch destCodes için). */
   partnerChunk?: number;
-  /** Bu one-way bitince rematch yok (B'nin 05:00 full'ü). */
+  /** partnerChunk diliminin one-way startedAt (B 1.→2. full zincirinde obs penceresi). */
+  partnerStartedAt?: string;
+  /** Bu one-way bitince rematch yok (B'nin 1. full'ü). */
   skipRematch?: boolean;
 };
 

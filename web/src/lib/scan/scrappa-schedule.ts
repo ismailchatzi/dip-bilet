@@ -57,7 +57,7 @@ export function fullChunkForWeekday(now = new Date()): number {
 }
 
 /**
- * TR haftanın günü → günde 2 full dilim (arka arkaya; arada rematch yok).
+ * TR haftanın günü → günde 2 full dilim (ikisi de B; arada rematch yok).
  * Pzt 1+2 · Sal 3+4 · Çar 5+6 · Per 7+1 · Cum 2+3 · Cmt 4+5 · Paz 6+7
  */
 export function fullChunksForWeekday(now = new Date()): [number, number] {
@@ -79,9 +79,8 @@ export function fullChunksForWeekday(now = new Date()): [number, number] {
 
 /**
  * İki hesap, aynı kurallar, ayrı kilit.
- * A 05:00: near → rematch (o near yazımları) → günün 2. full → B'nin 1. full'ü yazılınca
- * ikisinin rematch'i (yalnız o iki full yazımları).
- * B 05:01: günün 1. full (A ile aynı dakikada npx/kilit çakışmasın). Sabit gece rematch yok.
+ * A 05:00: near → rematch (o near yazımları). Full yok.
+ * B 05:01: günün 1. full → 2. full → ikisinin rematch'i (o iki full yazımları).
  * 04:55 ikisini de keser.
  */
 export const SCRAPPA_CRON_SCHEDULE = [

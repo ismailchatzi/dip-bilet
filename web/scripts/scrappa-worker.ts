@@ -1,10 +1,8 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- * İki hesap, ayrı kilit: .scrappa-worker-a.lock / .scrappa-worker-b.lock
- * A ve B birbirinin kilidine bakmaz. Aynı hesapta ikinci süreç yok.
- *
- * One-way gap 2s. Art arda 7× 502/503 → 5 dk pause, kaldığı yerden.
+ * A 05:00 near→rematch. B 05:01 full1→full2→rematch. Ayrı kilit.
+ * One-way gap 2s. Art arda 7× 502 → 15 dk pause, kaldığı yerden.
  * Env: SCRAPPA_API_KEY (A), SCRAPPA_API_KEY_B (B)
  */
 import { readFileSync, existsSync, unlinkSync } from "node:fs";

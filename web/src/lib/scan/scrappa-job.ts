@@ -119,6 +119,7 @@ export async function enqueueScrappaWindow(
     chunk?: number;
     queue?: ScrappaQueueItem[];
     partnerChunk?: number;
+    partnerStartedAt?: string;
     skipRematch?: boolean;
   },
 ): Promise<{ ok: boolean; skipped?: string; job?: ScrappaJob }> {
@@ -187,6 +188,7 @@ export async function enqueueScrappaWindow(
     destLimit,
     chunk,
     partnerChunk: opts?.partnerChunk,
+    partnerStartedAt: opts?.partnerStartedAt,
     skipRematch: opts?.skipRematch === true,
   };
   await saveScrappaJob(admin, job);
@@ -221,6 +223,7 @@ export async function stopScrappaJob(
     destLimit: current?.destLimit,
     chunk: current?.chunk,
     partnerChunk: current?.partnerChunk,
+    partnerStartedAt: current?.partnerStartedAt,
     skipRematch: current?.skipRematch,
   };
   await saveScrappaJob(admin, job);

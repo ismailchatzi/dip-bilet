@@ -155,6 +155,7 @@ export async function startScrappaWindow(
     chunk?: number;
     queue?: ScrappaQueueItem[];
     partnerChunk?: number;
+    partnerStartedAt?: string;
     skipRematch?: boolean;
   },
 ) {
@@ -168,6 +169,7 @@ export async function startScrappaWindow(
     chunk: opts?.chunk,
     queue: opts?.queue,
     partnerChunk: opts?.partnerChunk,
+    partnerStartedAt: opts?.partnerStartedAt,
     skipRematch: opts?.skipRematch,
   });
   if (!enqueued.ok) {
@@ -201,9 +203,8 @@ function shouldForceNewDay(
 }
 
 /**
- * A: 05:00 near → rematch (yalnız o near yazımları) → günün 2. full'ü →
- * B'nin 1. full'ü yazılınca ikisinin rematch'i (yalnız o iki full yazımları).
- * B: 05:01 günün 1. full'ü, bitince rematch yok.
+ * A: 05:00 near → rematch (yalnız o near yazımları). Full yok.
+ * B: 05:01 günün 1. full → bitince 2. full → ikisinin rematch'i (yalnız o iki full yazımları).
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;
@@ -225,27 +226,34 @@ export async function startScrappaDay(opts?: {
   }
 
   if (lane === "b") {
-    const chunk = opts?.chunk ?? c1;
-    const range = fullChunkRange(chunk);
-    console.log(`start day B: full ${chunk}`, range.codes, { force });
+    // Elle tek dilim: yalnız o chunk. Normal gün: c1 → kuyrukta c2.
+    if (opts?.chunk != null) {
+      const range = fullChunkRange(opts.chunk);
+      console.log(`start day B: full ${opts.chunk} (tek)`, range.codes, { force });
+      return startScrappaWindow("full", {
+        force,
+        chunk: opts.chunk,
+        queue: [],
+        skipRematch: true,
+      });
+    }
+    const range = fullChunkRange(c1);
+    console.log(`start day B: full ${c1} → ${c2}`, range.codes, {
+      next: fullChunkRange(c2).codes,
+      force,
+    });
     return startScrappaWindow("full", {
       force,
-      chunk,
-      queue: [],
+      chunk: c1,
+      queue: [{ window: "full", chunk: c2 }],
       skipRematch: true,
     });
   }
 
-  const range = fullChunkRange(c2);
-  console.log(
-    `start day A: near → rematch → full ${c2}`,
-    range.codes,
-    { partner: c1, force },
-  );
+  console.log(`start day A: near → rematch (full yok)`, { force });
   return startScrappaWindow("near", {
     force,
-    queue: [{ window: "full", chunk: c2 }],
-    partnerChunk: c1,
+    queue: [],
   });
 }
 
@@ -271,10 +279,20 @@ export async function stopScrappaScans(reason?: string) {
 }
 
 /**
- * Rematch sonrası günlük kuyruktaki sıradaki pencereyi başlat.
+ * Rematch / one-way sonrası günlük kuyruktaki sıradaki pencereyi başlat.
+ * B: 1. full (skipRematch) bitince → 2. full (partner=1. dilim, bitince rematch).
  */
 async function continueDayQueue(
-  finished: { queue?: ScrappaQueueItem[]; partnerChunk?: number },
+  finished: Pick<
+    ScrappaJob,
+    | "queue"
+    | "partnerChunk"
+    | "partnerStartedAt"
+    | "window"
+    | "chunk"
+    | "startedAt"
+    | "skipRematch"
+  >,
 ): Promise<{
   ok: boolean;
   window?: ScrappaWindow;
@@ -285,14 +303,26 @@ async function continueDayQueue(
   const next = queue.shift();
   if (!next) return null;
 
+  const chainSecondFull =
+    finished.window === "full" &&
+    next.window === "full" &&
+    finished.skipRematch === true &&
+    typeof finished.chunk === "number";
+
   console.log(
-    `day-queue → ${next.window}${next.window === "full" ? ` ${next.chunk}` : ""}`,
+    `day-queue → ${next.window}${next.window === "full" ? ` ${next.chunk}` : ""}${
+      chainSecondFull ? ` (B 2. full, partner ${finished.chunk})` : ""
+    }`,
   );
   const started = await startScrappaWindow(next.window, {
     force: true,
     chunk: next.window === "full" ? next.chunk : undefined,
     queue,
-    partnerChunk: finished.partnerChunk,
+    partnerChunk: chainSecondFull ? finished.chunk : finished.partnerChunk,
+    partnerStartedAt: chainSecondFull
+      ? finished.startedAt
+      : finished.partnerStartedAt,
+    skipRematch: chainSecondFull ? false : finished.skipRematch === true,
   });
   if (!started.ok) {
     console.log(`day-queue skip`, started.error ?? started.skipped);
@@ -412,6 +442,8 @@ export async function runScrappaTick(force = false) {
     } | null = null;
     if (step.finished && step.continueQueue && step.continueQueue.length > 0) {
       chain = await continueDayQueue({
+        window: "near",
+        startedAt: new Date().toISOString(),
         queue: step.continueQueue,
         partnerChunk: step.partnerChunk,
       });
@@ -491,7 +523,12 @@ export async function runScrappaTick(force = false) {
     const rematch = await enqueueAutoRematch(admin, normalizeQueue(job.queue), {
       destCodes,
       partnerChunk,
-      obs: obsWindowForFullPair(job, peer),
+      obs: obsWindowForFullPair(
+        job,
+        job.partnerStartedAt
+          ? { startedAt: job.partnerStartedAt }
+          : peer,
+      ),
     });
     return {
       ok: rematch.ok,
@@ -579,7 +616,12 @@ export async function runScrappaTick(force = false) {
       finishedWindow === "near"
         ? obsWindowForOneWayJob(job)
         : finishedWindow === "full"
-          ? obsWindowForFullPair(job, peer)
+          ? obsWindowForFullPair(
+              job,
+              job.partnerStartedAt
+                ? { startedAt: job.partnerStartedAt }
+                : peer,
+            )
           : undefined;
     rematch = {
       ...(await enqueueAutoRematch(admin, pendingQueue, {
