@@ -26,7 +26,7 @@ import {
 import { hardFloorUsd, strikeFromThreshold } from "@/lib/scan/showcase-config";
 import { nightsBetween, stayRange, maxStopsForDest } from "@/lib/scan/trip-rules";
 import {
-  SCRAPPA_REMATCH_REQUEST_GAP_MS,
+  SCRAPPA_REQUEST_GAP_MS,
 } from "@/lib/scan/scrappa-schedule";
 import type { Deal, DealDateOption } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -398,7 +398,7 @@ async function verifyWithRoundTrip(
         returnDate: retDate,
       });
       await opts?.onSessionOk?.();
-      await sleep(SCRAPPA_REMATCH_REQUEST_GAP_MS);
+      await sleep(SCRAPPA_REQUEST_GAP_MS);
       if (!hit) continue;
       best = {
         origin,
@@ -443,7 +443,7 @@ async function verifyWithRoundTrip(
       flightNumber: booking.flightNumber,
     });
     await opts?.onSessionOk?.();
-    await sleep(SCRAPPA_REMATCH_REQUEST_GAP_MS);
+    await sleep(SCRAPPA_REQUEST_GAP_MS);
     best.price = booked.price;
   }
 
@@ -502,7 +502,7 @@ export async function applyBookingToDeal(
     flightNumber: hook.flightNumber,
   });
   await opts?.onSessionOk?.();
-  await sleep(SCRAPPA_REMATCH_REQUEST_GAP_MS);
+  await sleep(SCRAPPA_REQUEST_GAP_MS);
   const el = checkShowcaseEligibility({
     destCode: hook.destCode,
     packagePrice: booked.price,

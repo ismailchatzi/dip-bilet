@@ -6,26 +6,17 @@ export const SCRAPPA_REQUEST_GAP_MS = 2_000;
 /** Tek oturum hatası (cookie_session vb.): kısa nefes. */
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 
-/** Düz 502/503 geçici upstream — kısa mola (circuit / şehir skip’e kadar). */
+/** Düz 502/503 geçici upstream — kısa mola (circuit’e kadar). */
 export const SCRAPPA_TRANSIENT_PAUSE_MS = 90_000;
 
 /**
- * Rematch: aynı şehirde art arda bu kadar çıplak 502 → şehri atla (HKT tuzağı).
- * Oturumu boğmadan diğer şehirlere geç.
- */
-export const SCRAPPA_CITY_TRANSIENT_SKIP_AFTER = 3;
-
-/**
  * Art arda bu kadar oturum VEYA çıplak 502 → uzun mola, sonra sayaç sıfır.
- * Rematch’te şehir skip eşiği önce gelir (3). 200’de streak sıfır.
+ * Tek 502 (streak < 7) → TRANSIENT_PAUSE. 200’de streak sıfır.
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
 /** Circuit açıkken (streak ≥ 7) bekleme — upstream soğusun. */
 export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 15 * 60 * 1000;
-
-/** Rematch RT istek aralığı (one-way 2s’ten uzun — Google yolunu yorma). */
-export const SCRAPPA_REMATCH_REQUEST_GAP_MS = 5_000;
 
 /**
  * One-way dilim bitince → RT rematch → booking arasında nefes (1–2 dk).

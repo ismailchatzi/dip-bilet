@@ -19,7 +19,6 @@ import {
 import { jobFromPayload, normalizeQueue } from "@/lib/scan/scrappa-job";
 import {
   SCRAPPA_PHASE_BREATHER_MS,
-  SCRAPPA_CITY_TRANSIENT_SKIP_AFTER,
   SCRAPPA_SESSION_CIRCUIT_AFTER,
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
   SCRAPPA_SESSION_SOFT_PAUSE_MS,
@@ -559,42 +558,9 @@ export async function runRematchTick(
       if (!(err instanceof ScrappaUnavailableError)) throw err;
       const msg = err instanceof Error ? err.message : "unavailable";
       console.log(`rematch RT pause @${dest.code}: ${msg}`);
+      // onAttemptDone progress yazdıysa board'dan taze job al
       const fresh = rematchJobFromPayload((await readScanBoard(admin)).deals);
       if (fresh) job = fresh;
-
-      // Aynı şehirde peş peşe 502: HKT gibi uzak rotalarda günü yakma — atla.
-      if (err.kind === "transient") {
-        const streak = (job.sessionFailStreak ?? 0) + 1;
-        if (streak >= SCRAPPA_CITY_TRANSIENT_SKIP_AFTER) {
-          console.log(
-            `rematch RT skip ${dest.code} after ${streak}×502 — sonraki şehir`,
-          );
-          const pending = pendingRecord(job);
-          job = {
-            ...job,
-            destIndex: job.destIndex + 1,
-            rtVerifyAttempt: 0,
-            sessionFailStreak: 0,
-            pendingByDest: pending,
-            heartbeatAt: new Date().toISOString(),
-            lastError: `${dest.code} atlandı (${streak}×502)`,
-            pausedUntil: new Date(Date.now() + 60_000).toISOString(),
-          };
-          await saveRematchJob(admin, job);
-          await foldRematchProgress(admin, job, { notify: true });
-          return {
-            ok: true,
-            running: true,
-            paused: true,
-            phase: "rt",
-            dest: dest.code,
-            lastError: job.lastError,
-            pausedUntil: job.pausedUntil,
-            skipped: "şehir 502 skip",
-          };
-        }
-      }
-
       job = pauseJob(job, msg, err.kind);
       await saveRematchJob(admin, job);
       return {
