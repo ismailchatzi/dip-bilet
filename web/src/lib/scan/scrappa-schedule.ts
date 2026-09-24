@@ -1,21 +1,39 @@
 import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 
-/** İstekler arası bekleme — oturumu yormamak için. */
+/** İstekler arası bekleme — one-way oturumu yormamak için. */
 export const SCRAPPA_REQUEST_GAP_MS = 2_000;
+
+/** Rematch: bir RT adayı bittikten sonra sıradaki adaya geçiş. */
+export const SCRAPPA_REMATCH_CANDIDATE_GAP_MS = 15_000;
+
+/** Rematch: şehir başına önce bu kadar aday (fırsat skoruna göre). */
+export const SCRAPPA_REMATCH_TOP_CANDIDATES = 3;
+
+/** Rematch: top-N hepsi fail olursa yedek aday. */
+export const SCRAPPA_REMATCH_RESERVE_CANDIDATES = 2;
+
+/** Rematch: aynı tarih adayı için max RT transaction (her biri taze outbound+token). */
+export const SCRAPPA_REMATCH_CANDIDATE_MAX_ATTEMPTS = 3;
+
+/** 502 sonrası backoff (attempt 1/2/3 fail → sonraki deneme öncesi). */
+export const SCRAPPA_REMATCH_502_BACKOFF_MS = [30_000, 90_000, 180_000] as const;
+
+/** Defer edilen aday: bu kadar sonra aynı gün 1 kez daha. */
+export const SCRAPPA_REMATCH_DEFER_MS = 75 * 60 * 1000;
 
 /** Tek oturum hatası (cookie_session vb.): kısa nefes. */
 export const SCRAPPA_SESSION_SOFT_PAUSE_MS = 15_000;
 
-/** Düz 502/503 geçici upstream — kısa mola (circuit’e kadar). */
+/** Düz 502/503 — rematch aday içi backoff yoksa üst katman kısa mola. */
 export const SCRAPPA_TRANSIENT_PAUSE_MS = 90_000;
 
 /**
- * Art arda bu kadar oturum VEYA çıplak 502 → uzun mola, sonra sayaç sıfır.
- * Tek 502 (streak < 7) → TRANSIENT_PAUSE. 200’de streak sıfır.
+ * Art arda bu kadar oturum hatası → uzun mola.
+ * Rematch transient artık aday içinde tüketilir; bu daha çok one-way / oturum için.
  */
 export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 
-/** Circuit açıkken (streak ≥ 7) bekleme — upstream soğusun. */
+/** Circuit açıkken bekleme. */
 export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 15 * 60 * 1000;
 
 /**

@@ -139,6 +139,16 @@ export type ScrappaRematchJob = {
       };
     }>
   >;
+  /**
+   * 3×502 ile ertelenen RT adayları — deferUntil sonra aynı gün 1 kez daha.
+   */
+  deferredRt?: Array<{
+    destCode: string;
+    outboundDate: string;
+    returnDate: string;
+    deferUntil: string;
+    deferRetries: number;
+  }>;
 };
 
 /** Vitrine girip çıkmış şehirler — hayal destinasyon seçenekleri (kalıcı). */

@@ -473,6 +473,30 @@ export async function runScrappaTick(force = false) {
     };
   }
 
+  // A rematch (RT) aktifken B one-way basmasın — aynı IP’de RT yağmurunu kes.
+  if (currentLane() === "b") {
+    const aRematch = board.deals?.scrappaRematchJob;
+    if (aRematch?.status === "running") {
+      const until = new Date(Date.now() + 60_000).toISOString();
+      if (job?.status === "running") {
+        await saveScrappaJob(admin, {
+          ...job,
+          pausedUntil: until,
+          lastError: "A rematch — B bekliyor",
+          heartbeatAt: new Date().toISOString(),
+        });
+      }
+      console.log("B: A rematch sürüyor — one-way bekliyor");
+      return {
+        ok: true,
+        running: Boolean(job?.status === "running"),
+        paused: true,
+        skipped: "A rematch — B bekliyor",
+        pausedUntil: until,
+      };
+    }
+  }
+
   if (!job || job.status !== "running") {
     return { ok: true, running: false, skipped: "iş yok" };
   }

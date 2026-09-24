@@ -26,6 +26,11 @@ import {
 import { hardFloorUsd, strikeFromThreshold } from "@/lib/scan/showcase-config";
 import { nightsBetween, stayRange, maxStopsForDest } from "@/lib/scan/trip-rules";
 import {
+  SCRAPPA_REMATCH_502_BACKOFF_MS,
+  SCRAPPA_REMATCH_CANDIDATE_GAP_MS,
+  SCRAPPA_REMATCH_CANDIDATE_MAX_ATTEMPTS,
+  SCRAPPA_REMATCH_RESERVE_CANDIDATES,
+  SCRAPPA_REMATCH_TOP_CANDIDATES,
   SCRAPPA_REQUEST_GAP_MS,
 } from "@/lib/scan/scrappa-schedule";
 import type { Deal, DealDateOption } from "@/lib/types";
@@ -33,12 +38,33 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Kahraman + diğer tarihler. */
 const MAX_KEEP = 1 + MAX_DATE_OPTIONS;
-/** Paket doğrulama denemesi tavanı (kredi). */
+/** Legacy / manuel publish tavanı. Rematch top-N kullanır. */
 const MAX_VERIFY = 16;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+function rematchBackoffMs(failedAttempt: number) {
+  const base =
+    SCRAPPA_REMATCH_502_BACKOFF_MS[
+      Math.min(
+        Math.max(failedAttempt - 1, 0),
+        SCRAPPA_REMATCH_502_BACKOFF_MS.length - 1,
+      )
+    ] ?? 30_000;
+  const jitter = base * 0.2 * (Math.random() * 2 - 1);
+  return Math.max(5_000, Math.round(base + jitter));
+}
+
+export type DeferredRtCandidate = {
+  destCode: string;
+  outboundDate: string;
+  returnDate: string;
+  deferUntil: string;
+  /** 0 = henüz defer retry yok; 1 = retry de fail → o gün bırak */
+  deferRetries: number;
+};
 
 type Obs = {
   route_key: string;
@@ -531,63 +557,148 @@ export async function matchDestFromDb(
   opts?: {
     withBooking?: boolean;
     obs?: MatchObsFilter;
-    /** Bu kadar deneme zaten yapıldı — kaldığı adaydan devam. */
+    /**
+     * Rematch modu: top 3+2, aday başı max 3 RT, 502 aday içi backoff,
+     * hero bulununca şehir STOP, adaylar arası 15 sn. Transient job kilitlemez.
+     */
+    rematchMode?: boolean;
+    /** Bu kadar aday zaten bitti (başarı/skip/defer) — kaldığı yerden. */
     startAttempt?: number;
-    /** Önceki denemelerden biriken RT paketleri. */
     seedPending?: RtPending[];
-    /** Her tamamlanan deneme sonrası (502 öncesi progress). */
     onAttemptDone?: (info: {
       attempts: number;
       pending: RtPending[];
+      deferred?: DeferredRtCandidate;
     }) => void | Promise<void>;
     onSessionOk?: () => void | Promise<void>;
   },
-): Promise<{ card: Deal | null; pending: RtPending[] }> {
+): Promise<{
+  card: Deal | null;
+  pending: RtPending[];
+  deferred: DeferredRtCandidate[];
+}> {
   const rows = await loadObservations(admin, dest.code, opts?.obs);
   const pairs = collectPairs(dest, rows);
-  const drafts = matchDestDrafts(dest, rows, new Date().toISOString());
+  let drafts = matchDestDrafts(dest, rows, new Date().toISOString());
+  drafts = [...drafts].sort(
+    (a, b) =>
+      (b.discountPercent ?? 0) - (a.discountPercent ?? 0) ||
+      a.price - b.price,
+  );
+
+  const rematchMode = opts?.rematchMode === true;
+  const maxCandidates = rematchMode
+    ? SCRAPPA_REMATCH_TOP_CANDIDATES + SCRAPPA_REMATCH_RESERVE_CANDIDATES
+    : MAX_VERIFY;
+  drafts = drafts.slice(0, maxCandidates);
+
   const verified: RtPending[] = [...(opts?.seedPending ?? [])];
+  const deferred: DeferredRtCandidate[] = [];
   const seen = new Set(
     verified.map(
       (p) => `${p.deal.outboundDate ?? ""}|${p.deal.returnDate ?? ""}`,
     ),
   );
   const startAttempt = Math.max(0, opts?.startAttempt ?? 0);
-  let attempts = 0;
+  const maxAttempts = rematchMode
+    ? SCRAPPA_REMATCH_CANDIDATE_MAX_ATTEMPTS
+    : 1;
+  const stopOnHero = rematchMode;
+
+  let candidateIndex = 0;
   for (const draft of drafts) {
-    if (verified.length >= MAX_KEEP) break;
-    if (attempts >= MAX_VERIFY) break;
-    if (attempts < startAttempt) {
-      attempts += 1;
+    if (stopOnHero && verified.length >= 1) break;
+    if (!rematchMode && verified.length >= MAX_KEEP) break;
+    if (candidateIndex < startAttempt) {
+      candidateIndex += 1;
       continue;
     }
-    attempts += 1;
+
     const stats = monthStatsForSeason(pairs, draft.seasonKey);
-    try {
-      const next = await verifyWithRoundTrip(toDeal(draft), dest.code, stats, {
-        withBooking: opts?.withBooking,
-        onSessionOk: opts?.onSessionOk,
-      });
-      if (next) {
-        const key = `${next.deal.outboundDate}|${next.deal.returnDate}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          verified.push(next);
+    let got: RtPending | null = null;
+    let deferredThis = false;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        got = await verifyWithRoundTrip(toDeal(draft), dest.code, stats, {
+          withBooking: rematchMode ? false : opts?.withBooking,
+          onSessionOk: opts?.onSessionOk,
+        });
+        if (got) {
+          const key = `${got.deal.outboundDate}|${got.deal.returnDate}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            verified.push(got);
+          }
         }
-      }
-      await opts?.onAttemptDone?.({ attempts, pending: verified });
-    } catch (err) {
-      if (err instanceof ScrappaUnavailableError) {
-        // Bu deneme bitmedi — aynı attempts-1 ile kaldığı yerden.
+        break;
+      } catch (err) {
+        if (!(err instanceof ScrappaUnavailableError)) throw err;
+        if (err.kind === "session" || !rematchMode) {
+          await opts?.onAttemptDone?.({
+            attempts: candidateIndex,
+            pending: verified,
+          });
+          throw err;
+        }
+        console.log(
+          JSON.stringify({
+            tag: "rematch-candidate-502",
+            dest: dest.code,
+            dates: `${draft.outboundDate}/${draft.returnDate}`,
+            attempt,
+            stage: err.stage,
+            durationMs: err.durationMs,
+            maxAttempts,
+          }),
+        );
+        if (attempt >= maxAttempts) {
+          const out = draft.outboundDate ?? "";
+          const ret = draft.returnDate ?? "";
+          if (!out || !ret) break;
+          const item: DeferredRtCandidate = {
+            destCode: dest.code,
+            outboundDate: out,
+            returnDate: ret,
+            deferUntil: new Date(Date.now() + 75 * 60 * 1000).toISOString(),
+            deferRetries: 0,
+          };
+          deferred.push(item);
+          deferredThis = true;
+          console.log(
+            `rematch defer ${dest.code} ${draft.outboundDate}→${draft.returnDate} after ${attempt}×502`,
+          );
+          break;
+        }
+        const wait = rematchBackoffMs(attempt);
+        console.log(
+          `rematch backoff ${dest.code} attempt ${attempt} → ${wait}ms`,
+        );
         await opts?.onAttemptDone?.({
-          attempts: attempts - 1,
+          attempts: candidateIndex,
           pending: verified,
         });
+        await sleep(wait);
       }
-      throw err;
+    }
+
+    candidateIndex += 1;
+    await opts?.onAttemptDone?.({
+      attempts: candidateIndex,
+      pending: verified,
+      deferred: deferredThis ? deferred[deferred.length - 1] : undefined,
+    });
+
+    if (
+      rematchMode &&
+      candidateIndex < drafts.length &&
+      !(stopOnHero && verified.length >= 1)
+    ) {
+      await sleep(SCRAPPA_REMATCH_CANDIDATE_GAP_MS);
     }
   }
-  if (verified.length === 0) return { card: null, pending: [] };
+
+  if (verified.length === 0) return { card: null, pending: [], deferred };
   verified.sort(
     (a, b) =>
       a.deal.price - b.deal.price ||
@@ -604,8 +715,9 @@ export async function matchDestFromDb(
       )
       .map((p) => toDateOption(p.deal)),
   };
-  return { card, pending: verified };
+  return { card, pending: verified, deferred };
 }
+
 
 export function cardFromPending(pending: RtPending[]): Deal | null {
   if (pending.length === 0) return null;

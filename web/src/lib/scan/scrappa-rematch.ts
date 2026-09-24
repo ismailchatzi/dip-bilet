@@ -501,6 +501,7 @@ export async function runRematchTick(
       );
       const matched = await matchDestFromDb(admin, dest, {
         withBooking: false,
+        rematchMode: true,
         obs: obsFilterFromJob(job),
         startAttempt: job.rtVerifyAttempt ?? 0,
         seedPending: pendingList(job, dest.code),
@@ -515,14 +516,27 @@ export async function runRematchTick(
           await saveRematchJob(admin, job);
           console.log(`rematch: oturum 200 @${dest.code} — streak sıfır`);
         },
-        onAttemptDone: async ({ attempts, pending: cityPending }) => {
+        onAttemptDone: async ({ attempts, pending: cityPending, deferred }) => {
           const pending = pendingRecord(job);
           if (cityPending.length > 0) pending[dest.code] = cityPending;
           else delete pending[dest.code];
+          let deferredRt = [...(job.deferredRt ?? [])];
+          if (deferred) {
+            const k = `${deferred.destCode}|${deferred.outboundDate}|${deferred.returnDate}`;
+            if (
+              !deferredRt.some(
+                (d) =>
+                  `${d.destCode}|${d.outboundDate}|${d.returnDate}` === k,
+              )
+            ) {
+              deferredRt.push(deferred);
+            }
+          }
           job = {
             ...job,
             rtVerifyAttempt: attempts,
             pendingByDest: pending,
+            deferredRt,
             heartbeatAt: new Date().toISOString(),
           };
           await saveRematchJob(admin, job);
@@ -535,11 +549,23 @@ export async function runRematchTick(
       } else {
         delete pending[dest.code];
       }
+      let deferredRt = [...(job.deferredRt ?? [])];
+      for (const d of matched.deferred) {
+        const k = `${d.destCode}|${d.outboundDate}|${d.returnDate}`;
+        if (
+          !deferredRt.some(
+            (x) => `${x.destCode}|${x.outboundDate}|${x.returnDate}` === k,
+          )
+        ) {
+          deferredRt.push(d);
+        }
+      }
       job = {
         ...job,
         destIndex: job.destIndex + 1,
         rtVerifyAttempt: 0,
         pendingByDest: pending,
+        deferredRt,
         heartbeatAt: new Date().toISOString(),
         lastError: undefined,
         sessionFailStreak: 0,

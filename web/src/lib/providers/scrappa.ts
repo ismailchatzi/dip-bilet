@@ -74,7 +74,14 @@ export class ScrappaUnavailableError extends Error {
   status: number;
   reason: string;
   kind: ScrappaOutageKind;
-  constructor(status: number, reason: string, kind?: ScrappaOutageKind) {
+  stage?: "outbound" | "complete" | "one-way" | "booking";
+  durationMs?: number;
+  constructor(
+    status: number,
+    reason: string,
+    kind?: ScrappaOutageKind,
+    extra?: { stage?: ScrappaUnavailableError["stage"]; durationMs?: number },
+  ) {
     const resolved = kind ?? classifyScrappaOutage(status, reason);
     const label =
       resolved === "session"
@@ -85,6 +92,8 @@ export class ScrappaUnavailableError extends Error {
     this.status = status;
     this.reason = reason;
     this.kind = resolved;
+    this.stage = extra?.stage;
+    this.durationMs = extra?.durationMs;
   }
 }
 
@@ -433,9 +442,13 @@ export async function scrappaRoundTrip(input: {
     max_stops: scrappaMaxStopsParam(input.destination),
   });
 
-  async function fetchV2(p: URLSearchParams) {
+  async function fetchV2(
+    p: URLSearchParams,
+    stage: "outbound" | "complete",
+  ) {
     let lastStatus = 0;
     let lastReason = "";
+    const t0 = Date.now();
     for (let attempt = 1; attempt <= 3; attempt++) {
       const res = await fetch(
         `https://scrappa.co/api/flights/v2/round-trip?${p}`,
@@ -452,18 +465,32 @@ export async function scrappaRoundTrip(input: {
         json.error ||
         json.message ||
         "";
+      const durationMs = Date.now() - t0;
       if (res.status === 429) {
         await sleepMs(2000 * attempt);
         continue;
       }
-      // 502/503: provider içi retry yok — rematch/tick transient circuit’e bıraksın.
       if (
         res.status === 503 ||
         res.status === 502 ||
         res.status === 410 ||
         isUpstreamOutage(lastReason)
       ) {
-        throw new ScrappaUnavailableError(res.status, lastReason);
+        console.log(
+          JSON.stringify({
+            tag: "scrappa-rt",
+            stage,
+            status: res.status,
+            durationMs,
+            reason: lastReason.slice(0, 120),
+            route: `${input.origin}-${input.destination}`,
+            dates: `${input.departureDate}/${input.returnDate}`,
+          }),
+        );
+        throw new ScrappaUnavailableError(res.status, lastReason, undefined, {
+          stage,
+          durationMs,
+        });
       }
       if (!res.ok) {
         throw new Error(`Scrappa round-trip HTTP ${res.status}: ${lastReason}`);
@@ -471,12 +498,27 @@ export async function scrappaRoundTrip(input: {
       if (json.error || json.message?.toLowerCase().includes("error")) {
         throw new Error(json.error || json.message || "Scrappa round-trip hata");
       }
+      console.log(
+        JSON.stringify({
+          tag: "scrappa-rt",
+          stage,
+          status: res.status,
+          durationMs,
+          route: `${input.origin}-${input.destination}`,
+          dates: `${input.departureDate}/${input.returnDate}`,
+        }),
+      );
       return json;
     }
-    throw new ScrappaUnavailableError(lastStatus, lastReason || "retry_exhausted");
+    throw new ScrappaUnavailableError(
+      lastStatus,
+      lastReason || "retry_exhausted",
+      undefined,
+      { stage, durationMs: Date.now() - t0 },
+    );
   }
 
-  const outJson = await fetchV2(params);
+  const outJson = await fetchV2(params, "outbound");
   const outbounds = (outJson.flights ?? []).filter(
     (f) => typeof f.departure_token === "string" && f.departure_token.length > 0,
   );
@@ -485,7 +527,7 @@ export async function scrappaRoundTrip(input: {
   if (!bestOut || !token) return null;
 
   params.set("departure_token", token);
-  const totalJson = await fetchV2(params);
+  const totalJson = await fetchV2(params, "complete");
   const completes = (totalJson.flights ?? []).filter(
     (f) =>
       f.itinerary_complete === true ||
