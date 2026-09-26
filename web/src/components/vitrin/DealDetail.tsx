@@ -46,10 +46,13 @@ function initialPickedKey(deal: Deal, focusId?: string) {
 export function DealDetail({
   deal,
   cityDeals = [],
+  cityLow = null,
   focusId,
 }: {
   deal: Deal;
   cityDeals?: Deal[];
+  /** Şehrin bugüne kadarki en ucuz paketi */
+  cityLow?: Deal | null;
   focusId?: string;
 }) {
   const [copied, setCopied] = useState(false);
@@ -182,7 +185,15 @@ export function DealDetail({
               <li>
                 <HeartIcon />
                 <span>En dip</span>
-                <strong>—</strong>
+                <strong
+                  title={
+                    cityLow ? (dealFoundLabel(cityLow) ?? undefined) : undefined
+                  }
+                >
+                  {cityLow
+                    ? formatDealMoney(displayDealPrice(cityLow.price), cityLow.currency)
+                    : "—"}
+                </strong>
               </li>
               <li>
                 <ChartIcon />

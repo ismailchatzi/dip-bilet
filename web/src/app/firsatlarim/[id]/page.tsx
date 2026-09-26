@@ -13,7 +13,7 @@ import {
 } from "@/lib/deal-display";
 import { requireAuthOnboarding } from "@/lib/onboarding";
 import { readScanBoard } from "@/lib/scan/board";
-import { isLiveDeal } from "@/lib/scan/deal-archive";
+import { isLiveDeal, mergeCityLows } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +51,22 @@ export default async function DealDetailPage({ params }: PageProps) {
   if (!deal) notFound();
   const dest = dealDestCode(deal);
   const cityDeals = live.filter((d) => dealDestCode(d) === dest);
+  const cityLow =
+    mergeCityLows(
+      board.deals?.cityLows,
+      board.deals?.deals,
+      board.deals?.archive,
+    ).find((d) => dealDestCode(d) === dest) ?? null;
 
   return (
     <AccountShell title={dealCityTitle(deal)} wide hideTitle>
-      <DealDetail key={id} deal={deal} cityDeals={cityDeals} focusId={id} />
+      <DealDetail
+        key={id}
+        deal={deal}
+        cityDeals={cityDeals}
+        cityLow={cityLow}
+        focusId={id}
+      />
     </AccountShell>
   );
 }
