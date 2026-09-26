@@ -64,8 +64,8 @@ export function HomeDealCarousel({ deals }: { deals: Deal[] }) {
         <div>
           <h2>Son yakalanan fırsatlar</h2>
           <p>
-            İstanbul’dan dünyaya — son günlerde yakalanan dip fiyatlar. Tarihler
-            ve yeni fırsatlar üyelerde; fiyatlar değişebilir.
+            İstanbul’dan her şehir için bugüne kadar yakaladığımız en dip fiyat.
+            Süresi dolmuş olabilir; tarihler ve yeni fırsatlar üyelerde.
           </p>
         </div>
         <div className="home-deals__arrows">

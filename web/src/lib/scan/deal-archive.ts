@@ -1,8 +1,12 @@
 import {
+  dealDateChoices,
   dealDestCode,
+  dealWithDateChoice,
+  dealWithinStopLimit,
   familyLastDealFoundAt,
   isDomesticDeal,
   isFoundAtWithinKeep,
+  isUnverifiedOneWaySum,
   promoteFreshHeroDeal,
   enforceDealThreshold,
   SHOWCASE_FOUND_KEEP_DAYS,
@@ -94,6 +98,49 @@ export function splitLiveAndArchive(
   return { live, archive };
 }
 
+/** Silinebilen manual kartlar rekora girmez; yoksa silinen fiyat anasayfada kalır. */
+function isCityLowCandidate(deal: Deal) {
+  return (
+    !deal.id.startsWith("manual:") &&
+    deal.price > 0 &&
+    Boolean(dealDestCode(deal)) &&
+    dealWithinStopLimit(deal) &&
+    !isUnverifiedOneWaySum(deal)
+  );
+}
+
+/**
+ * Şehir başına bugüne kadar vitrine girmiş en ucuz paket (diğer tarihler dahil).
+ * Eşitlikte ilk yakalanan kalır.
+ */
+export function mergeCityLows(
+  ...lists: (Deal[] | null | undefined)[]
+): Deal[] {
+  const best = new Map<string, Deal>();
+  for (const list of lists) {
+    for (const deal of list ?? []) {
+      const trips = [deal, ...dealDateChoices(deal).map((c) => dealWithDateChoice(deal, c))];
+      for (const trip of trips) {
+        if (!isCityLowCandidate(trip)) continue;
+        const key = dealDestCode(trip);
+        const cur = best.get(key);
+        const tf = trip.foundAt ?? "";
+        const cf = cur?.foundAt ?? "";
+        if (
+          !cur ||
+          trip.price < cur.price ||
+          (trip.price === cur.price && tf !== "" && (cf === "" || tf < cf))
+        ) {
+          best.set(key, { ...trip, dateOptions: undefined });
+        }
+      }
+    }
+  }
+  return [...best.values()].sort((a, b) =>
+    dealDestCode(a).localeCompare(dealDestCode(b)),
+  );
+}
+
 export function foldShowcase(
   previous: DealsPayload | null | undefined,
   nextLiveCandidates: Deal[],
@@ -124,6 +171,7 @@ export function foldShowcase(
       departure: DEPARTURE_LABEL,
       deals: liveSafe,
       archive: archiveSafe,
+      cityLows: mergeCityLows(previous?.cityLows, liveSafe, archiveSafe),
       seenDestinations: mergeSeenDestinations(
         previous?.seenDestinations,
         [...liveSafe, ...archiveSafe],

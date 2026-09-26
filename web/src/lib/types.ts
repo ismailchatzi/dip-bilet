@@ -166,6 +166,8 @@ export type DealsPayload = {
   deals: Deal[];
   /** Uçuş günü geçmiş kartlar; anasayfa ertesi gün gösterir. */
   archive?: Deal[];
+  /** Şehir başına bugüne kadar vitrine girmiş en ucuz paket (kalıcı; anasayfa kartları). */
+  cityLows?: Deal[];
   warning?: string;
   /** Scrappa tarama defteri — vitrine gitmez. */
   scrappaJob?: ScrappaJob;

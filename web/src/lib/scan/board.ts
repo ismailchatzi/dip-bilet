@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CityFaresPayload } from "@/lib/scan/city-cache";
+import { mergeCityLows } from "@/lib/scan/deal-archive";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import {
   mergeSeenDestinations,
@@ -109,6 +110,14 @@ export async function patchScanBoard(
           Date.parse(incoming.fetchedAt) >= Date.parse(latest.deals?.fetchedAt ?? "")
             ? incoming.archive
             : (latest.deals?.archive ?? incoming.archive),
+        // Rekor kaybolmasın: eski sürüm yazıcılar alanı düşürse de birleşir.
+        cityLows: mergeCityLows(
+          current.deals?.cityLows,
+          latest.deals?.cityLows,
+          incoming.cityLows,
+          incoming.deals,
+          incoming.archive,
+        ),
         // Katalog küçülmesin: önceki board + gelen payload birleşir.
         seenDestinations: mergeSeenDestinations(
           unionSeenDestinationRows(
