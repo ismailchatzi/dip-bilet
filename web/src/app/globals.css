@@ -1847,19 +1847,65 @@ a {
   font-size: 0.95rem;
 }
 
-.deal-card__off {
-  display: inline-block;
-  margin: 0.25rem 0 0.45rem;
-  padding: 0.22rem 0.6rem;
+.deal-card__media .dest-photo__img {
+  transition: transform 0.45s ease;
+}
+
+.deal-card:hover .deal-card__media .dest-photo__img {
+  transform: scale(1.05);
+}
+
+.deal-card__badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 1;
+  padding: 0.3rem 0.7rem;
   border-radius: 999px;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  background: var(--green-mid, #7ee0a8);
+  background: #12a150;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.deal-card__overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: 3rem 1rem 0.95rem;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.35) 55%,
+    rgba(0, 0, 0, 0) 100%
+  );
   color: #fff;
 }
 
+.deal-card__city {
+  margin: 0;
+  font-family: var(--font-display), "Calistoga", Georgia, serif;
+  font-size: 1.65rem;
+  line-height: 1.1;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+
+.deal-card__when {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.92;
+}
+
+.deal-card__rt {
+  color: #8a8f96;
+  font-size: 0.78rem;
+}
+
 .deal-card__found {
-  margin: 0 0 0.85rem;
+  margin: 0.35rem 0 0.85rem;
   color: #8a8f96;
   font-size: 0.78rem;
 }
