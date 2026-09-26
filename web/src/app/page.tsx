@@ -4,7 +4,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { getHomepageArchive } from "@/lib/homepage-archive";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function Home() {
   const archive = await getHomepageArchive();
@@ -39,7 +39,7 @@ export default async function Home() {
           <div className="home-how__grid">
             <article className="home-how__card">
               <div className="home-how__visual home-how__visual--chip">
-                <img src="/how-1.png" alt="Kalkış seçimi" />
+                <img src="/how-1.webp" alt="Kalkış seçimi" loading="lazy" decoding="async" />
               </div>
               <h3>1. Kalkışını seç</h3>
               <p>
@@ -49,7 +49,7 @@ export default async function Home() {
             </article>
             <article className="home-how__card">
               <div className="home-how__visual">
-                <img src="/how-2.png" alt="Destinasyon seçimi" />
+                <img src="/how-2.webp" alt="Destinasyon seçimi" loading="lazy" decoding="async" />
               </div>
               <h3>2. Hayal destinasyonlarını seç</h3>
               <p>
@@ -59,7 +59,7 @@ export default async function Home() {
             </article>
             <article className="home-how__card">
               <div className="home-how__visual">
-                <img src="/how-3.png" alt="Dip fırsat kartları" />
+                <img src="/how-3.webp" alt="Dip fırsat kartları" loading="lazy" decoding="async" />
               </div>
               <h3>3. Dip fırsat uyarısı al</h3>
               <p>
@@ -106,7 +106,7 @@ export default async function Home() {
             </a>
           </div>
           <div className="home-vacation__phone">
-            <img src="/phone-alert.png" alt="Dip Bilet fırsat uyarısı" />
+            <img src="/phone-alert.webp" alt="Dip Bilet fırsat uyarısı" loading="lazy" decoding="async" />
           </div>
         </section>
       </main>

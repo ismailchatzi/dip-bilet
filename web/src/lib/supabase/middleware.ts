@@ -11,6 +11,13 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+  if (!hasAuthCookie) {
+    return response;
+  }
+
   try {
     const supabase = createServerClient(url, key, {
       cookies: {
@@ -33,8 +40,9 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // Oturum geçerliyse pazarlama ana sayfası yerine vitrin
-    if (user && request.nextUrl.pathname === "/") {
+    // Oturum geçerliyse pazarlama / auth sayfaları yerine vitrin (onboarding eksikse /firsatlarim yönlendirir)
+    const path = request.nextUrl.pathname;
+    if (user && (path === "/" || path === "/uye-ol" || path === "/giris")) {
       const url = request.nextUrl.clone();
       url.pathname = "/firsatlarim";
       return NextResponse.redirect(url);

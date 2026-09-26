@@ -1,6 +1,5 @@
 import { archiveDeals } from "@/lib/archive-deals";
 import { archiveForHomepage } from "@/lib/scan/deal-archive";
-import { readScanBoard } from "@/lib/scan/board";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Deal } from "@/lib/types";
 
@@ -8,7 +7,13 @@ import type { Deal } from "@/lib/types";
 export async function getHomepageArchive(): Promise<Deal[]> {
   const admin = createAdminClient();
   if (!admin) return archiveDeals;
-  const board = await readScanBoard(admin);
-  const real = archiveForHomepage(board.deals?.archive ?? []);
+  const { data, error } = await admin
+    .from("scan_board")
+    .select("archive:deals->archive")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error || !data) return archiveDeals;
+  const archive = (data as { archive?: Deal[] | null }).archive ?? [];
+  const real = archiveForHomepage(archive);
   return real.length > 0 ? real : archiveDeals;
 }

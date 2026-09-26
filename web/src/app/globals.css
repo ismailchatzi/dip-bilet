@@ -1590,7 +1590,7 @@ a {
       rgba(0, 12, 28, 0.18) 62%,
       rgba(0, 12, 28, 0.08) 100%
     ),
-    url("/hero.png") center / cover no-repeat;
+    url("/hero.webp") center / cover no-repeat;
 }
 
 .home-hero__content {

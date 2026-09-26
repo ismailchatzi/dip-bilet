@@ -18,7 +18,7 @@ export function AuthSplit({
           {children}
         </div>
         <div className="auth-split__visual" aria-hidden="true">
-          <img src="/auth-side.png" alt="" />
+          <img src="/auth-side.webp" alt="" decoding="async" />
         </div>
       </div>
     </div>
