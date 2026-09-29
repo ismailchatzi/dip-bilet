@@ -5,7 +5,12 @@
 import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { foldShowcase } from "@/lib/scan/deal-archive";
-import { isUnverifiedOneWaySum } from "@/lib/deal-display";
+import {
+  dealDateChoices,
+  dealWithDateChoice,
+  foldOneCardPerCity,
+  isUnverifiedOneWaySum,
+} from "@/lib/deal-display";
 import {
   applyBookingToDeal,
   cardFromPending,
@@ -216,68 +221,55 @@ function pendingList(
   return pendingRecord(job)[code] ?? [];
 }
 
-/** Vitrin: tamamlanan şehirler + henüz işlenmeyenlerde önceki Scrappa kartı. */
+/** Bu turun tarihleri (booking sonrası fiyat dahil) aynı tarihli eski kaydı ezer. */
+function cityCardWithFresh(prev: Deal[], fresh: Deal | null): Deal | undefined {
+  if (!fresh) return foldOneCardPerCity(prev)[0];
+  const freshTrips = new Set(
+    dealDateChoices(fresh).map((c) => dealWithDateChoice(fresh, c).id),
+  );
+  const older = prev
+    .flatMap((d) => dealDateChoices(d).map((c) => dealWithDateChoice(d, c)))
+    .filter((t) => !freshTrips.has(t.id))
+    .map((t) => ({ ...t, dateOptions: undefined }));
+  return foldOneCardPerCity([...older, fresh])[0];
+}
+
+/**
+ * Vitrin: şehir başına önceki Scrappa kartı + bu turun doğrulananları tek kartta.
+ * Eski tarihler diğer tarihlere iner; hero/10 gün kuralı okumada (promoteFreshHeroDeal).
+ * Bu tur hero çıkmazsa önceki kart kalır.
+ */
 function buildScrappaCards(
   job: ScrappaRematchJob,
   previous: Deal[],
 ): Deal[] {
+  const prevByCity = new Map<string, Deal[]>();
+  for (const deal of previous) {
+    if (isGoogleDeal(deal) || isManualDeal(deal)) continue;
+    const code = destCodeFromDeal(deal);
+    if (!code) continue;
+    const list = prevByCity.get(code) ?? [];
+    list.push(deal);
+    prevByCity.set(code, list);
+  }
+
   const cards: Deal[] = [];
   const doneCodes = new Set<string>();
   const cities = rematchDestList(job);
-  const scoped = new Set(cities.map((d) => d.code));
+  const processedUpTo = job.phase === "rt" ? job.destIndex : cities.length;
 
-  if (job.phase === "rt") {
-    for (let i = 0; i < job.destIndex; i++) {
-      const code = cities[i]?.code;
-      if (!code) continue;
-      const pending = pendingList(job, code);
-      if (pending.length === 0) continue;
-      const c = cardFromPending(pending);
-      if (c) {
-        cards.push(c);
-        doneCodes.add(code);
-      }
-    }
-    for (let i = job.destIndex; i < cities.length; i++) {
-      const code = cities[i]!.code;
-      if (doneCodes.has(code)) continue;
-      for (const deal of previous) {
-        if (
-          !isGoogleDeal(deal) &&
-          !isManualDeal(deal) &&
-          destCodeFromDeal(deal) === code
-        ) {
-          cards.push(deal);
-          doneCodes.add(code);
-          break;
-        }
-      }
-    }
-    for (const deal of previous) {
-      const code = destCodeFromDeal(deal);
-      if (!code || scoped.has(code) || doneCodes.has(code)) continue;
-      if (isGoogleDeal(deal) || isManualDeal(deal)) continue;
-      cards.push(deal);
-      doneCodes.add(code);
-    }
-    return cards;
+  for (let i = 0; i < cities.length; i++) {
+    const code = cities[i]!.code;
+    if (doneCodes.has(code)) continue;
+    const fresh = i < processedUpTo ? cardFromPending(pendingList(job, code)) : null;
+    const card = cityCardWithFresh(prevByCity.get(code) ?? [], fresh);
+    if (card) cards.push(card);
+    doneCodes.add(code);
   }
-
-  // booking: RT’den gelen tüm pending (doğrulanmış veya liste fiyatı)
-  for (const dest of cities) {
-    const pending = pendingList(job, dest.code);
-    if (pending.length === 0) continue;
-    const c = cardFromPending(pending);
-    if (c) {
-      cards.push(c);
-      doneCodes.add(dest.code);
-    }
-  }
-  for (const deal of previous) {
-    const code = destCodeFromDeal(deal);
-    if (!code || scoped.has(code) || doneCodes.has(code)) continue;
-    if (isGoogleDeal(deal) || isManualDeal(deal)) continue;
-    cards.push(deal);
+  for (const [code, list] of prevByCity) {
+    if (doneCodes.has(code)) continue;
+    const card = foldOneCardPerCity(list)[0];
+    if (card) cards.push(card);
     doneCodes.add(code);
   }
   return cards;
