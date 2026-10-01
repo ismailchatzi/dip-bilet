@@ -473,10 +473,10 @@ export async function runScrappaTick(force = false) {
     };
   }
 
-  // A rematch (RT) aktifken B one-way basmasın — aynı IP’de RT yağmurunu kes.
+  // A rematch RT fazındayken B one-way basmasın — aynı IP’de RT yağmurunu kes. Booking’de bekleme yok.
   if (currentLane() === "b") {
     const aRematch = board.deals?.scrappaRematchJob;
-    if (aRematch?.status === "running") {
+    if (aRematch?.status === "running" && (aRematch.phase ?? "rt") === "rt") {
       const until = new Date(Date.now() + 60_000).toISOString();
       if (job?.status === "running") {
         await saveScrappaJob(admin, {
