@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { trackEvent } from "@/lib/analytics";
+import { landingOpenPath, readPrefCity } from "@/lib/landing-pref";
 import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
 import { newPasswordError, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient, isAuthConfigured } from "@/lib/supabase/client";
@@ -118,7 +119,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
         const profile = user
           ? await fetchOnboardingProfile(supabase, user.id)
           : null;
-        window.location.href = postAuthPath(profile);
+        const pref = readPrefCity();
+        window.location.href =
+          pref && profile?.onboarding_completed_at
+            ? landingOpenPath(pref)
+            : postAuthPath(profile);
       }
     } catch (err) {
       setError(authErrorMessage(err));

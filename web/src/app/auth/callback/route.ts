@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SIGNUP_COOKIE } from "@/lib/analytics";
+import { PREF_CITY_COOKIE, landingOpenPath, normalizePrefCity } from "@/lib/landing-pref";
 import { fetchOnboardingProfile, postAuthPath } from "@/lib/onboarding";
 
 function siteOrigin(request: Request) {
@@ -74,6 +75,10 @@ export async function GET(request: Request) {
       if (user) {
         const profile = await fetchOnboardingProfile(supabase, user.id);
         nextPathResolved = postAuthPath(profile);
+        const pref = normalizePrefCity(cookieStore.get(PREF_CITY_COOKIE)?.value);
+        if (pref && profile?.onboarding_completed_at) {
+          nextPathResolved = landingOpenPath(pref);
+        }
         isNewOAuthUser = Date.now() - Date.parse(user.created_at) < 10 * 60_000;
       }
     }

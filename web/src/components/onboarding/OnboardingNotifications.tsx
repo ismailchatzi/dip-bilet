@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PhoneVerify } from "@/components/account/PhoneVerify";
+import { landingOpenPath, readPrefCity } from "@/lib/landing-pref";
 import { createClient } from "@/lib/supabase/client";
 
 function Switch({
@@ -110,6 +111,11 @@ export function OnboardingNotifications({
       return;
     }
 
+    const pref = readPrefCity();
+    if (pref) {
+      window.location.href = landingOpenPath(pref);
+      return;
+    }
     router.push("/firsatlarim");
     router.refresh();
   }

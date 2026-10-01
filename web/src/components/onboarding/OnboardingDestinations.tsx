@@ -7,6 +7,7 @@ import {
   filterDestinations,
   type DestinationOption,
 } from "@/lib/destinations";
+import { readPrefCity } from "@/lib/landing-pref";
 import { createClient } from "@/lib/supabase/client";
 
 export function OnboardingDestinations({
@@ -43,6 +44,12 @@ export function OnboardingDestinations({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const pref = readPrefCity();
+    if (!pref || !options.some((o) => o.code === pref)) return;
+    setSelected((prev) => (prev.includes(pref) ? prev : [...prev, pref]));
+  }, [options]);
 
   function toggle(code: string) {
     setSelected((prev) =>
