@@ -14,6 +14,8 @@ export const SCRAPPA_REMATCH_RESERVE_CANDIDATES = 2;
 
 /** Rematch: aynı tarih adayı için max RT transaction (her biri taze outbound+token). */
 export const SCRAPPA_REMATCH_CANDIDATE_MAX_ATTEMPTS = 3;
+/** Booking kalemi: bu kadar upstream hatasından sonra RT fiyatıyla geç. */
+export const SCRAPPA_BOOKING_MAX_ATTEMPTS = 3;
 
 /** 502 sonrası backoff (attempt 1/2/3 fail → sonraki deneme öncesi). */
 export const SCRAPPA_REMATCH_502_BACKOFF_MS = [30_000, 90_000, 180_000] as const;

@@ -23,6 +23,7 @@ import {
 } from "@/lib/scan/scrappa-match";
 import { jobFromPayload, normalizeQueue } from "@/lib/scan/scrappa-job";
 import {
+  SCRAPPA_BOOKING_MAX_ATTEMPTS,
   SCRAPPA_PHASE_BREATHER_MS,
   SCRAPPA_SESSION_CIRCUIT_AFTER,
   SCRAPPA_SESSION_CIRCUIT_PAUSE_MS,
@@ -676,23 +677,7 @@ export async function runRematchTick(
   const itemIndex = job.bookingItemIndex ?? 0;
   const item = list[itemIndex]!;
 
-  try {
-    console.log(
-      `rematch booking ${dest.code} [${itemIndex + 1}/${list.length}]`,
-    );
-    const deal = await applyBookingToDeal(item, {
-      onSessionOk: async () => {
-        if ((job.sessionFailStreak ?? 0) === 0 && !job.lastError) return;
-        job = {
-          ...job,
-          sessionFailStreak: 0,
-          lastError: undefined,
-          heartbeatAt: new Date().toISOString(),
-        };
-        await saveRematchJob(admin, job);
-        console.log(`rematch: oturum 200 booking @${dest.code} — streak sıfır`);
-      },
-    });
+  const advanceBooking = async (deal: Deal | null) => {
     if (deal) {
       list[itemIndex] = { deal, booking: undefined };
     } else {
@@ -721,6 +706,7 @@ export async function runRematchTick(
       ...job,
       destIndex: nextDest,
       bookingItemIndex: nextBooking,
+      bookingAttempt: 0,
       pendingByDest: pending,
       heartbeatAt: new Date().toISOString(),
       lastError: undefined,
@@ -732,15 +718,44 @@ export async function runRematchTick(
     return {
       ok: true,
       running: true,
-      phase: "booking",
+      phase: "booking" as const,
       dest: dest.code,
       count: deal ? 1 : 0,
     };
+  };
+
+  try {
+    console.log(
+      `rematch booking ${dest.code} [${itemIndex + 1}/${list.length}]`,
+    );
+    const deal = await applyBookingToDeal(item, {
+      onSessionOk: async () => {
+        if ((job.sessionFailStreak ?? 0) === 0 && !job.lastError) return;
+        job = {
+          ...job,
+          sessionFailStreak: 0,
+          lastError: undefined,
+          heartbeatAt: new Date().toISOString(),
+        };
+        await saveRematchJob(admin, job);
+        console.log(`rematch: oturum 200 booking @${dest.code} — streak sıfır`);
+      },
+    });
+    return await advanceBooking(deal);
   } catch (err) {
     if (!(err instanceof ScrappaUnavailableError)) throw err;
     const msg = err instanceof Error ? err.message : "unavailable";
-    console.log(`rematch booking pause @${dest.code}: ${msg}`);
-    job = pauseJob(job, msg, err.kind);
+    const attempts = (job.bookingAttempt ?? 0) + 1;
+    if (attempts >= SCRAPPA_BOOKING_MAX_ATTEMPTS) {
+      console.log(
+        `rematch booking skip @${dest.code}: ${attempts}× ${msg} — RT fiyatıyla geçildi`,
+      );
+      return await advanceBooking(item.deal);
+    }
+    console.log(
+      `rematch booking pause @${dest.code} (${attempts}/${SCRAPPA_BOOKING_MAX_ATTEMPTS}): ${msg}`,
+    );
+    job = { ...pauseJob(job, msg, err.kind), bookingAttempt: attempts };
     await saveRematchJob(admin, job);
     return {
       ok: true,

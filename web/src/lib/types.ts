@@ -94,6 +94,8 @@ export type ScrappaRematchJob = {
    * 502 olunca artmaz; kaldığı adaydan devam.
    */
   rtVerifyAttempt?: number;
+  /** Booking: aynı kalemde art arda upstream hatası; limitte RT fiyatıyla geçilir. */
+  bookingAttempt?: number;
   heartbeatAt: string;
   startedAt: string;
   pausedUntil?: string;
