@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Calistoga, Permanent_Marker, Roboto_Slab } from "next/font/google";
+import Script from "next/script";
+import { SignupTracker } from "@/components/SignupTracker";
+import { GA_MEASUREMENT_ID } from "@/lib/analytics";
 import "./globals.css";
 
 /** Cooper Black tarzı kalın display — logo/vitrin hariç genel yazı */
@@ -58,7 +61,21 @@ export default function RootLayout({
           src="https://emridco.com/NTYwNDc1.js?t=560475"
         />
       </head>
-      <body className={`${body.className} min-h-full antialiased`}>{children}</body>
+      <body className={`${body.className} min-h-full antialiased`}>
+        {children}
+        {process.env.NODE_ENV === "production" ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga-init" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_MEASUREMENT_ID}');`}
+            </Script>
+            <SignupTracker />
+          </>
+        ) : null}
+      </body>
     </html>
   );
 }

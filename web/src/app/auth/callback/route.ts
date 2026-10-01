@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { SIGNUP_COOKIE } from "@/lib/analytics";
 import { fetchOnboardingProfile, postAuthPath } from "@/lib/onboarding";
 
 function siteOrigin(request: Request) {
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
       return fail();
     }
 
+    let isNewOAuthUser = false;
     if (flow !== "confirm") {
       const {
         data: { user },
@@ -72,6 +74,7 @@ export async function GET(request: Request) {
       if (user) {
         const profile = await fetchOnboardingProfile(supabase, user.id);
         nextPathResolved = postAuthPath(profile);
+        isNewOAuthUser = Date.now() - Date.parse(user.created_at) < 10 * 60_000;
       }
     }
 
@@ -88,6 +91,14 @@ export async function GET(request: Request) {
     pendingCookies.forEach(({ name, value, options }) => {
       response.cookies.set(name, value, options);
     });
+    if (isNewOAuthUser) {
+      response.cookies.set(SIGNUP_COOKIE, "google", {
+        path: "/",
+        maxAge: 600,
+        sameSite: "lax",
+        httpOnly: false,
+      });
+    }
 
     return response;
   } catch (err) {

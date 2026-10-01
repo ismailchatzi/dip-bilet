@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { trackEvent } from "@/lib/analytics";
 import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
 import { newPasswordError, MIN_PASSWORD_LENGTH } from "@/lib/password";
 import { createClient, isAuthConfigured } from "@/lib/supabase/client";
@@ -101,6 +102,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           },
         });
         if (signError) throw signError;
+        trackEvent("sign_up", { method: "email" });
         setMessage(
           "Kayıt alındı. E-posta kutunu kontrol et; onay linkine tıklayınca giriş ekranına döneceksin.",
         );
