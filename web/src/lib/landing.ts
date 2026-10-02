@@ -8,10 +8,21 @@ import {
 } from "@/lib/deal-display";
 import { destPhotoUrls } from "@/lib/destination-photos";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
+import { SCRAPPA_DESTINATIONS } from "@/lib/scan/scrappa-targets";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Deal } from "@/lib/types";
 
 const OTHERS_MAX = 3;
+/** Reklam sayfasında eski fiyat göstermemek için tazelik penceresi. */
+const OTHERS_FRESH_MS = 24 * 60 * 60 * 1000;
+const POPULAR_CODES = new Set(SCRAPPA_DESTINATIONS.map((d) => d.code));
+
+function dealSeenAt(deal: Deal) {
+  const times = [deal.foundAt, deal.verifiedAt]
+    .map((t) => (t ? Date.parse(t) : NaN))
+    .filter(Number.isFinite);
+  return times.length ? Math.max(...times) : 0;
+}
 
 async function readLiveDeals(): Promise<Deal[]> {
   const admin = createAdminClient();
@@ -33,13 +44,21 @@ export async function getLandingData(code: string) {
   const dest = code.toUpperCase();
   const live = await readLiveDeals();
   const deal = live.find((d) => dealDestCode(d) === dest) ?? null;
-  const hasLocalPhoto = (d: Deal) => destPhotoUrls(dealDestCode(d)).length > 0;
+  const now = Date.now();
+  const isFresh = (d: Deal) => now - dealSeenAt(d) <= OTHERS_FRESH_MS;
+  const isPopular = (d: Deal) => POPULAR_CODES.has(dealDestCode(d));
+  const hasPhoto = (d: Deal) =>
+    Boolean(d.photoUrl) || destPhotoUrls(dealDestCode(d)).length > 0;
   const others = live
     .filter((d) => dealDestCode(d) !== dest && !isDomesticDeal(d))
     .sort(
       (a, b) =>
-        Number(hasLocalPhoto(b)) - Number(hasLocalPhoto(a)) ||
-        (displayDealDiscountPercent(b) ?? 0) - (displayDealDiscountPercent(a) ?? 0),
+        Number(isFresh(b)) - Number(isFresh(a)) ||
+        (isFresh(a)
+          ? Number(isPopular(b)) - Number(isPopular(a)) ||
+            Number(hasPhoto(b)) - Number(hasPhoto(a)) ||
+            (displayDealDiscountPercent(b) ?? 0) - (displayDealDiscountPercent(a) ?? 0)
+          : dealSeenAt(b) - dealSeenAt(a)),
     )
     .slice(0, OTHERS_MAX);
   return { deal, others };

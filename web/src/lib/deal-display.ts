@@ -942,6 +942,17 @@ const TURKEY_IATA = new Set([
   "SXZ",
   "TJK",
   "AOE",
+  "HTY",
+  "COV",
+  "GZP",
+  "MLX",
+  "KFS",
+  "BGG",
+  "YKO",
+  "MSR",
+  "CKZ",
+  "RZV",
+  "BDM",
 ]);
 
 export type FlightTypeFilter = "domestic" | "international";
