@@ -74,7 +74,7 @@ Aynı hesapta paralel dilim / ikinci drain **yok**. İki hesap birbirine paralel
    - Gate: Balkan/vizesiz 0.70 · Schengen/Avrupa 0.75 · Uzak 0.82
 3. Çakışmada MUTLAK ezer SEZONLUK.
 4. **Fiyat Eşiği (UI) = gerçek kapı** (snapshot). Üstü çizili ≈ referans × 1.10 (eşikten aşağı düşmez). **Kart fiyatı eşiğin üstünde olamaz** — `enforceDealThreshold` / `foldShowcase` + vitrin okuma; eşik üstü düşer.
-5. Kart uçuş gününe kadar kalır. Ailede **10 gün** içi yakalanma yoksa vitrinden düşer; varsa hero = o penceredeki **en ucuz** (eşitlikte en yeni). `verifiedAt` / `lastCheckedAt` tutulur.
+5. Kart uçuş gününe kadar kalır. Ailede **10 gün** içi yakalanma yoksa vitrinden düşer; varsa hero = **eski fırsat damgası almamış** (yakalanalı <3 takvim günü) seçeneklerin **en ucuzu** (eşitlikte en yeni); hiç taze yoksa 10 gün penceresinin en ucuzu. Eski ucuz fiyat, taze fiyat bulununca diğer tarihlere iner. Okuma sırası: eşik kapısı → hero seçimi. `verifiedAt` / `lastCheckedAt` tutulur.
 6. Dedup: şehir başına 1 kart; aynı tarih ucuzsa güncelle; pahalı ama geçerli → diğer tarihler (≤3).
 
 ## Hard floor v1 (GD toplam USD)

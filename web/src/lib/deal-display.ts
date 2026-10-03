@@ -138,7 +138,11 @@ export function dealFoundDateTr(foundAt?: string) {
  * varsa hero taze+ucuz seçeneğe yükseltilir.
  */
 export function isOldShowcaseDeal(deal: Deal, today = turkeyTodayIso()) {
-  const day = dealFoundDateTr(deal.foundAt);
+  return isOldShowcaseFoundAt(deal.foundAt, today);
+}
+
+function isOldShowcaseFoundAt(foundAt: string | undefined, today: string) {
+  const day = dealFoundDateTr(foundAt);
   if (!day) return false;
   return nightsBetween(day, today) >= 3;
 }
@@ -669,7 +673,8 @@ export function isFoundAtWithinKeep(
 }
 
 /**
- * Ailede keep içi + uçuşu gelmemiş seçenek varsa: hero = en ucuz (eşitlikte en yeni).
+ * Ailede keep içi + uçuşu gelmemiş seçenek varsa: hero = “eski fırsat” damgası
+ * almamış seçeneklerin en ucuzu (eşitlikte en yeni); hiçbiri yoksa keep içi en ucuz.
  * Eşik üstü fiyatlar aday bile sayılmaz. Hiç uygun seçenek yoksa null.
  */
 export function promoteFreshHeroDeal(
@@ -685,11 +690,13 @@ export function promoteFreshHeroDeal(
   });
   if (fresh.length === 0) return null;
 
-  fresh.sort(
+  const recent = fresh.filter((o) => !isOldShowcaseFoundAt(o.foundAt, today));
+  const pool = recent.length > 0 ? recent : fresh;
+  pool.sort(
     (a, b) =>
       a.price - b.price || compareFoundAtDesc(a.foundAt, b.foundAt),
   );
-  const head = fresh[0]!;
+  const head = pool[0]!;
   const hero = applyDateOption(deal, head);
   const headKey = optionTripKey(head);
   const others = flattenDateOptions(deal).filter((o) => {
@@ -776,12 +783,15 @@ export function foldOneCardPerCity(deals: Deal[]): Deal[] {
   return heroes;
 }
 
-/** Vitrin okuma: şehir kartı + taze (≤10 gün) en ucuz hero + eşik kapısı. */
+/**
+ * Vitrin okuma: şehir kartı + eşik kapısı + taze hero.
+ * Hero seçimi en son: eşik kapısı en ucuzu yeniden hero yapar, tazeliği ezmesin.
+ */
 export function vitrinHeroDeals(deals: Deal[], today = turkeyTodayIso()) {
   return foldOneCardPerCity(deals)
-    .map((d) => promoteFreshHeroDeal(d, today))
-    .filter((d): d is Deal => d != null)
     .map(enforceDealThreshold)
+    .filter((d): d is Deal => d != null)
+    .map((d) => promoteFreshHeroDeal(d, today))
     .filter((d): d is Deal => d != null);
 }
 
