@@ -4,6 +4,8 @@ import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
 import { passesGoogleDealGates } from "@/lib/scan/google-deals-gates";
+import { routeKey, seasonKey } from "@/lib/scan/dates";
+import { insertObservations, type ObservationRow } from "@/lib/scan/observations";
 import { destPhotoCode } from "@/lib/destination-photos";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import { maxStopsForDest, turkeyTodayIso } from "@/lib/scan/trip-rules";
@@ -127,6 +129,48 @@ function destCodeFromDeal(deal: Deal) {
   return deal.destination.match(/\b([A-Z]{3})\b/)?.[1] ?? "";
 }
 
+/** 28 şehir dışı Google ortalamaları; Scrappa yalnız `scrappa_oneway` okur, bu satırlara dokunmaz. */
+export const GDEALS_BASELINE_SOURCE = "gdeals_baseline";
+
+async function recordGoogleBaselines(
+  admin: SupabaseClient,
+  hits: Awaited<ReturnType<typeof fetchGoogleDeals>>["deals"],
+) {
+  try {
+    const rows: ObservationRow[] = [];
+    for (const hit of hits) {
+      const dest = destFromHit(hit);
+      if (!dest || findTrackedDestination(dest.code)) continue;
+      const outDate = hit.outbound_date ?? hit.start_date ?? "";
+      const retDate = hit.return_date ?? hit.end_date ?? "";
+      const price = Number(hit.price);
+      const average = Number(hit.average_price);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(outDate)) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(retDate)) continue;
+      if (!(price > 0) || !(average > 0)) continue;
+      rows.push({
+        route_key: routeKey(dest.code),
+        season_key: seasonKey(new Date(`${outDate}T12:00:00Z`)),
+        destination_code: dest.code,
+        destination_name: dest.name,
+        price: Math.round(price),
+        currency: "USD",
+        outbound_date: outDate,
+        return_date: retDate,
+        source: GDEALS_BASELINE_SOURCE,
+        discount_percent: Number(hit.discount_percentage) || null,
+        average_price: Math.round(average),
+        airline: hit.airline ?? null,
+        stops: typeof hit.stops === "number" ? hit.stops : null,
+      });
+    }
+    const res = await insertObservations(admin, rows);
+    if (!res.ok) console.warn("gdeals baseline kayıt hatası", res.error);
+  } catch (e) {
+    console.warn("gdeals baseline kayıt hatası", e);
+  }
+}
+
 export async function runSerpapiDealsScan(
   admin: SupabaseClient | null,
 ): Promise<SerpapiDealsScanResult> {
@@ -144,6 +188,8 @@ export async function runSerpapiDealsScan(
       error: fetched.error,
     };
   }
+
+  if (admin) await recordGoogleBaselines(admin, fetched.deals);
 
   const foundAt = new Date().toISOString();
   const matched: Deal[] = [];
