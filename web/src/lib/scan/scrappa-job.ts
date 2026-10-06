@@ -1,4 +1,4 @@
-import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
+import { patchJobVerified, patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { currentLane, type ScrappaLane } from "@/lib/scan/scrappa-lane";
 import type { ScrappaCursor } from "@/lib/scan/scrappa-oneway-runner";
 import type { ScrappaWindow } from "@/lib/scan/scrappa-horizon";
@@ -87,6 +87,11 @@ export async function saveScrappaJob(
   admin: SupabaseClient,
   job: ScrappaJob | null,
 ) {
+  const key = currentLane() === "b" ? "scrappaJobB" : "scrappaJob";
+  return patchJobVerified(admin, key, job, () => writeScrappaJob(admin, job));
+}
+
+async function writeScrappaJob(admin: SupabaseClient, job: ScrappaJob | null) {
   const board = await readScanBoard(admin);
   const deals = board.deals;
   if (!deals) {

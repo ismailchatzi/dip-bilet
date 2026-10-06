@@ -3,7 +3,7 @@
  * Oturum/502 kopunca pause; cron devam eder. Abort = bitiş değil.
  */
 import { notifyNewDeals } from "@/lib/notify-new-deals";
-import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
+import { patchJobVerified, patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { foldShowcase } from "@/lib/scan/deal-archive";
 import {
   dealDateChoices,
@@ -182,6 +182,14 @@ function pauseJob(
 }
 
 export async function saveRematchJob(
+  admin: SupabaseClient,
+  job: ScrappaRematchJob | null,
+) {
+  const key = currentLane() === "b" ? "scrappaRematchJobB" : "scrappaRematchJob";
+  return patchJobVerified(admin, key, job, () => writeRematchJob(admin, job));
+}
+
+async function writeRematchJob(
   admin: SupabaseClient,
   job: ScrappaRematchJob | null,
 ) {

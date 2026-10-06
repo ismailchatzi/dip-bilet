@@ -144,3 +144,36 @@ export async function patchScanBoard(
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+type JobKey = "scrappaJob" | "scrappaJobB" | "scrappaRematchJob" | "scrappaRematchJobB";
+
+/**
+ * Tek satırı A, B ve Google Deals oku-yaz yapıyor; araya giren eski kopya
+ * job'u ezebilir. Yazdıktan sonra oku, daha eski bir sürüm kaldıysa tekrar yaz.
+ */
+export async function patchJobVerified(
+  admin: SupabaseClient,
+  key: JobKey,
+  job: { heartbeatAt: string; status: string; startedAt?: string } | null,
+  write: () => Promise<{ ok: boolean; error?: string }>,
+): Promise<{ ok: boolean; error?: string }> {
+  let res = await write();
+  if (!job) return res;
+  for (let attempt = 0; res.ok && attempt < 3; attempt++) {
+    const stored = (await readScanBoard(admin)).deals?.[key];
+    if (stored) {
+      if (Date.parse(stored.heartbeatAt) > Date.parse(job.heartbeatAt)) return res;
+      if (
+        stored.heartbeatAt === job.heartbeatAt &&
+        stored.status === job.status &&
+        stored.startedAt === job.startedAt
+      ) {
+        return res;
+      }
+    }
+    console.warn(`scan_board: ${key} ezildi — tekrar yazılıyor (${attempt + 1})`);
+    await new Promise((r) => setTimeout(r, 150 + attempt * 250));
+    res = await write();
+  }
+  return res;
+}
