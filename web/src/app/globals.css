@@ -2079,10 +2079,10 @@ a {
 }
 
 .home-footer__grid {
-  width: min(720px, calc(100% - 2rem));
+  width: min(880px, calc(100% - 2rem));
   margin: 0 auto 2rem;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   justify-items: center;
   text-align: center;
@@ -4540,6 +4540,51 @@ a {
 
 .landing-expired .landing-cta {
   margin: 0 auto;
+}
+
+.follow-channels {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-light, #e8e8e8);
+}
+
+.follow-channels__lead {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft, #444);
+}
+
+.follow-channels__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.landing-expired .follow-channels__links {
+  justify-content: center;
+}
+
+.follow-channels__btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.follow-channels__btn--telegram {
+  background: #229ed9;
+}
+
+.follow-channels__btn--whatsapp {
+  background: #1fa855;
+}
+
+.follow-channels__btn:hover {
+  filter: brightness(1.08);
 }
 
 .landing-why {

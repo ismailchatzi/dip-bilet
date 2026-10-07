@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { FollowChannels } from "@/components/landing/FollowChannels";
 import { LandingCta } from "@/components/landing/LandingCta";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -14,6 +15,7 @@ import {
   displayDealPrice,
   formatDealMoney,
 } from "@/lib/deal-display";
+import { destPhotoSets } from "@/lib/destination-photos";
 import { getLandingData, maskedDateRange, tripMonths } from "@/lib/landing";
 import { normalizePrefCity } from "@/lib/landing-pref";
 
@@ -36,9 +38,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
   const price = formatDealMoney(displayDealPrice(deal.price), deal.currency);
+  const title = `İstanbul → ${dealCityName(deal)} ${price} gidiş-dönüş — Dip Bilet`;
+  const description = `${tripMonths(deal) ?? ""} uçuşları için yakaladığımız dip fiyat. Tarihler ve bilet linki üyelere açık.`;
+  const image = destPhotoSets(dealDestCode(deal) || deal.destination)[0]?.full ?? deal.photoUrl?.trim();
   return {
-    title: `İstanbul → ${dealCityName(deal)} ${price} gidiş-dönüş — Dip Bilet`,
-    description: `${tripMonths(deal) ?? ""} uçuşları için yakaladığımız dip fiyat. Tarihler ve bilet linki üyelere açık.`,
+    metadataBase: new URL("https://dipbilet.com"),
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      siteName: "Dip Bilet",
+      locale: "tr_TR",
+      url: `/f/${code.toLowerCase()}`,
+      title,
+      description,
+      ...(image ? { images: [{ url: image, alt: dealCityTitle(deal) }] } : {}),
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(image ? { images: [image] } : {}),
+    },
   };
 }
 
@@ -97,6 +118,7 @@ export default async function LandingPage({ params }: PageProps) {
               <p className="landing-hero__login">
                 Zaten üye misin? <a href="/giris">Giriş yap</a>
               </p>
+              <FollowChannels />
             </div>
           </section>
         ) : (
@@ -107,6 +129,7 @@ export default async function LandingPage({ params }: PageProps) {
               kaçırmamak için ücretsiz üye ol; yeni fırsat çıkınca ilk sen duy.
             </p>
             <LandingCta code={code} label="Ücretsiz üye ol" />
+            <FollowChannels />
           </section>
         )}
 

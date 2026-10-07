@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TELEGRAM_CHANNEL_URL, WHATSAPP_CHANNEL_URL } from "@/lib/social-channels";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -22,6 +23,15 @@ export function SiteFooter() {
           <h3>Başla</h3>
           <Link href="/uye-ol">Kayıt ol</Link>
           <Link href="/giris">Giriş yap</Link>
+        </div>
+        <div>
+          <h3>Takip et</h3>
+          <a href={TELEGRAM_CHANNEL_URL} target="_blank" rel="noopener noreferrer">
+            Telegram
+          </a>
+          <a href={WHATSAPP_CHANNEL_URL} target="_blank" rel="noopener noreferrer">
+            WhatsApp
+          </a>
         </div>
       </div>
       <p className="home-footer__disclaimer">
