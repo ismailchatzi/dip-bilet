@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { VitrinFilters } from "@/components/vitrin/VitrinFilters";
 import { DealCard } from "@/components/vitrin/DealCard";
-import { airportCoord } from "@/lib/airport-coords";
+import { airportCoord, type AirportCoord } from "@/lib/airport-coords";
 import {
   airportsFromDepartureCode,
   type DepartureAirport,
@@ -34,6 +34,7 @@ const VitrinMap = dynamic(
 
 export function AccountDeals() {
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [destCoords, setDestCoords] = useState<Record<string, AirportCoord>>({});
   const [warning, setWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [airports, setAirports] = useState<DepartureAirport[]>(
@@ -93,7 +94,10 @@ export function AccountDeals() {
 
       try {
         const res = await fetch("/api/deals");
-        const payload = (await res.json()) as DealsPayload & { error?: string };
+        const payload = (await res.json()) as DealsPayload & {
+          error?: string;
+          destCoords?: Record<string, AirportCoord>;
+        };
         if (!active) return;
         if (!res.ok) {
           setWarning(payload.error || "Fırsatlar yüklenemedi.");
@@ -101,6 +105,7 @@ export function AccountDeals() {
         } else {
           const nextDeals = payload.deals ?? [];
           setDeals(nextDeals);
+          setDestCoords(payload.destCoords ?? {});
           setWarning(payload.warning ?? null);
           const prices = nextDeals.map((d) => d.price).filter((n) => n > 0);
           if (prices.length > 0) {
@@ -202,8 +207,11 @@ export function AccountDeals() {
           Şu an eşiğin üzerinde dip fırsat yok. Biraz sonra tekrar bak.
         </div>
       ) : null}
-      {visible.some((deal) => airportCoord(dealDestCode(deal))) ? (
-        <VitrinMap deals={visible} />
+      {visible.some((deal) => {
+        const code = dealDestCode(deal);
+        return destCoords[code] ?? airportCoord(code);
+      }) ? (
+        <VitrinMap deals={visible} coords={destCoords} />
       ) : null}
       {visible.length > 0 ? (
         <div className="vitrin-grid">

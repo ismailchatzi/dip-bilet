@@ -1,6 +1,6 @@
 "use client";
 
-import { airportCoord } from "@/lib/airport-coords";
+import { airportCoord, type AirportCoord } from "@/lib/airport-coords";
 import {
   dealCityKey,
   dealCityTitle,
@@ -33,13 +33,16 @@ type Pin = {
   lng: number;
 };
 
-function pinsFromDeals(deals: Deal[]): Pin[] {
+function pinsFromDeals(
+  deals: Deal[],
+  coords: Record<string, AirportCoord>,
+): Pin[] {
   const out: Pin[] = [];
   const seen = new Set<string>();
   for (const deal of deals) {
     const code = dealDestCode(deal);
     const city = dealCityKey(deal) || code;
-    const pos = airportCoord(code) ?? airportCoord(city);
+    const pos = coords[code] ?? airportCoord(code) ?? airportCoord(city);
     if (!pos || seen.has(city)) continue;
     seen.add(city);
     out.push({
@@ -97,11 +100,19 @@ function drawPins(map: MapLibreMap, pins: Pin[], markers: Marker[]) {
   });
 }
 
-export function VitrinMap({ deals }: { deals: Deal[] }) {
+const NO_COORDS: Record<string, AirportCoord> = {};
+
+export function VitrinMap({
+  deals,
+  coords = NO_COORDS,
+}: {
+  deals: Deal[];
+  coords?: Record<string, AirportCoord>;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
-  const pins = useMemo(() => pinsFromDeals(deals), [deals]);
+  const pins = useMemo(() => pinsFromDeals(deals, coords), [deals, coords]);
   const pinsRef = useRef(pins);
   pinsRef.current = pins;
   const pinKey = pins.map((p) => `${p.id}:${p.label}`).join("|");

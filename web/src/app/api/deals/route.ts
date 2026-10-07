@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { destCoordsForDeals } from "@/lib/airport-coords-server";
 import {
   dealWithinStopLimit,
   isUnverifiedOneWaySum,
@@ -39,6 +40,7 @@ export async function GET() {
   return NextResponse.json({
     ...payload,
     deals,
+    destCoords: destCoordsForDeals(deals),
     archive: undefined,
     scrappaJob: undefined,
   });
