@@ -3,6 +3,8 @@ import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { foldShowcase } from "@/lib/scan/deal-archive";
 import {
   SCRAPPA_DESTINATIONS,
+  cityAirportCodes,
+  trackedDestinationLabel,
   type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
 import {
@@ -79,6 +81,8 @@ type Obs = {
 export type BookingHook = {
   origin: "IST" | "SAW";
   destCode: string;
+  /** Uçulan havalimanı (BGY…); yoksa destCode. */
+  airport?: string;
   departureDate: string;
   listPrice: number;
   bookingToken?: string;
@@ -222,13 +226,16 @@ type Draft = Deal & { seasonKey: string };
 
 function collectPairs(dest: ScrappaDestination, rows: Obs[]): Pair[] {
   const [minNights, maxNights] = stayRange(dest.code);
-  const outbound = rows.filter((r) => destOf(r.route_key) === dest.code);
-  const inbound = rows.filter((r) => originOf(r.route_key) === dest.code);
+  const airports = new Set(cityAirportCodes(dest));
+  const outbound = rows.filter((r) => airports.has(destOf(r.route_key)));
+  const inbound = rows.filter((r) => airports.has(originOf(r.route_key)));
   const cheapestPair = new Map<string, Pair>();
   for (const out of outbound) {
     if (!isIstanbul(originOf(out.route_key))) continue;
     for (const ret of inbound) {
       if (!isIstanbul(destOf(ret.route_key))) continue;
+      // RT doğrulaması tek varış koduyla: BGY’ye gidip MXP’den dönüş eşlenmez.
+      if (originOf(ret.route_key) !== destOf(out.route_key)) continue;
       const nights = nightsBetween(out.outbound_date, ret.outbound_date);
       if (nights < minNights || nights > maxNights) continue;
       const total = out.price + ret.price;
@@ -263,6 +270,7 @@ function comboFromPair(
   const { total, out, ret } = pair;
   const outOrigin = originOf(out.route_key);
   const retDest = destOf(ret.route_key);
+  const airport = destOf(out.route_key) || dest.code;
   const displayOff = Math.round(
     ((el.strikePrice - total) / el.strikePrice) * 100,
   );
@@ -274,7 +282,8 @@ function comboFromPair(
   const selfTransfer = Boolean(out.self_transfer || ret.self_transfer);
   return {
     id: `scrappa:${dest.code}:${outOrigin}:${out.outbound_date}:${retDest}:${ret.outbound_date}`,
-    destination: `${dest.name} (${dest.code})`,
+    destination: trackedDestinationLabel(dest, airport),
+    ...(airport !== dest.code ? { destAirport: airport } : {}),
     price: Math.round(total),
     averagePrice: el.strikePrice,
     thresholdPrice: el.uiThreshold,
@@ -287,7 +296,7 @@ function comboFromPair(
     selfTransfer: selfTransfer || undefined,
     googleFlightsUrl: googleFlightsSearchUrl(
       outOrigin,
-      dest.code,
+      airport,
       out.outbound_date,
       retDest,
       ret.outbound_date,
@@ -380,6 +389,7 @@ function toDateOption(deal: Deal): DealDateOption {
     origin: dealOutOrigin(deal),
     foundAt: deal.foundAt,
     source: "scrappa",
+    ...(deal.destAirport ? { destAirport: deal.destAirport } : {}),
   };
 }
 
@@ -396,6 +406,7 @@ async function verifyWithRoundTrip(
   const outDate = deal.outboundDate;
   const retDate = deal.returnDate;
   if (!outDate || !retDate) return null;
+  const airport = deal.destAirport || destCode;
 
   let best: {
     origin: "IST" | "SAW";
@@ -419,7 +430,7 @@ async function verifyWithRoundTrip(
     try {
       const hit = await scrappaRoundTrip({
         origin,
-        destination: destCode,
+        destination: airport,
         departureDate: outDate,
         returnDate: retDate,
       });
@@ -450,6 +461,7 @@ async function verifyWithRoundTrip(
   const booking: BookingHook = {
     origin: best.origin,
     destCode,
+    ...(airport !== destCode ? { airport } : {}),
     departureDate: outDate,
     listPrice: best.price,
     bookingToken: best.bookingToken,
@@ -461,7 +473,7 @@ async function verifyWithRoundTrip(
   if (opts?.withBooking !== false) {
     const booked = await scrappaCheapestBookingPrice({
       origin: booking.origin,
-      destination: booking.destCode,
+      destination: airport,
       departureDate: booking.departureDate,
       listPrice: booking.listPrice,
       bookingToken: booking.bookingToken,
@@ -499,7 +511,7 @@ async function verifyWithRoundTrip(
     lastCheckedAt: now,
     googleFlightsUrl: googleFlightsSearchUrl(
       best.origin,
-      destCode,
+      airport,
       outDate,
       best.origin,
       retDate,
@@ -520,7 +532,7 @@ export async function applyBookingToDeal(
   if (!hook) return pending.deal;
   const booked = await scrappaCheapestBookingPrice({
     origin: hook.origin,
-    destination: hook.destCode,
+    destination: hook.airport || hook.destCode,
     departureDate: hook.departureDate,
     listPrice: hook.listPrice,
     bookingToken: hook.bookingToken,

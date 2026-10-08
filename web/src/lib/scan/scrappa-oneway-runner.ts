@@ -87,7 +87,7 @@ export async function runScrappaOneWayBatch(
   }
 
   const dest = dests[destIndex]!;
-  const legs = legsForDest(dest.code, dest.name);
+  const legs = legsForDest(dest);
   const date = dates[dateIndex];
   const leg = legs[legIndex];
   if (!date || !leg) {

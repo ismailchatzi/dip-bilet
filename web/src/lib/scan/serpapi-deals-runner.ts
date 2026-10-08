@@ -7,7 +7,10 @@ import { passesGoogleDealGates } from "@/lib/scan/google-deals-gates";
 import { routeKey, seasonKey } from "@/lib/scan/dates";
 import { insertObservations, type ObservationRow } from "@/lib/scan/observations";
 import { destPhotoCode } from "@/lib/destination-photos";
-import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
+import {
+  findTrackedDestination,
+  trackedDestinationLabel,
+} from "@/lib/scan/scrappa-targets";
 import { maxStopsForDest, turkeyTodayIso } from "@/lib/scan/trip-rules";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -25,7 +28,7 @@ export type SerpapiDealsScanResult = {
 function destFromHit(hit: {
   arrival_airport_code?: string;
   name?: string;
-}): { code: string; name: string } | null {
+}): { code: string; name: string; label?: string; airport?: string } | null {
   const arrival = String(hit.arrival_airport_code ?? "").toUpperCase();
   if (!/^[A-Z]{3}$/.test(arrival)) return null;
   if (arrival === "IST" || arrival === "SAW") return null;
@@ -35,7 +38,16 @@ function destFromHit(hit: {
     .trim();
 
   const tracked = findTrackedDestination(arrival);
-  if (tracked) return { code: tracked.code, name: tracked.name };
+  if (tracked) {
+    const extra = tracked.extraAirports?.some((a) => a.code === arrival);
+    return {
+      code: tracked.code,
+      name: tracked.name,
+      ...(extra
+        ? { airport: arrival, label: trackedDestinationLabel(tracked, arrival) }
+        : {}),
+    };
+  }
 
   const fromName = destPhotoCode(raw) ?? destPhotoCode(arrival);
   if (fromName) {
@@ -66,7 +78,7 @@ function toShowcaseDeal(
     airline?: string;
     thumbnail?: string;
   },
-  dest: { code: string; name: string },
+  dest: { code: string; name: string; label?: string; airport?: string },
   foundAt: string,
   gate: { badge?: string; uiThreshold?: number; strikePrice?: number },
 ): Deal {
@@ -79,7 +91,8 @@ function toShowcaseDeal(
 
   return {
     id: `gdeals:${dest.code}:${hit.origin}:${hit.outDate}:${hit.origin}:${hit.retDate}`,
-    destination: `${dest.name} (${dest.code})`,
+    destination: dest.label ?? `${dest.name} (${dest.code})`,
+    ...(dest.airport ? { destAirport: dest.airport } : {}),
     price: Math.round(hit.price),
     averagePrice: strike,
     thresholdPrice: threshold,

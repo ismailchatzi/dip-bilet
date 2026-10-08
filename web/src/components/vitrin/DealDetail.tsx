@@ -14,6 +14,7 @@ import {
   dealWithDateChoice,
   dealHref,
   otherCityDeals,
+  dealDestAirport,
   dealDestCode,
   dealOutOrigin,
   dealReturnAirport,
@@ -81,9 +82,10 @@ export function DealDetail({
   const mark = dealSourceCipher(deal);
   const od = view.outboundDate ?? "";
   const rd = view.returnDate ?? "";
-  const kiwiUrl = kiwiAffiliateUrl(out, dealDestCode(view), od, rd, dealDestCode(view));
-  const aviasalesUrl = aviasalesAffiliateUrl(out, dealDestCode(view), od, rd, dealDestCode(view));
-  const tripUrl = od && rd ? tripcomUrl(out, dealDestCode(view), od, rd) : undefined;
+  const destAirport = dealDestAirport(view);
+  const kiwiUrl = kiwiAffiliateUrl(out, destAirport, od, rd, dealDestCode(view));
+  const aviasalesUrl = aviasalesAffiliateUrl(out, destAirport, od, rd, dealDestCode(view));
+  const tripUrl = od && rd ? tripcomUrl(out, destAirport, od, rd) : undefined;
   const oldDeal = isOldShowcaseDeal(view);
   const altRows = useMemo(() => {
     const heroPrice = deal.price;
@@ -159,7 +161,7 @@ export function DealDetail({
       {out !== back ? (
         <p className="deal-detail__mix">
           Gidiş {out}, dönüş {back}
-          {dest ? ` · ${dest}` : ""}
+          {destAirport ? ` · ${destAirport}` : ""}
         </p>
       ) : null}
 

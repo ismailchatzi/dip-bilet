@@ -1,6 +1,7 @@
 import {
   SCRAPPA_DESTINATIONS,
   SCRAPPA_ORIGINS,
+  type ScrappaDestination,
 } from "@/lib/scan/scrappa-targets";
 
 export type ScrappaWindow = "full" | "near";
@@ -31,13 +32,25 @@ export function horizonDates(window: ScrappaWindow, now = new Date()): string[] 
   return dates;
 }
 
-export function legsForDest(destCode: string, destName: string): ScrappaLeg[] {
-  return [
-    { origin: "IST", destination: destCode, destName },
-    { origin: "SAW", destination: destCode, destName },
-    { origin: destCode, destination: "IST", destName },
-    { origin: destCode, destination: "SAW", destName },
+/** Ana havalimanı 4 bacak önce (cursor legIndex 0–3 aynı kalır), ekstralar sonra. */
+export function legsForDest(dest: ScrappaDestination): ScrappaLeg[] {
+  const destName = dest.name;
+  const legs: ScrappaLeg[] = [
+    { origin: "IST", destination: dest.code, destName },
+    { origin: "SAW", destination: dest.code, destName },
+    { origin: dest.code, destination: "IST", destName },
+    { origin: dest.code, destination: "SAW", destName },
   ];
+  for (const extra of dest.extraAirports ?? []) {
+    const origins = extra.origins ?? SCRAPPA_ORIGINS;
+    for (const o of origins) {
+      legs.push({ origin: o, destination: extra.code, destName });
+    }
+    for (const o of origins) {
+      legs.push({ origin: extra.code, destination: o, destName });
+    }
+  }
+  return legs;
 }
 
 export function allDestinations() {

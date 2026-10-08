@@ -1,6 +1,9 @@
 import type { Deal, DealDateOption } from "@/lib/types";
 import { destPhotoCode } from "@/lib/destination-photos";
-import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
+import {
+  findTrackedDestination,
+  trackedDestinationLabel,
+} from "@/lib/scan/scrappa-targets";
 import { dealPriceCapUsd } from "@/lib/scan/dip-gate";
 import {
   maxStopsForDest,
@@ -190,6 +193,35 @@ export function canonicalDestCode(code: string) {
   return findTrackedDestination(u)?.code ?? u;
 }
 
+/** Uçulan varış havalimanı (BGY, SHJ…) — rota satırı ve bilet linkleri. */
+export function dealDestAirport(deal: Deal) {
+  return deal.destAirport?.trim().toUpperCase() || dealDestCode(deal);
+}
+
+/** Şehrin ana havalimanından farklıysa uçulan havalimanı. */
+function dealAirportOverride(deal: Deal) {
+  const airport = dealDestAirport(deal);
+  return airport && airport !== canonicalDestCode(dealDestCode(deal))
+    ? airport
+    : undefined;
+}
+
+/** Tarih seçeneği uygulanınca id / başlık / havalimanı şehre göre yeniden kurulur. */
+function dateChoiceIdentity(template: Deal, destAirport?: string) {
+  const city = canonicalDestCode(dealDestCode(template));
+  const airport = destAirport && destAirport !== city ? destAirport : undefined;
+  const tracked = city ? findTrackedDestination(city) : null;
+  const sameAirport = (airport ?? city) === dealDestAirport(template);
+  return {
+    city,
+    destAirport: airport,
+    destination:
+      tracked && !sameAirport
+        ? trackedDestinationLabel(tracked, airport ?? city)
+        : template.destination,
+  };
+}
+
 /**
  * Profil / kart / isim → tek IATA (VIE, CDG…).
  * "Viyana", "vienna", "VIE", "Viyana (VIE)" aynı kapıya düşer.
@@ -262,7 +294,7 @@ export function dealDateRangeShort(deal: Deal) {
 }
 
 export function dealRouteLine(deal: Deal) {
-  const dest = dealDestCode(deal);
+  const dest = dealDestAirport(deal);
   const out = dealOutOrigin(deal);
   const city = dealCityName(deal);
   return `İstanbul (${out}) → ${city}${dest ? ` (${dest})` : ""}`;
@@ -539,7 +571,7 @@ export function tripcomAffiliateUrl(
 /** Vitrin CTA — tıklanınca Kiwi vs Aviasales, ucuz olan (yoksa Trip.com / Aviasales). */
 export function dealBookingUrl(deal: Deal) {
   const out = dealOutOrigin(deal);
-  const dest = dealDestCode(deal);
+  const dest = dealDestAirport(deal);
   const od = deal.outboundDate;
   const rd = deal.returnDate;
   if (
@@ -613,6 +645,7 @@ function dealToDateOption(deal: Deal): DealDateOption | null {
     origin: dealOutOrigin(deal),
     foundAt: deal.foundAt,
     source: dealSourcePrefix(deal),
+    destAirport: dealAirportOverride(deal),
   };
 }
 
@@ -625,11 +658,16 @@ function flattenDateOptions(deal: Deal): DealDateOption[] {
 }
 
 function applyDateOption(template: Deal, opt: DealDateOption): Deal {
-  const dest = dealDestCode(template);
+  const { city: dest, destAirport, destination } = dateChoiceIdentity(
+    template,
+    opt.destAirport,
+  );
   const origin = (opt.origin || dealOutOrigin(template)).toUpperCase();
   const prefix = opt.source ?? dealSourcePrefix(template);
   return {
     ...template,
+    destination,
+    destAirport,
     price: opt.price,
     outboundDate: opt.outboundDate,
     returnDate: opt.returnDate,
@@ -821,6 +859,7 @@ export type DealDateChoice = {
   origin?: string;
   foundAt?: string;
   source?: "gdeals" | "scrappa" | "manual";
+  destAirport?: string;
 };
 
 export function dealDateChoices(deal: Deal): DealDateChoice[] {
@@ -837,6 +876,7 @@ export function dealDateChoices(deal: Deal): DealDateChoice[] {
             origin,
             foundAt: deal.foundAt,
             source: dealSourcePrefix(deal),
+            destAirport: dealAirportOverride(deal),
           },
         ]
       : [];
@@ -853,11 +893,16 @@ export function dealDateChoices(deal: Deal): DealDateChoice[] {
 }
 
 export function dealWithDateChoice(deal: Deal, choice: DealDateChoice): Deal {
-  const dest = dealDestCode(deal);
+  const { city: dest, destAirport, destination } = dateChoiceIdentity(
+    deal,
+    choice.destAirport,
+  );
   const origin = (choice.origin || dealOutOrigin(deal)).toUpperCase();
   const prefix = choice.source ?? dealSourcePrefix(deal);
   return {
     ...deal,
+    destination,
+    destAirport,
     price: choice.price,
     outboundDate: choice.outboundDate,
     returnDate: choice.returnDate,

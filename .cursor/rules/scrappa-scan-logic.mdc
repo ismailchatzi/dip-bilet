@@ -25,13 +25,19 @@ Defter: `scrappaJob` / `scrappaRematchJob` (A) ve `scrappaJobB` / `scrappaRematc
 ### Full dilimler (liste sırası, bölge gate’i değil)
 | Dilim | Şehirler |
 |------|----------|
-| 1 | ATH, BUD, VIE, SOF |
-| 2 | PRG, FCO, VCE, MXP |
-| 3 | MUC, BER, TBS, FRA |
+| 1 | CDG(+ORY), BUD, VIE, SOF |
+| 2 | PRG, FCO, VCE, MUC |
+| 3 | MXP(+BGY), BER, TBS, LTN(+STN) |
 | 4 | GYD, SJJ, BEG, AMS |
-| 5 | TIA, SKP, SSH, DXB |
-| 6 | CDG, MAD, BCN, LTN |
+| 5 | TIA, SKP, SSH, DXB(+SHJ) |
+| 6 | ATH, MAD, BCN, FRA |
 | 7 | DPS, HKT, MLE, BKK |
+
+### Ekstra havalimanları (aynı şehir kartı, ayrı one-way istek)
+- Paris ORY ve Dubai SHJ: IST + SAW. Milano BGY ve Londra STN: **yalnız SAW** (gidiş + dönüş).
+- Ekstralı şehirler 1 / 3 / 5. dilimde → haftalık çiftlerde yan yana gelmez; günlük yük en fazla 9 havalimanı (~19 saat).
+- Sentetik RT: gidiş ve dönüş **aynı havalimanı** (BGY gidiş + MXP dönüş eşlenmez). RT doğrulama + booking uçulan havalimanıyla. Floor / kart / dedup şehir kodu (MXP, DXB…).
+- Kartta `destAirport`: "Milano (BGY)", Şarja için "Dubai – Şarja (SHJ)". Roma CIA'ya İstanbul'dan uçuş yok → eklenmez.
 
 ### Haftalık full çiftleri (TR) — ikisi de B
 | Gün | B 05:01 (1. full) | B (1. bitince 2. full) |

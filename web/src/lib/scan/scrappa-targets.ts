@@ -2,24 +2,37 @@
  * Scrappa tek-yön tarama hedefleri.
  *
  * - Kalkış: IST + SAW (tek istekte ikisi olmaz → 2 ayrı istek)
- * - Varış: şehir başına 1 havalimanı (varsa en işlek olan)
+ * - Varış: şehir başına ana havalimanı + varsa ekstra havalimanları (ayrı istek)
  * - Yön: gidiş + dönüş ayrı one-way
- * - Liste sırası = full dilimler (7 × 4)
+ * - Liste sırası = full dilimler (7 × 4). Ekstra havalimanlı şehirler (Paris,
+ *   Milano+Londra, Dubai) haftalık çiftlerde yan yana gelmeyen dilimlerde.
  */
 
 export const SCRAPPA_ORIGINS = ["IST", "SAW"] as const;
 
+export type ScrappaOrigin = (typeof SCRAPPA_ORIGINS)[number];
+
+export type ScrappaExtraAirport = {
+  code: string;
+  /** Yalnız bu İstanbul havalimanlarıyla taranır (gidiş + dönüş). */
+  origins?: readonly ScrappaOrigin[];
+  /** Ayrı şehir sayılabilecek havalimanı — kartta "Dubai – Şarja". */
+  label?: string;
+};
+
 export type ScrappaDestination = {
   code: string;
   name: string;
-  /** Varsa kullanılmayan 2. havalimanı */
+  /** Aynı şehirde ayrıca taranan havalimanları; fiyatlar bu şehrin kartına yazılır. */
+  extraAirports?: readonly ScrappaExtraAirport[];
+  /** Taranmayan diğer havalimanı (Google Deals eşlemesi için). */
   skippedAlt?: string;
 };
 
 /** 28 varış — full dilim sırası (her dilim 4 şehir) */
 export const SCRAPPA_DESTINATIONS: ScrappaDestination[] = [
   // Dilim 1
-  { code: "ATH", name: "Atina" },
+  { code: "CDG", name: "Paris", extraAirports: [{ code: "ORY" }] },
   { code: "BUD", name: "Budapeşte" },
   { code: "VIE", name: "Viyana" },
   { code: "SOF", name: "Sofya" },
@@ -27,12 +40,21 @@ export const SCRAPPA_DESTINATIONS: ScrappaDestination[] = [
   { code: "PRG", name: "Prag" },
   { code: "FCO", name: "Roma", skippedAlt: "CIA" },
   { code: "VCE", name: "Venedik", skippedAlt: "TSF" },
-  { code: "MXP", name: "Milano", skippedAlt: "LIN" },
-  // Dilim 3
   { code: "MUC", name: "Münih" },
+  // Dilim 3
+  {
+    code: "MXP",
+    name: "Milano",
+    extraAirports: [{ code: "BGY", origins: ["SAW"] }],
+    skippedAlt: "LIN",
+  },
   { code: "BER", name: "Berlin" },
   { code: "TBS", name: "Tiflis" },
-  { code: "FRA", name: "Frankfurt" },
+  {
+    code: "LTN",
+    name: "Londra",
+    extraAirports: [{ code: "STN", origins: ["SAW"] }],
+  },
   // Dilim 4
   { code: "GYD", name: "Bakü" },
   { code: "SJJ", name: "Saraybosna" },
@@ -42,12 +64,16 @@ export const SCRAPPA_DESTINATIONS: ScrappaDestination[] = [
   { code: "TIA", name: "Tiran" },
   { code: "SKP", name: "Üsküp" },
   { code: "SSH", name: "Şarm el Şeyh" },
-  { code: "DXB", name: "Dubai" },
+  {
+    code: "DXB",
+    name: "Dubai",
+    extraAirports: [{ code: "SHJ", label: "Şarja" }],
+  },
   // Dilim 6
-  { code: "CDG", name: "Paris", skippedAlt: "ORY" },
+  { code: "ATH", name: "Atina" },
   { code: "MAD", name: "Madrid" },
   { code: "BCN", name: "Barselona" },
-  { code: "LTN", name: "Londra", skippedAlt: "STN" },
+  { code: "FRA", name: "Frankfurt" },
   // Dilim 7
   { code: "DPS", name: "Bali" },
   { code: "HKT", name: "Phuket" },
@@ -63,9 +89,27 @@ export function findTrackedDestination(
   if (!/^[A-Z]{3}$/.test(code)) return null;
   return (
     SCRAPPA_DESTINATIONS.find(
-      (d) => d.code === code || d.skippedAlt === code,
+      (d) =>
+        d.code === code ||
+        d.skippedAlt === code ||
+        d.extraAirports?.some((a) => a.code === code),
     ) ?? null
   );
+}
+
+/** Şehrin taranan havalimanları: ana + ekstra. */
+export function cityAirportCodes(dest: ScrappaDestination): string[] {
+  return [dest.code, ...(dest.extraAirports ?? []).map((a) => a.code)];
+}
+
+/** Kart başlığı: "Milano (BGY)", "Dubai – Şarja (SHJ)". */
+export function trackedDestinationLabel(
+  dest: ScrappaDestination,
+  airport = dest.code,
+): string {
+  const code = airport.trim().toUpperCase();
+  const label = dest.extraAirports?.find((a) => a.code === code)?.label;
+  return `${label ? `${dest.name} – ${label}` : dest.name} (${code})`;
 }
 
 /** 1 varış × 1 tarih = 4 one-way istek */

@@ -7,11 +7,15 @@ export type DealDateOption = {
   /** Kuyruğa eklenme zamanı — FIFO ve “eski fırsat” notu. */
   foundAt?: string;
   source?: "gdeals" | "scrappa" | "manual";
+  /** Şehrin ekstra havalimanı (BGY, SHJ…); yoksa şehir kodu. */
+  destAirport?: string;
 };
 
 export type Deal = {
   id: string;
   destination: string;
+  /** Şehrin ekstra havalimanı (BGY, SHJ…); yoksa id’deki şehir kodu. */
+  destAirport?: string;
   country?: string;
   price: number;
   /** Kartta üstü çizili referans */
@@ -128,6 +132,7 @@ export type ScrappaRematchJob = {
       booking?: {
         origin: "IST" | "SAW";
         destCode: string;
+        airport?: string;
         departureDate: string;
         listPrice: number;
         bookingToken?: string;
