@@ -4,6 +4,7 @@ import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
 import { passesGoogleDealGates } from "@/lib/scan/google-deals-gates";
+import { checkAgainstOwnOneWays } from "@/lib/scan/google-deals-sanity";
 import { routeKey, seasonKey } from "@/lib/scan/dates";
 import { insertObservations, type ObservationRow } from "@/lib/scan/observations";
 import { destPhotoCode } from "@/lib/destination-photos";
@@ -236,7 +237,26 @@ export async function runSerpapiDealsScan(
       continue;
     }
 
-    const hitOrigin = String(hit.departure_airport_code ?? "IST").toUpperCase();
+    const hitOrigin =
+      String(hit.departure_airport_code ?? "IST").toUpperCase() === "SAW" ? "SAW" : "IST";
+    if (admin) {
+      const own = await checkAgainstOwnOneWays(admin, {
+        destCode: dest.code,
+        airport: dest.airport,
+        origin: hitOrigin,
+        outDate,
+        retDate,
+        price,
+      });
+      if (!own.ok) {
+        console.log(
+          JSON.stringify({ tag: "gdeals-own-check-drop", dest: dest.code, origin: hitOrigin, outDate, retDate, price, ownSum: own.ownSum }),
+        );
+        skippedGate += 1;
+        continue;
+      }
+    }
+
     matched.push(
       toShowcaseDeal(
         {
@@ -246,7 +266,7 @@ export async function runSerpapiDealsScan(
           link: hit.flight_link,
           outDate,
           retDate,
-          origin: hitOrigin === "SAW" ? "SAW" : "IST",
+          origin: hitOrigin,
           stops: typeof hit.stops === "number" ? hit.stops : undefined,
           airline: hit.airline,
           thumbnail: hit.thumbnail,
@@ -296,6 +316,24 @@ export async function runSerpapiDealsScan(
     if (!gate.ok) {
       skippedGate += 1;
       continue;
+    }
+    const [, , dealOrigin, , , retDate] = deal.id.split(":");
+    if (dealOrigin && retDate) {
+      const own = await checkAgainstOwnOneWays(admin, {
+        destCode: code,
+        airport: deal.destAirport,
+        origin: dealOrigin,
+        outDate,
+        retDate,
+        price: deal.price,
+      });
+      if (!own.ok) {
+        console.log(
+          JSON.stringify({ tag: "gdeals-own-check-drop", id: deal.id, price: deal.price, ownSum: own.ownSum }),
+        );
+        skippedGate += 1;
+        continue;
+      }
     }
     keptExisting.push(deal);
   }
