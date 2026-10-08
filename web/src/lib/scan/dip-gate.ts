@@ -1,5 +1,5 @@
 import type { Deal } from "@/lib/types";
-import { hardFloorUsd } from "@/lib/scan/showcase-config";
+import { hardFloorUsd, strictRawCapUsd } from "@/lib/scan/showcase-config";
 
 function destCodeOf(deal: Deal) {
   if (
@@ -14,12 +14,17 @@ function destCodeOf(deal: Deal) {
 
 /**
  * Vitrin fiyat kapısı — kaynak fark etmez (scrappa / gdeals / manual).
- * Snapshot thresholdPrice; yoksa hard floor; ikisi de yoksa kapı yok.
+ * Elle eşikli şehirde tek kapı o eşik (ekran fiyatı); değilse snapshot thresholdPrice;
+ * yoksa hard floor; ikisi de yoksa kapı yok.
  */
 export function dealPriceCapUsd(deal: Deal): number | null {
-  if (typeof deal.thresholdPrice === "number" && deal.thresholdPrice > 0) {
-    return deal.thresholdPrice;
-  }
+  const strict = strictRawCapUsd(destCodeOf(deal));
+  if (strict != null) return strict;
+  const snapshot =
+    typeof deal.thresholdPrice === "number" && deal.thresholdPrice > 0
+      ? deal.thresholdPrice
+      : null;
+  if (snapshot != null) return snapshot;
   const floor = hardFloorUsd(destCodeOf(deal));
   return floor != null && floor > 0 ? floor : null;
 }

@@ -5,6 +5,8 @@ import {
   hardFloorUsd,
   minDistinctOutboundForDest,
   minSampleForDest,
+  strictRawCapUsd,
+  strictThresholdUsd,
   strikeFromThreshold,
   type DealBadge,
 } from "@/lib/scan/showcase-config";
@@ -54,6 +56,26 @@ export function monthStatsFromTotals(
   };
 }
 
+/** Elle eşik verilmiş şehir: tek kapı ekran fiyatı ≤ eşik. Eşik yoksa null (normal kapılar). */
+function strictThresholdGate(
+  destCode: string,
+  price: number,
+  reference?: number | null,
+): EligibilityResult | null {
+  const threshold = strictThresholdUsd(destCode);
+  const rawCap = strictRawCapUsd(destCode);
+  if (threshold == null || rawCap == null) return null;
+  if (!(price <= rawCap)) return { isEligible: false, reason: "esik_ustu" };
+  return {
+    isEligible: true,
+    badge: "MUTLAK_FIRSAT",
+    uiThreshold: threshold,
+    strikePrice: strikeFromThreshold(threshold, reference),
+    monthlyMedian: reference ?? null,
+    benchmarkMode: BENCHMARK_MODE,
+  };
+}
+
 export function seasonalGateOpen(
   destCode: string,
   stats: MonthSampleStats,
@@ -79,6 +101,9 @@ export function checkShowcaseEligibility(input: {
   if (!Number.isFinite(price) || price <= 0) {
     return { isEligible: false, reason: "fiyat_yok" };
   }
+
+  const strict = strictThresholdGate(input.destCode, price, input.monthStats.median);
+  if (strict) return strict;
 
   const floor = hardFloorUsd(input.destCode);
   if (floor != null && price <= floor) {
@@ -136,6 +161,9 @@ export function passesGoogleShowcaseGate(input: {
   price: number;
   googleAverage?: number;
 }): EligibilityResult {
+  const strict = strictThresholdGate(input.destCode, input.price, input.googleAverage);
+  if (strict) return strict;
+
   const floor = hardFloorUsd(input.destCode);
   if (floor != null && input.price <= floor) {
     const avg = input.googleAverage;

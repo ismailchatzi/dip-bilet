@@ -2,6 +2,7 @@
 
 import { DestGallery } from "@/components/vitrin/DestGallery";
 import { DreamDestToggle } from "@/components/vitrin/DreamDestToggle";
+import { PriceInsightsPanel } from "@/components/vitrin/PriceInsightsPanel";
 import { TripExtrasPanel } from "@/components/vitrin/TripExtrasPanel";
 import {
   dealCabin,
@@ -31,6 +32,9 @@ import {
   aviasalesAffiliateUrl,
   tripcomUrl,
 } from "@/lib/deal-display";
+import { dealPriceCapUsd } from "@/lib/scan/dip-gate";
+import { strictThresholdUsd } from "@/lib/scan/showcase-config";
+import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -87,6 +91,8 @@ export function DealDetail({
   const aviasalesUrl = aviasalesAffiliateUrl(out, destAirport, od, rd, dealDestCode(view));
   const tripUrl = od && rd ? tripcomUrl(out, destAirport, od, rd) : undefined;
   const oldDeal = isOldShowcaseDeal(view);
+  const trackedCity = dest ? findTrackedDestination(dest)?.code : undefined;
+  const threshold = (dest ? strictThresholdUsd(dest) : null) ?? dealPriceCapUsd(deal);
   const altRows = useMemo(() => {
     const heroPrice = deal.price;
     const fromChoices = choices
@@ -201,9 +207,7 @@ export function DealDetail({
                 <ChartIcon />
                 <span>Fiyat Eşiği</span>
                 <strong>
-                  {typeof deal.thresholdPrice === "number"
-                    ? formatDealMoney(deal.thresholdPrice, deal.currency)
-                    : "—"}
+                  {threshold != null ? formatDealMoney(threshold, deal.currency) : "—"}
                 </strong>
               </li>
             </ul>
@@ -358,6 +362,20 @@ export function DealDetail({
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {trackedCity ? (
+        <PriceInsightsPanel
+          dest={trackedCity}
+          cityLabel={cityLabel}
+          shownPrice={shownPrice}
+          currency={view.currency}
+          out={out}
+          destAirport={destAirport}
+          back={back}
+          od={od}
+          rd={rd}
+        />
       ) : null}
 
       {dest && od && rd ? (

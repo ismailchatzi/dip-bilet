@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PriceAlertsList } from "@/components/account/PriceAlertsList";
 import { DESTINATION_OPTIONS } from "@/lib/destinations";
 import { departureDisplay } from "@/lib/departures";
 import { createClient } from "@/lib/supabase/client";
@@ -232,6 +233,8 @@ export function FlightSettings() {
           </Link>
         </div>
       </section>
+
+      <PriceAlertsList />
     </div>
   );
 }

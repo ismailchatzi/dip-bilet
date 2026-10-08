@@ -3590,6 +3590,234 @@ a {
   color: #0a5c8a;
 }
 
+.vitrin-card__rank {
+  display: inline-block;
+  margin: -0.35rem 0 0.65rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.35rem;
+  background: #ecfdf3;
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.price-guide {
+  margin: 2rem 0 0;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid #ececec;
+}
+
+.price-guide h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.price-guide__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.price-guide__card {
+  border: 1px solid #ececec;
+  border-radius: 14px;
+  padding: 1rem 1.05rem;
+  background: #fff;
+}
+
+.price-guide__card--wide {
+  grid-column: 1 / -1;
+}
+
+.price-guide__card h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.price-guide__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.4rem;
+  height: 150px;
+}
+
+.price-guide__bar-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.price-guide__bar {
+  display: block;
+  width: 100%;
+  max-width: 2.6rem;
+  border-radius: 6px 6px 2px 2px;
+  background: #cfe8f4;
+}
+
+.price-guide__bar--on {
+  background: #3db870;
+}
+
+.price-guide__bar-val {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #555;
+  white-space: nowrap;
+}
+
+.price-guide__bar-label {
+  font-size: 0.75rem;
+  color: #777;
+}
+
+.price-guide__line {
+  display: block;
+  width: 100%;
+  height: 150px;
+}
+
+.price-guide__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.price-guide__note {
+  margin: 0.7rem 0 0;
+  font-size: 0.85rem;
+  color: #555;
+  line-height: 1.45;
+}
+
+.price-guide__foot {
+  margin: 0.8rem 0 0;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.price-alert {
+  margin-top: 1rem;
+  border: 1px solid #d8eef6;
+  border-radius: 14px;
+  padding: 1rem 1.05rem;
+  background: #f5fbfd;
+}
+
+.price-alert__head h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.price-alert__head p {
+  margin: 0.25rem 0 0.8rem;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.price-alert__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.7rem;
+}
+
+.price-alert__form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #666;
+}
+
+.price-alert__form select,
+.price-alert__form input {
+  min-width: 9rem;
+  height: 2.4rem;
+  padding: 0 0.6rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #111;
+}
+
+.price-alert__btn {
+  height: 2.4rem;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: 8px;
+  background: #8fd3ea;
+  color: #083344;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.price-alert__btn:hover:not(:disabled) {
+  background: #7bc7e2;
+}
+
+.price-alert__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.price-alert__error {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #c62828;
+}
+
+.price-alert__list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.price-alert__list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.88rem;
+}
+
+.price-alert__list button {
+  border: 0;
+  background: transparent;
+  color: #c62828;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.price-alert__more {
+  margin: 0.7rem 0 0;
+  font-size: 0.8rem;
+  color: #777;
+}
+
+@media (max-width: 720px) {
+  .price-guide__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .trip-extras {
   margin-top: 2rem;
   padding-top: 1.25rem;

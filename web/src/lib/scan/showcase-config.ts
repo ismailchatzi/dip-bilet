@@ -122,9 +122,89 @@ export function gateRatioForDest(destCode: string): number {
   }
 }
 
+/**
+ * Elle verilen eşikler (v2, 2026-10-08): fiyat ≤ eşik ise vitrin, üstü hiçbir yoldan
+ * (sezonluk / Google ortalaması / eski kart snapshot'ı) girmez.
+ */
+export const MANUAL_THRESHOLDS: Record<string, number> = {
+  AUH: 180,
+  AKX: 200,
+  KSY: 70,
+  ALC: 205,
+  BER: 125,
+  AER: 300,
+  BEG: 140,
+  AGP: 200,
+  FCO: 170,
+  VIE: 120,
+  BIO: 183,
+  AMM: 220,
+  BRE: 140,
+  CIT: 220,
+  JED: 130,
+  BHX: 180,
+  BLQ: 180,
+  NCE: 160,
+  MUC: 140,
+  BUD: 100,
+  DMM: 220,
+  SJJ: 110,
+  PMO: 190,
+  VLC: 190,
+  ALA: 200,
+  EDI: 200,
+  BSL: 115,
+  MLH: 115,
+  CAI: 150,
+  LTN: 140,
+  SKP: 110,
+  VCE: 180,
+  PRG: 120,
+  OVB: 1400,
+  CDG: 150,
+  VAN: 100,
+  MSR: 100,
+  DUB: 160,
+  BRS: 170,
+  GZT: 70,
+  BJV: 90,
+  KYA: 80,
+  BRI: 210,
+  PVG: 540,
+  SHA: 540,
+  BAH: 240,
+  BJL: 530,
+  CTA: 190,
+  BGW: 155,
+  KCM: 70,
+  BRU: 130,
+  CRL: 130,
+  ATH: 93,
+  CMN: 240,
+  AJI: 110,
+  SVX: 325,
+};
+
+export function strictThresholdUsd(destCode: string): number | null {
+  return MANUAL_THRESHOLDS[destCode.trim().toUpperCase()] ?? null;
+}
+
+/** deal-display BOOKING_DISPLAY_FACTOR ile aynı olmalı (döngüsel import yüzünden kopya). */
+const STRICT_DISPLAY_FACTOR = 0.97;
+
+/**
+ * Elle eşik ekranda görünen fiyata uygulanır: floor(ham × 0.97) ≤ eşik.
+ * Ham fiyatla karşılaştırmak için en yüksek geçerli ham fiyat.
+ */
+export function strictRawCapUsd(destCode: string): number | null {
+  const threshold = strictThresholdUsd(destCode);
+  if (threshold == null) return null;
+  return (threshold + 1) / STRICT_DISPLAY_FACTOR - 1e-6;
+}
+
 export function hardFloorUsd(destCode: string): number | null {
-  const e = HARD_FLOORS[destCode.trim().toUpperCase()];
-  return e?.floor ?? null;
+  const code = destCode.trim().toUpperCase();
+  return strictThresholdUsd(code) ?? HARD_FLOORS[code]?.floor ?? null;
 }
 
 /** Sezonluk kapı için minimum sentetik RT aday sayısı (heuristic). */

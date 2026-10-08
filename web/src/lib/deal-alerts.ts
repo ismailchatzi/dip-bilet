@@ -171,6 +171,62 @@ export function dealAlertEmailContent(deals: Deal[]) {
   return { subject, text, html };
 }
 
+/** Üyenin kurduğu fiyat alarmı tuttu: tek fırsat. */
+export function priceAlertEmailContent(deal: Deal, alertText: string) {
+  const origin = siteOrigin();
+  const subject = `🔔 Fiyat alarmın: ${dealCityTitle(deal)} — ${shownMoney(deal)}`;
+  const text = [
+    "Merhaba,",
+    "",
+    `Kurduğun fiyat alarmı tuttu (${alertText}):`,
+    "",
+    `• ${dealCityTitle(deal)}: ${shownMoney(deal)} — ${dealDateRange(deal)}`,
+    `  ${dealAbsoluteHref(deal)}`,
+    "",
+    `Alarmlarını yönetmek için: ${origin}/ucus-ayarlari`,
+    "",
+    "Sevgiler,",
+    "Dip Bilet — " + origin,
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="tr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:'Segoe UI',system-ui,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f6fa;padding:32px 0">
+<tr><td align="center">
+  <table width="560" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px">
+    <tr>
+      <td style="padding:0 0 16px">
+        <a href="${origin}" style="text-decoration:none">
+          <img src="${emailAssetOrigin()}/logo-db-badge.png" alt="Dip Bilet" height="36" style="height:36px;border:0">
+        </a>
+      </td>
+    </tr>
+    <tr>
+      <td style="font-size:26px;font-weight:900;color:#00153d;letter-spacing:-0.5px">🔔 Fiyat alarmın tuttu</td>
+    </tr>
+    <tr>
+      <td style="font-size:14px;color:#555;padding-top:6px">${alertText}</td>
+    </tr>
+  </table>
+  ${dealCard(deal)}
+  <table width="560" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;padding:24px 0 0;border-top:1px solid #e0e0e0;text-align:center">
+    <tr>
+      <td style="font-size:12px;color:#aaa;line-height:1.6">
+        Dip Bilet &nbsp;·&nbsp; <a href="${origin}/firsatlarim" style="color:#00153d;text-decoration:none">Vitrine git</a><br>
+        Alarmı kaldırmak için <a href="${origin}/ucus-ayarlari" style="color:#00153d;text-decoration:none">uçuş ayarlarına</a> git.
+      </td>
+    </tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`.trim();
+
+  return { subject, text, html };
+}
+
 export function dealAlertSmsContent(deals: Deal[]) {
   const cities = pickEmailDeals(deals);
   const top = cities.slice(0, 2);
