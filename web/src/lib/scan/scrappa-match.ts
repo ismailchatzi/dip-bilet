@@ -755,7 +755,8 @@ export function destCodeFromDeal(deal: Deal) {
   if (
     deal.id.startsWith("scrappa:") ||
     deal.id.startsWith("gdeals:") ||
-    deal.id.startsWith("manual:")
+    deal.id.startsWith("manual:") ||
+    deal.id.startsWith("external:")
   ) {
     return deal.id.split(":")[1] ?? "";
   }

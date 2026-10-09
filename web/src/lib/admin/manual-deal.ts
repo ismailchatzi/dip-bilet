@@ -67,7 +67,11 @@ function resolveDest(input: ManualDealInput): { code: string; name: string } {
 }
 
 function isAutoDeal(deal: Deal) {
-  return deal.id.startsWith("gdeals:") || deal.id.startsWith("scrappa:");
+  return (
+    deal.id.startsWith("gdeals:") ||
+    deal.id.startsWith("scrappa:") ||
+    deal.id.startsWith("external:")
+  );
 }
 
 function hasLocalPhoto(code: string, cityName?: string) {

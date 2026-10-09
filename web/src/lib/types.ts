@@ -6,7 +6,7 @@ export type DealDateOption = {
   origin?: string;
   /** Kuyruğa eklenme zamanı — FIFO ve “eski fırsat” notu. */
   foundAt?: string;
-  source?: "gdeals" | "scrappa" | "manual";
+  source?: "gdeals" | "scrappa" | "manual" | "external";
   /** Şehrin ekstra havalimanı (BGY, SHJ…); yoksa şehir kodu. */
   destAirport?: string;
 };

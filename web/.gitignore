@@ -22,6 +22,7 @@
 /.data/
 .scrappa-worker.lock
 .external-deals-state.json
+.external-verify-state.json
 
 # production
 /build

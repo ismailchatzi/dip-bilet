@@ -174,7 +174,8 @@ function showcaseParts(deal: Deal) {
   if (
     deal.id.startsWith("scrappa:") ||
     deal.id.startsWith("gdeals:") ||
-    deal.id.startsWith("manual:")
+    deal.id.startsWith("manual:") ||
+    deal.id.startsWith("external:")
   ) {
     return deal.id.split(":");
   }
@@ -625,9 +626,10 @@ export function sameDateCluster(a: Deal, b: Deal) {
 
 export const MAX_DATE_OPTIONS = 10;
 
-function dealSourcePrefix(deal: Deal): "gdeals" | "scrappa" | "manual" {
+function dealSourcePrefix(deal: Deal): "gdeals" | "scrappa" | "manual" | "external" {
   if (deal.id.startsWith("gdeals:")) return "gdeals";
   if (deal.id.startsWith("manual:")) return "manual";
+  if (deal.id.startsWith("external:")) return "external";
   return "scrappa";
 }
 
@@ -858,7 +860,7 @@ export type DealDateChoice = {
   airline?: string;
   origin?: string;
   foundAt?: string;
-  source?: "gdeals" | "scrappa" | "manual";
+  source?: "gdeals" | "scrappa" | "manual" | "external";
   destAirport?: string;
 };
 
@@ -1033,7 +1035,7 @@ export function dealCabin() {
   return "Ekonomi";
 }
 
-/** Kart altı soluk kod: D… Google / S… Scrappa + 4 harf + eklenme saati HHMM (TR). */
+/** Kart altı soluk kod: D… Google / S… Scrappa / E… dış kaynak + 4 harf + eklenme saati HHMM (TR). */
 export function dealSourceCipher(deal: Deal) {
   const prefix = deal.id.startsWith("gdeals:")
     ? "D"
@@ -1041,7 +1043,9 @@ export function dealSourceCipher(deal: Deal) {
       ? "S"
       : deal.id.startsWith("manual:")
         ? "M"
-        : null;
+        : deal.id.startsWith("external:")
+          ? "E"
+          : null;
   if (!prefix) return null;
   const letters = "BCDFGHJKMNPQRTVWXZ";
   let n = 2166136261;
