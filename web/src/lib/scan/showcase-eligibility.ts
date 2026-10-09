@@ -3,6 +3,7 @@ import {
   GOOGLE_AVG_GATE,
   gateRatioForDest,
   hardFloorUsd,
+  manualStandardUsd,
   minDistinctOutboundForDest,
   minSampleForDest,
   strictRawCapUsd,
@@ -66,11 +67,17 @@ function strictThresholdGate(
   const rawCap = strictRawCapUsd(destCode);
   if (threshold == null || rawCap == null) return null;
   if (!(price <= rawCap)) return { isEligible: false, reason: "esik_ustu" };
+  const hasReference =
+    typeof reference === "number" && Number.isFinite(reference) && reference > 0;
+  const manualStandard = hasReference ? null : manualStandardUsd(destCode);
   return {
     isEligible: true,
     badge: "MUTLAK_FIRSAT",
     uiThreshold: threshold,
-    strikePrice: strikeFromThreshold(threshold, reference),
+    strikePrice:
+      manualStandard != null && manualStandard > threshold
+        ? Math.round(manualStandard)
+        : strikeFromThreshold(threshold, reference),
     monthlyMedian: reference ?? null,
     benchmarkMode: BENCHMARK_MODE,
   };

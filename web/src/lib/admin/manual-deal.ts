@@ -11,7 +11,11 @@ import { destPhotoUrls } from "@/lib/destination-photos";
 import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { readScanBoard, patchScanBoard } from "@/lib/scan/board";
 import { foldShowcase } from "@/lib/scan/deal-archive";
-import { hardFloorUsd, strikeFromThreshold } from "@/lib/scan/showcase-config";
+import {
+  hardFloorUsd,
+  manualStandardUsd,
+  strikeFromThreshold,
+} from "@/lib/scan/showcase-config";
 import { findTrackedDestination } from "@/lib/scan/scrappa-targets";
 import type { Deal, DealDateOption } from "@/lib/types";
 
@@ -139,12 +143,17 @@ export function buildManualDeal(input: ManualDealInput): Deal {
   const retDest = input.returnOrigin ?? origin;
   const now = new Date().toISOString();
   const floor = hardFloorUsd(code);
-  const strikeBase =
-    typeof input.referencePrice === "number" && input.referencePrice > 0
-      ? input.referencePrice
-      : (floor ?? input.price);
+  const hasReference =
+    typeof input.referencePrice === "number" && input.referencePrice > 0;
+  const strikeBase = hasReference
+    ? input.referencePrice!
+    : (floor ?? input.price);
   const threshold = floor ?? Math.round(strikeBase);
-  const strike = strikeFromThreshold(threshold, strikeBase);
+  const manualStandard = hasReference ? null : manualStandardUsd(code);
+  const strike =
+    manualStandard != null && manualStandard > threshold
+      ? Math.round(manualStandard)
+      : strikeFromThreshold(threshold, strikeBase);
   const discount =
     strike > 0 ? Math.round(((strike - input.price) / strike) * 100) : 0;
   const photoUrl = input.photoUrl?.trim() || undefined;

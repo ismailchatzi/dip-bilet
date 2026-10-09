@@ -21,6 +21,7 @@
 /.cache/
 /.data/
 .scrappa-worker.lock
+.external-deals-state.json
 
 # production
 /build

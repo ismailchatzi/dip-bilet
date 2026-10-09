@@ -88,7 +88,9 @@ TIA 110, SJJ 120, SKP 115, BEG 135, TBS 110, GYD 140, SSH 120, ATH 100, BUD 135,
 
 ## Elle eşikler v2 (2026-10-08, `MANUAL_THRESHOLDS`) — v1'i ezer
 Listedeki şehirde **tek kapı: ekranda görünen fiyat (floor(ham × 0.97)) ≤ eşik** (dahil). Sezonluk / Google avg / eski kart snapshot'ı yok sayılır (`dealPriceCapUsd` = `strictRawCapUsd`).
-AUH 180, AKX 200, KSY 70, ALC 205, BER 125, AER 300, BEG 140, AGP 200, FCO 170, VIE 120, BIO 183, AMM 220, BRE 140, CIT 220, JED 130, BHX 180, BLQ 180, NCE 160, MUC 140, BUD 100, DMM 220, SJJ 110, PMO 190, VLC 190, ALA 200, EDI 200, BSL/MLH 115, CAI 150, LTN 140, SKP 110, VCE 180, PRG 120, OVB 1400, CDG 150, VAN 100, MSR 100, DUB 160, BRS 170, GZT 70, BJV 90, KYA 80, BRI 210, PVG/SHA 540, BAH 240, BJL 530, CTA 190, BGW 155, KCM 70, BRU/CRL 130, ATH 93, CMN 240, AJI 110, SVX 325.
+AUH 180, AKX 200, KSY 70, ALC 205, BER 125, AER 300, BEG 140, AGP 200, FCO 170, VIE 120, BIO 183, AMM 220, BRE 140, CIT 220, JED 130, BHX 180, BLQ 180, NCE 160, MUC 140, BUD 100, DMM 220, SJJ 110, PMO 190, VLC 190, ALA 200, EDI 200, BSL/MLH 115, CAI 150, LTN 140, SKP 110, VCE 180, PRG 120, OVB 1400, CDG 150, VAN 100, MSR 100, DUB 160, BRS 170, GZT 70, BJV 90, KYA 80, BRI 210, PVG/SHA 540, BAH 240, BJL 530, CTA 190, BGW 155, KCM 70, BRU/CRL 130, ATH 93, CMN 240, AJI 110, SVX 325, LIS 180, SVQ 180, NAP 170, MNL 500.
+
+**Geçici elle Standart** (`MANUAL_STANDARDS`, üstü çizili USD; yalnız medyan / Google avg yokken): LIS 252, SVQ 252, NAP 245, MNL 700. Bu şehirlerin eşik + standardı **geçici** — dış kaynak / tarama verisi birikince veriden hesaplanacak (verisi olmayan diğer şehirler de).
 
 ## Google Deals (SerpAPI)
 Takip edilen 28 şehirde Google fiyatı, aynı tarihlerin kendi tek yön toplamımızın (son 21 gün) %75'inin altındaysa kart alınmaz / düşer (`google-deals-sanity`; Google bazen tek yön fiyatını RT diye verir).

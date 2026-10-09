@@ -183,10 +183,29 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   CMN: 240,
   AJI: 110,
   SVX: 325,
+  LIS: 180,
+  SVQ: 180,
+  NAP: 170,
+  MNL: 500,
 };
 
 export function strictThresholdUsd(destCode: string): number | null {
   return MANUAL_THRESHOLDS[destCode.trim().toUpperCase()] ?? null;
+}
+
+/**
+ * Geçici elle Standart (üstü çizili, USD) — fiyat verisi olmayan şehirler.
+ * Medyan / Google ortalaması gibi gerçek referans varsa o kullanılır.
+ */
+export const MANUAL_STANDARDS: Record<string, number> = {
+  LIS: 252,
+  SVQ: 252,
+  NAP: 245,
+  MNL: 700,
+};
+
+export function manualStandardUsd(destCode: string): number | null {
+  return MANUAL_STANDARDS[destCode.trim().toUpperCase()] ?? null;
 }
 
 /** deal-display BOOKING_DISPLAY_FACTOR ile aynı olmalı (döngüsel import yüzünden kopya). */
