@@ -124,6 +124,33 @@ function verifyOf(row: Row): VerifyInfo {
   return (row.details.verify as VerifyInfo | undefined) ?? {};
 }
 
+/**
+ * Telegram mesajı havalimanını açık yazar. Diğer kaynaklarda "İstanbul" (ISTA = tüm havalimanları)
+ * kayıtta IST'ye dönmüş olabilir → iki havalimanı da sorulur.
+ */
+function rowOrigins(row: Row, from: string): ("IST" | "SAW")[] {
+  const code = istanbulCode(from);
+  if (!code) return [];
+  return row.source === "telegram" ? [code] : ["IST", "SAW"];
+}
+
+type RowTrip = { key: string; origin: "IST" | "SAW"; airport: string; out: string; ret: string };
+
+function rowTrips(row: Row, minOut: string): RowTrip[] {
+  const pairs = (row.date_pairs ?? [])
+    .filter((p) => p.ret && p.out >= minOut && p.ret >= p.out && istanbulCode(p.from))
+    .slice(0, PAIRS_PER_ROW);
+  const trips: RowTrip[] = [];
+  for (const p of pairs) {
+    const airport = (p.to || row.dest_code || "").toUpperCase();
+    if (!/^[A-Z]{3}$/.test(airport)) continue;
+    for (const origin of rowOrigins(row, p.from)) {
+      trips.push({ key: `${origin}|${airport}|${p.out}|${p.ret}`, origin, airport, out: p.out, ret: p.ret! });
+    }
+  }
+  return trips;
+}
+
 /** Lane kuralı: A işi / iki rematch / A işçisi varken Scrappa'ya dokunma. */
 function laneBusy(board: DealsPayload | null): string | null {
   if (board?.scrappaJob?.status === "running") return "A tek yön sürüyor";
@@ -195,7 +222,7 @@ async function main() {
 
   const pending = rows.filter((r) => {
     const v = verifyOf(r);
-    return v.status == null && (v.attempts ?? 0) < MAX_ATTEMPTS;
+    return v.status !== "ok" && (v.attempts ?? 0) < MAX_ATTEMPTS;
   });
   const needFx = pending.some((r) => (r.currency ?? "USD").toUpperCase() !== "USD");
   const rates = needFx ? await usdRates() : null;
@@ -212,36 +239,30 @@ async function main() {
       continue;
     }
     const checked = verifyOf(row).trips ?? {};
-    const pairs = (row.date_pairs ?? [])
-      .filter((p) => p.ret && p.out >= minOut && p.ret >= p.out && istanbulCode(p.from))
-      .slice(0, PAIRS_PER_ROW);
-    if (pairs.length === 0) {
+    const candidates = rowTrips(row, minOut);
+    if (candidates.length === 0) {
       skips.push(`#${row.id} uygun tarih yok`);
       continue;
     }
     const cityName =
       typeof row.details.destName === "string" ? row.details.destName : undefined;
-    for (const p of pairs) {
-      const origin = istanbulCode(p.from) as "IST" | "SAW";
-      const airport = (p.to || row.dest_code || "").toUpperCase();
-      if (!/^[A-Z]{3}$/.test(airport)) continue;
-      const key = `${origin}|${airport}|${p.out}|${p.ret}`;
-      if (checked[key]) continue;
+    for (const c of candidates) {
+      if (checked[c.key]) continue;
 
       const probe = buildExternalCard(
-        { airport, origin, outboundDate: p.out, returnDate: p.ret!, fullUsd: Math.round(usd), cityName },
+        { airport: c.airport, origin: c.origin, outboundDate: c.out, returnDate: c.ret, fullUsd: Math.round(usd), cityName },
         board,
       );
       if (!probe.ok) {
-        skips.push(`#${row.id} ${airport} ${p.out}→${p.ret} $${Math.round(usd)}: ${probe.reason}`);
+        skips.push(`#${row.id} ${c.origin}→${c.airport} ${c.out}→${c.ret} $${Math.round(usd)}: ${probe.reason}`);
         continue;
       }
-      const prev = trips.get(key);
+      const prev = trips.get(c.key);
       if (prev) {
         prev.rows.push(row);
         prev.usd = Math.min(prev.usd, usd);
       } else {
-        trips.set(key, { key, origin, airport, out: p.out, ret: p.ret!, usd, rows: [row], cityName });
+        trips.set(c.key, { ...c, usd, rows: [row], cityName });
       }
     }
   }
@@ -286,6 +307,7 @@ async function main() {
   let checks = 0;
   for (const trip of queue) {
     if (checks >= MAX_CHECKS_PER_RUN) break;
+    if (trip.rows.every((r) => verifyOf(r).status === "ok")) continue;
     if (checks > 0) {
       await new Promise((r) => setTimeout(r, GAP_MS));
       board = (await readScanBoard(admin)).deals;
@@ -364,15 +386,9 @@ async function main() {
         ...(v.trips ?? {}),
         [trip.key]: { status: verified ? "ok" : "fail", at, scrappaUsd: res?.price ?? null },
       };
-      const rowPairs = (row.date_pairs ?? []).filter(
-        (p) => p.ret && p.out >= minOut && istanbulCode(p.from),
-      ).slice(0, PAIRS_PER_ROW);
+      const keys = rowTrips(row, minOut).map((t) => t.key);
       const allFailed =
-        rowPairs.length > 0 &&
-        rowPairs.every((p) => {
-          const k = `${istanbulCode(p.from)}|${(p.to || row.dest_code || "").toUpperCase()}|${p.out}|${p.ret}`;
-          return tripsDone[k]?.status === "fail";
-        });
+        keys.length > 0 && keys.every((k) => tripsDone[k]?.status === "fail");
       await saveVerify(admin, row, {
         ...v,
         sourceUsd: Math.round(trip.usd),
