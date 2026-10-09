@@ -114,7 +114,7 @@ export async function readSecretFlying(
     if (opened < MAX_DETAILS_PER_RUN && !isBlocked(detailState)) {
       if (opened > 0) await sleep(DETAIL_GAP_MS);
       opened++;
-      detail = await politeFetch(card.url, detailState);
+      detail = await politeFetch(card.url, detailState, { via: "curl" });
     }
     const body = detail?.status === "ok" ? detail.body : null;
     if (!body && card.postedOn && card.postedOn >= retryUntil) {
