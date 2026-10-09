@@ -81,13 +81,30 @@ function cityNameFor(
   return MANUAL_CITY_NAMES[city] ?? (fallback?.trim() || null);
 }
 
+/** Aynı şehrin diğer havalimanı — görsel ondan alınabilir. */
+const PHOTO_SIBLING: Record<string, string> = {
+  MLH: "BSL",
+  BSL: "MLH",
+  CRL: "BRU",
+  BRU: "CRL",
+  SHA: "PVG",
+  PVG: "SHA",
+};
+
 function photoFor(city: string, board: DealsPayload | null): string | undefined {
   const pool = [
     ...(board?.deals ?? []),
     ...(board?.archive ?? []),
     ...(board?.cityLows ?? []),
   ];
-  return pool.find((d) => dealDestCode(d) === city && d.photoUrl)?.photoUrl;
+  const codes = [city, PHOTO_SIBLING[city]].filter(Boolean);
+  return pool.find((d) => codes.includes(dealDestCode(d)) && d.photoUrl)?.photoUrl;
+}
+
+function seededPick<T>(list: T[], seed: string): T {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return list[Math.abs(h) % list.length]!;
 }
 
 /** Şehrin canlı kartı varsa eşik / üstü çizili / görsel ondan; yoksa elle eşik + standart. */
@@ -111,16 +128,24 @@ export function buildExternalCard(
       ? Math.round(standard)
       : strikeFromThreshold(threshold, threshold));
 
-  const hasLocal = destPhotoUrls(city).length > 0 || destPhotoUrls(name).length > 0;
-  const photoUrl = template?.photoUrl || (hasLocal ? undefined : photoFor(city, board));
-  if (!hasLocal && !photoUrl) return { ok: false, reason: "gorsel_yok" };
+  const id = `external:${city}:${input.origin}:${input.outboundDate}:${input.origin}:${input.returnDate}`;
+  const local = destPhotoUrls(city).length > 0 ? destPhotoUrls(city) : destPhotoUrls(name);
+  const remote = local.filter((u) => /^https?:\/\//.test(u));
+  const photoUrl =
+    template?.photoUrl ||
+    (remote.length > 0
+      ? seededPick(remote, id)
+      : local.length > 0
+        ? undefined
+        : photoFor(city, board));
+  if (local.length === 0 && !photoUrl) return { ok: false, reason: "gorsel_yok" };
 
   const tracked = findTrackedDestination(city);
   const destAirport = airport !== city ? airport : undefined;
   const price = rawPriceForDisplay(input.fullUsd);
   const now = new Date().toISOString();
   const card: Deal = {
-    id: `external:${city}:${input.origin}:${input.outboundDate}:${input.origin}:${input.returnDate}`,
+    id,
     destination:
       tracked && destAirport
         ? trackedDestinationLabel(tracked, destAirport)

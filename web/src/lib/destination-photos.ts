@@ -36,6 +36,19 @@ const FILES: Record<string, string[]> = {
   ALG: ["algeria1.jpg", "algeria2.jpg"],
 };
 
+/** Sitede dosyası olmayan şehirler — Pexels fotoğraf numaraları. */
+const PEXELS: Record<string, number[]> = {
+  PVG: [50868, 35919936, 35586895],
+  SHA: [50868, 35919936, 35586895],
+  SVQ: [27379390, 30666335, 34691002],
+  NAP: [12464316, 12496266, 20726092],
+  MNL: [188916, 33076681, 18052704],
+};
+
+function pexelsUrl(id: number, width: number) {
+  return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${width}`;
+}
+
 const NAME_TO_CODE: Record<string, string> = {
   athens: "ATH",
   atina: "ATH",
@@ -93,6 +106,14 @@ const NAME_TO_CODE: Record<string, string> = {
   algeria: "ALG",
   algiers: "ALG",
   alger: "ALG",
+  şanghay: "PVG",
+  sanghay: "PVG",
+  shanghai: "PVG",
+  sevilla: "SVQ",
+  seville: "SVQ",
+  napoli: "NAP",
+  naples: "NAP",
+  manila: "MNL",
 };
 
 for (const dest of SCRAPPA_DESTINATIONS) {
@@ -113,7 +134,7 @@ export function destPhotoCode(input: string) {
   const raw = input.trim();
   if (/^[A-Z]{3}$/i.test(raw)) {
     const code = raw.toUpperCase();
-    if (FILES[code]) return code;
+    if (FILES[code] || PEXELS[code]) return code;
   }
   const folded = fold(raw);
   if (NAME_TO_CODE[folded]) return NAME_TO_CODE[folded];
@@ -126,6 +147,10 @@ export type DestPhotoSet = { card: string; full: string };
 export function destPhotoSets(codeOrName: string): DestPhotoSet[] {
   const code = destPhotoCode(codeOrName);
   if (!code) return [];
+  const pexels = PEXELS[code];
+  if (pexels) {
+    return pexels.map((id) => ({ card: pexelsUrl(id, 800), full: pexelsUrl(id, 1920) }));
+  }
   return (FILES[code] ?? []).map((file) => ({
     card: `/destinations/card/${file}`,
     full: `/destinations/full/${file}`,
