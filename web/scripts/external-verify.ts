@@ -3,7 +3,7 @@
  * fiyat tutarsa vitrine kaynağın tam fiyatıyla E kartı olarak ekler.
  *
  * Tarama düzenine dokunmaz: A hattı (near / rematch) çalışırken, B rematch'i sürerken,
- * A işçisi canlıyken veya 04:40–05:20 TR arası hiç Scrappa çağrısı yapmaz.
+ * A işçisi canlıyken veya 03:40–04:20 TR arası hiç Scrappa çağrısı yapmaz.
  *
  * npx tsx scripts/external-verify.ts            → 15 dk cron
  * npx tsx scripts/external-verify.ts --dry      → adayları listele (Scrappa yok, yazma yok)
@@ -200,8 +200,8 @@ async function main() {
     return;
   }
   const minute = turkeyMinuteOfDay();
-  if (!dry && minute >= 4 * 60 + 40 && minute < 5 * 60 + 20) {
-    console.log(`${stamp} 04:40–05:20 TR gün değişimi — çıkış`);
+  if (!dry && minute >= 3 * 60 + 40 && minute < 4 * 60 + 20) {
+    console.log(`${stamp} 03:40–04:20 TR gün değişimi — çıkış`);
     return;
   }
 

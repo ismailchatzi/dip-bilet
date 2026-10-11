@@ -203,8 +203,8 @@ function shouldForceNewDay(
 }
 
 /**
- * A: 05:00 near → rematch (yalnız o near yazımları). Full yok.
- * B: 05:01 günün 1. full → bitince 2. full → ikisinin rematch'i (yalnız o iki full yazımları).
+ * A: 04:00 near → rematch (yalnız o near yazımları). Full yok.
+ * B: 04:01 günün 1. full → bitince 2. full → ikisinin rematch'i (yalnız o iki full yazımları).
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;

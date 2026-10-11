@@ -49,7 +49,7 @@ export function stopLockedWorker(lane: ScrappaLane = currentLane()) {
     } catch {
       /* */
     }
-    // Takılı kaldıysa zorla (05:00 start'ın önünde kilit bırakmasın)
+    // Takılı kaldıysa zorla (04:00 start'ın önünde kilit bırakmasın)
     try {
       if (pidAlive(pid)) process.kill(pid, "SIGKILL");
     } catch {
@@ -78,7 +78,7 @@ function releaseLock() {
 
 /**
  * Tek işçi. Kalp atışına bakmaz: süreç yaşıyorsa ikinci açılmaz.
- * Mola, yavaş istek, 05:00 aynı kapıdan geçer.
+ * Mola, yavaş istek, 04:00 aynı kapıdan geçer.
  */
 export function acquireWorkerLock(lane: ScrappaLane = currentLane()):
   | { ok: true }

@@ -1,7 +1,7 @@
 /**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- * A 05:00 near→rematch. B 05:01 full1→full2→rematch. Ayrı kilit.
+ * A 04:00 near→rematch. B 04:01 full1→full2→rematch. Ayrı kilit.
  * One-way gap 2s. Art arda 7× 502 → 15 dk pause, kaldığı yerden.
  * Env: SCRAPPA_API_KEY (A), SCRAPPA_API_KEY_B (B)
  */
@@ -62,7 +62,7 @@ function parseChunk(raw: string | undefined): number | undefined {
   return Math.floor(n);
 }
 
-/** İkinci süreç yok. start day için eski kilidi çal (05:00 kaçmasın). */
+/** İkinci süreç yok. start day için eski kilidi çal (04:00 kaçmasın). */
 function claimWorkerOrExit(
   why: string,
   lane: ScrappaLane,
@@ -159,7 +159,7 @@ async function main() {
       console.error("SUPABASE_SERVICE_ROLE_KEY yok");
       process.exit(1);
     }
-    const reason = "04:55 kesim — 05:00 yeni gün";
+    const reason = "03:55 kesim — 04:00 yeni gün";
     const now = new Date().toISOString();
     for (const lane of ["a", "b"] as const) {
       bindLaneApiKey(lane);
