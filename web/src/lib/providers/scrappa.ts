@@ -57,15 +57,18 @@ function flightSelfTransfer(f: ScrappaFlight) {
   );
 }
 
-function pickCheapest(flights: ScrappaFlight[], maxStops: number) {
-  const priced = flights
+function rankCheapest(flights: ScrappaFlight[], maxStops: number) {
+  return flights
     .filter((f) => typeof f.price === "number" && f.price! > 0)
     .filter((f) => {
       const stops = flightStops(f);
       return stops == null || stops <= maxStops;
     })
     .sort((a, b) => a.price! - b.price!);
-  return priced[0] ?? null;
+}
+
+function pickCheapest(flights: ScrappaFlight[], maxStops: number) {
+  return rankCheapest(flights, maxStops)[0] ?? null;
 }
 
 export type ScrappaOutageKind = "session" | "transient";
@@ -146,6 +149,8 @@ export type ScrappaOneWay = {
   bookingToken?: string;
   airlineCode?: string;
   flightNumber?: string;
+  /** Gidiş-dönüş: kaçıncı en ucuz gidişle paket bulundu (1 = en ucuz). */
+  outboundTry?: number;
 };
 
 function trackedCity(origin: string, destination: string) {
@@ -425,10 +430,15 @@ export async function scrappaRoundTrip(input: {
   destination: string;
   departureDate: string;
   returnDate: string;
+  /** En ucuz gidişin paketi yoksa sıradaki gidişler (varsayılan 1 = yalnız en ucuz). */
+  outboundTries?: number;
+  /** Her Scrappa isteğinde (outbound / complete) çağrılır — sayaç için. */
+  onCall?: (stage: "outbound" | "complete") => void;
 }): Promise<ScrappaOneWay | null> {
   const apiKey = process.env.SCRAPPA_API_KEY?.trim();
   if (!apiKey) throw new Error("SCRAPPA_API_KEY eksik");
   const maxStops = maxStopsForDest(input.destination);
+  const outboundTries = Math.max(1, Math.floor(input.outboundTries ?? 1));
 
   const params = new URLSearchParams({
     origin: input.origin,
@@ -450,6 +460,7 @@ export async function scrappaRoundTrip(input: {
     let lastReason = "";
     const t0 = Date.now();
     for (let attempt = 1; attempt <= 3; attempt++) {
+      input.onCall?.(stage);
       const res = await fetch(
         `https://scrappa.co/api/flights/v2/round-trip?${p}`,
         {
@@ -522,26 +533,31 @@ export async function scrappaRoundTrip(input: {
   const outbounds = (outJson.flights ?? []).filter(
     (f) => typeof f.departure_token === "string" && f.departure_token.length > 0,
   );
-  const bestOut = pickCheapest(outbounds, maxStops);
-  const token = bestOut?.departure_token?.trim();
-  if (!bestOut || !token) return null;
-
-  params.set("departure_token", token);
-  const totalJson = await fetchV2(params, "complete");
-  const completes = (totalJson.flights ?? []).filter(
-    (f) =>
-      f.itinerary_complete === true ||
-      f.price_type === "round_trip_total" ||
-      (typeof f.price === "number" && f.price > 0),
-  );
-  const best = pickCheapest(completes, maxStops);
-  if (!best || typeof best.price !== "number") return null;
-  return toFare(
-    {
-      origin: input.origin,
-      destination: input.destination,
-      date: input.departureDate,
-    },
-    best,
-  );
+  const ranked = rankCheapest(outbounds, maxStops).slice(0, outboundTries);
+  for (let i = 0; i < ranked.length; i++) {
+    const token = ranked[i]!.departure_token?.trim();
+    if (!token) continue;
+    params.set("departure_token", token);
+    const totalJson = await fetchV2(params, "complete");
+    const completes = (totalJson.flights ?? []).filter(
+      (f) =>
+        f.itinerary_complete === true ||
+        f.price_type === "round_trip_total" ||
+        (typeof f.price === "number" && f.price > 0),
+    );
+    const best = pickCheapest(completes, maxStops);
+    if (!best || typeof best.price !== "number") continue;
+    return {
+      ...toFare(
+        {
+          origin: input.origin,
+          destination: input.destination,
+          date: input.departureDate,
+        },
+        best,
+      ),
+      outboundTry: i + 1,
+    };
+  }
+  return null;
 }

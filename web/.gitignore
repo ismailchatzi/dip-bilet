@@ -23,6 +23,7 @@
 .scrappa-worker.lock
 .external-deals-state.json
 .external-verify-state.json
+.remote-test-state.json
 
 # production
 /build
