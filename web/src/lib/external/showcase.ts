@@ -66,7 +66,7 @@ const MANUAL_CITY_NAMES: Record<string, string> = {
   BRI: "Bari", PVG: "Şanghay", SHA: "Şanghay", BAH: "Bahreyn", BJL: "Banjul",
   CTA: "Katanya", BGW: "Bağdat", KCM: "Kahramanmaraş", BRU: "Brüksel", CRL: "Brüksel",
   CMN: "Kazablanka", AJI: "Ağrı", SVX: "Yekaterinburg", LIS: "Lizbon", SVQ: "Sevilla",
-  NAP: "Napoli", MNL: "Manila",
+  NAP: "Napoli", MNL: "Manila", SKG: "Selanik", HRG: "Hurghada",
 };
 
 function cityNameFor(

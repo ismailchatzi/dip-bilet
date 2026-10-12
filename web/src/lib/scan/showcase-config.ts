@@ -187,6 +187,8 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   SVQ: 180,
   NAP: 170,
   MNL: 500,
+  SKG: 70,
+  HRG: 120,
 };
 
 export function strictThresholdUsd(destCode: string): number | null {

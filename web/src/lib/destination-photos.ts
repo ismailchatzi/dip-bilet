@@ -43,6 +43,8 @@ const PEXELS: Record<string, number[]> = {
   SVQ: [27379390, 30666335, 34691002],
   NAP: [12464316, 12496266, 20726092],
   MNL: [188916, 33076681, 18052704],
+  HRG: [30683936, 28682229, 10037505],
+  SKG: [37845027, 37845031, 34713041],
 };
 
 function pexelsUrl(id: number, width: number) {
