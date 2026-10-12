@@ -9,14 +9,15 @@
  * Yalnız IST. Yalnız veri: price_observations'a `remote_test_*` kaynağıyla yazar —
  * vitrin, fiyat rehberi, alarm ve rematch yalnız `scrappa_oneway` okur.
  * A kilidini tutar (aynı hesapta ikinci süreç yok); dış kaynak doğrulamasını 15 dk'da bir
- * kendi içinde yapar. 22:00 TR'de durur; yarım kalan iş ertesi güne taşınmaz.
+ * kendi içinde yapar. Test günü ertesi sabah 03:30 TR'de durur (03:55 kesiminden önce);
+ * gece yarısından sonra aynı günün işine devam eder, 03:30'da yarım kalan iş taşınmaz.
  *
  * cron 3-59/4: npx tsx scripts/remote-test.ts           → koşullar uygunsa başlar / devam eder
  *              npx tsx scripts/remote-test.ts --dry     → bugünün planı ve başlama koşulları
  *              npx tsx scripts/remote-test.ts --dry --date 2026-10-13
  *              npx tsx scripts/remote-test.ts status    → DB'deki son özet
  */
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runExternalVerifyRound } from "@/lib/external/verify-round";
@@ -78,8 +79,6 @@ const SYNTH_MIN_NIGHTS = 7;
 const SYNTH_MAX_NIGHTS = 10;
 const VERIFY_CANDIDATES = 5;
 const RT_OUTBOUND_TRIES = 2;
-/** 22:00 TR — sert durma. */
-const HARD_STOP_MIN = 22 * 60;
 /** Near'ın rematch'i hiç başlamadıysa bu saatten sonra yine de başla. */
 const REMATCH_FALLBACK_MIN = 13 * 60;
 const EXTERNAL_EVERY_MS = 15 * 60_000;
@@ -154,11 +153,16 @@ function trMinute(now = new Date()) {
   return tr.getUTCHours() * 60 + tr.getUTCMinutes();
 }
 
+/** Test gününün sert durması: ertesi sabah 03:30 TR. */
+function stopAtMs(day: string) {
+  return Date.parse(`${addDaysIso(day, 1)}T03:30:00+03:00`);
+}
+
 function log(msg: string) {
   console.log(`${new Date().toISOString()} ${msg}`);
 }
 
-/** Tarih önce: 22:00'ye yetişmezse bütün şehirlerden en uzak tarihler kalır. */
+/** Tarih önce: 03:30'a yetişmezse bütün şehirlerden en uzak tarihler kalır. */
 function buildItems(day: string, group: 1 | 2, mode: Mode): Item[] {
   const now = new Date(`${day}T09:00:00Z`);
   const dates = horizonDates("full", now);
@@ -209,7 +213,9 @@ function loadState(): State | null {
 }
 
 function saveState(s: State) {
-  writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
+  const tmp = `${STATE_FILE}.tmp`;
+  writeFileSync(tmp, JSON.stringify(s, null, 2));
+  renameSync(tmp, STATE_FILE);
 }
 
 function airportStats(s: State, airport: string): AirportStats {
@@ -298,7 +304,7 @@ class Runner {
   ) {}
 
   stopNow(): boolean {
-    return trMinute() >= HARD_STOP_MIN;
+    return Date.now() >= stopAtMs(this.s.day);
   }
 
   /** false → dur (saat doldu ya da A'nın kendi işi geldi). */
@@ -566,13 +572,18 @@ async function main() {
   if (argv[0] === "status") return status(admin);
 
   const today = dry && argv.includes("--date") && dateArg ? dateArg : turkeyTodayIso();
-  const plan = PLAN[today];
+  const saved = dry ? null : loadState();
+  /** Gece yarısından sonra dünün yarım işi 03:30'a kadar sürer. */
+  const overnight =
+    saved != null && saved.phase !== "done" && saved.day < today && Date.now() < stopAtMs(saved.day);
+  const workDay = overnight && saved ? saved.day : today;
+  const plan = PLAN[workDay];
   if (!plan) {
     if (dry) log(`${today} test günü değil`);
     return;
   }
   const minute = trMinute();
-  const items = buildItems(today, plan.group, plan.mode);
+  const items = buildItems(workDay, plan.group, plan.mode);
 
   if (dry) {
     const cities = GROUPS[plan.group].map((c) => `${c.name} (${c.airports.join("+")})`).join(", ");
@@ -587,13 +598,13 @@ async function main() {
   }
 
   if (SCRAPPA_HALTED) return log("Scrappa durdurulmuş — çıkış");
-  if (minute < 4 * 60 + 20 || minute >= HARD_STOP_MIN) return;
+  if (!overnight && minute < 4 * 60 + 20) return;
 
-  let state = loadState();
-  if (state?.day === today && state.phase === "done") return;
+  let state = saved;
+  if (state?.day === workDay && state.phase === "done") return;
 
   const board = (await readScanBoard(admin)).deals;
-  const wait = nearDoneToday(board, today, minute);
+  const wait = overnight ? laneAWorkRunning(board) : nearDoneToday(board, today, minute);
   if (wait) return log(`bekliyor: ${wait}`);
   const other = otherLiveWorkerPid("a");
   if (other != null) return log(`A kilidi dolu (pid ${other}) — çıkış`);
@@ -603,11 +614,11 @@ async function main() {
   const lock = acquireWorkerLock("a");
   if (!lock.ok) return log(`A kilidi dolu (pid ${lock.pid}) — çıkış`);
 
-  if (state?.day !== today) {
-    state = freshState(today, plan.group, plan.mode);
-    log(`BAŞLADI ${today} grup ${plan.group} ${plan.mode} · ${items.length} sorgu`);
+  if (state?.day !== workDay) {
+    state = freshState(workDay, plan.group, plan.mode);
+    log(`BAŞLADI ${workDay} grup ${plan.group} ${plan.mode} · ${items.length} sorgu`);
   } else {
-    log(`DEVAM ${today} ${state.phase} ${state.index}/${items.length}`);
+    log(`DEVAM ${workDay} ${state.phase} ${state.index}/${items.length}`);
   }
   saveState(state);
 
@@ -632,8 +643,8 @@ async function main() {
   finished = state.phase === "done";
   if (!finished && runner.stopNow()) {
     state.phase = "done";
-    state.stopReason = "22:00 sert durma";
-    log("22:00 — durdu, kalan iş taşınmaz");
+    state.stopReason = "03:30 sert durma";
+    log("03:30 — durdu, kalan iş taşınmaz");
   }
   if (state.phase === "done") state.finishedAt = new Date().toISOString();
   saveState(state);
