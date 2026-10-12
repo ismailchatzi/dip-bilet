@@ -179,13 +179,45 @@ export function buildExternalCard(
   return { ok: true, card };
 }
 
+/** Scan board tek satır; hatlar aynı anda yazınca eklenen kart kaybolabiliyor. */
+const PUBLISH_ATTEMPTS = 3;
+const PUBLISH_RECHECK_MS = 5_000;
+
 /**
  * Şehir kartıyla birleştir: E daha ucuzsa kahraman olur, değilse diğer tarihlere iner.
  * Kahraman / tazelik kuralı okumada aynı (promoteFreshHeroDeal).
+ * Yazdıktan sonra okur; başka yazım ezdiyse tekrar yazar (bildirim yalnız ilkinde).
  */
 export async function publishExternalCard(
   admin: SupabaseClient,
   card: Deal,
+): Promise<{ ok: boolean; hero: boolean; error?: string }> {
+  let last: { ok: boolean; hero: boolean; error?: string } = { ok: false, hero: false };
+  for (let attempt = 1; attempt <= PUBLISH_ATTEMPTS; attempt++) {
+    last = await writeExternalCard(admin, card, attempt === 1);
+    if (!last.ok) return last;
+    await new Promise((r) => setTimeout(r, PUBLISH_RECHECK_MS));
+    if (tripOnBoard((await readScanBoard(admin)).deals, card)) return last;
+    console.warn(`  vitrin yazımı başka bir yazımla ezildi (${card.id}) — tekrar ${attempt}/${PUBLISH_ATTEMPTS}`);
+  }
+  return { ...last, ok: false, error: "vitrin yazımı ezildi" };
+}
+
+function tripOnBoard(board: DealsPayload | null, card: Deal) {
+  const city = dealDestCode(card);
+  return (board?.deals ?? []).some(
+    (d) =>
+      dealDestCode(d) === city &&
+      [d, ...(d.dateOptions ?? [])].some(
+        (o) => o.outboundDate === card.outboundDate && o.returnDate === card.returnDate,
+      ),
+  );
+}
+
+async function writeExternalCard(
+  admin: SupabaseClient,
+  card: Deal,
+  notify: boolean,
 ): Promise<{ ok: boolean; hero: boolean; error?: string }> {
   const board = await readScanBoard(admin);
   const previous = board.deals?.deals ?? [];
@@ -199,6 +231,6 @@ export async function publishExternalCard(
   const { payload, live, previousLive } = foldShowcase(board.deals, deals);
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) return { ok: false, hero, error: saved.error ?? "Kayıt başarısız" };
-  await notifyNewDeals(admin, previousLive, live);
+  if (notify) await notifyNewDeals(admin, previousLive, live);
   return { ok: true, hero };
 }
