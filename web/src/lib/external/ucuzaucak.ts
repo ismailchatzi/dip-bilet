@@ -28,14 +28,24 @@ export function skyscannerPairs(html: string, today?: string): ExternalDatePair[
   return cleanPairs(pairs, today);
 }
 
-/** "134£ ~8.782₺" → { gbp: 134, try: 8782 } (ilk "£ ~ ₺" çifti; "normalde 245£ iken" sayılmaz). */
+/**
+ * "134£ ~8.782₺" → { gbp: 134, try: 8782 } (ilk "£ ~ ₺" çifti; "normalde 245£ iken" sayılmaz).
+ * £ yoksa yalnız TL: "28.390₺", "~42.384 TL ~46.322 TL aralığında" → en düşük TL tutarı
+ * ("düne kadar 50.000₺ olan … şimdi 37.310₺" gibi eski fiyatlar daha yüksek olduğu için elenir).
+ */
 export function parseUcuzaucakPrice(text: string) {
   const m = text.match(/(\d+(?:[.,]\d+)?)\s*£\s*~\s*([\d.]+)\s*₺/);
-  if (!m) return null;
-  return {
-    gbp: Number(m[1]!.replace(",", ".")),
-    try: Number(m[2]!.replace(/\./g, "")),
-  };
+  if (m) {
+    return {
+      gbp: Number(m[1]!.replace(",", ".")),
+      try: Number(m[2]!.replace(/\./g, "")),
+    };
+  }
+  const tl = [...text.matchAll(/(\d{1,3}(?:\.\d{3})+|\d{4,6})\s*(?:₺|TL(?![A-Za-zÇĞİÖŞÜçğıöşü]))/g)]
+    .map((x) => Number(x[1]!.replace(/\./g, "")))
+    .filter((n) => n >= 1000);
+  if (tl.length === 0) return null;
+  return { gbp: null, try: Math.min(...tl) };
 }
 
 export function parseStops(text: string): number | null {
@@ -81,8 +91,8 @@ export async function readUcuzaucak(
       publishedAt: item.pubDate,
       origin: mostCommon(pairs.map((p) => p.from)),
       destCode: mostCommon(pairs.map((p) => p.to)),
-      price: price?.gbp ?? null,
-      currency: price ? "GBP" : null,
+      price: price?.gbp ?? price?.try ?? null,
+      currency: price?.gbp != null ? "GBP" : price ? "TRY" : null,
       tripType: pairs.length ? (hasReturn ? "rt" : "ow") : /tek y[öo]n/i.test(text) ? "ow" : null,
       stops: parseStops(text),
       datePairs: pairs,
