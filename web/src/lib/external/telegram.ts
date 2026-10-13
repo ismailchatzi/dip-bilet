@@ -53,6 +53,8 @@ const CITY_CODES: Record<string, string> = {
   "kuala lumpur": "KUL", singapur: "SIN", seul: "ICN", "hong kong": "HKG", sanghay: "PVG",
   "new york": "JFK", toronto: "YYZ", cidde: "JED", riyad: "RUH", medine: "MED",
   "sri lanka": "CMB", kolombo: "CMB", nairobi: "NBO", zanzibar: "ZNZ", tahran: "IKA",
+  delhi: "DEL", "yeni delhi": "DEL", mumbai: "BOM", "los angeles": "LAX", "cape town": "CPT",
+  osaka: "KIX", ercan: "ECN",
 };
 
 export function cityCode(name: string) {

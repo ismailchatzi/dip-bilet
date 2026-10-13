@@ -67,6 +67,10 @@ const MANUAL_CITY_NAMES: Record<string, string> = {
   CTA: "Katanya", BGW: "Bağdat", KCM: "Kahramanmaraş", BRU: "Brüksel", CRL: "Brüksel",
   CMN: "Kazablanka", AJI: "Ağrı", SVX: "Yekaterinburg", LIS: "Lizbon", SVQ: "Sevilla",
   NAP: "Napoli", MNL: "Manila", SKG: "Selanik", HRG: "Hurghada",
+  NBO: "Nairobi", ECN: "Kıbrıs (Ercan)", DEL: "Yeni Delhi", BOM: "Mumbai",
+  PEK: "Pekin", PKX: "Pekin", CAN: "Guangzhou", KUL: "Kuala Lumpur",
+  LAX: "Los Angeles", NRT: "Tokyo", HND: "Tokyo", KIX: "Osaka", ITM: "Osaka",
+  CPT: "Cape Town", HAM: "Hamburg", NUE: "Nürnberg",
 };
 
 function cityNameFor(
