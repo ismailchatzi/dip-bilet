@@ -189,6 +189,7 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   MNL: 500,
   SKG: 70,
   HRG: 120,
+  DPS: 600,
 };
 
 export function strictThresholdUsd(destCode: string): number | null {
