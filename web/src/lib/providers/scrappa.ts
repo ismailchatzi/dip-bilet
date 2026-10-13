@@ -33,12 +33,13 @@ type ScrappaFlight = {
   legs?: ScrappaLeg[];
 };
 
+/** Paket cevabında `stops` gidiş + dönüş toplamı (1+1 = 2); yön başı sınır için önce yön alanları. */
 function flightStops(f: ScrappaFlight) {
-  if (typeof f.stops === "number") return f.stops;
   const out =
     typeof f.outbound_stops === "number" ? f.outbound_stops : null;
   const ret = typeof f.return_stops === "number" ? f.return_stops : null;
   if (out != null && ret != null) return Math.max(out, ret);
+  if (typeof f.stops === "number") return f.stops;
   if (out != null) return out;
   if (typeof f.legs?.[0]?.stops === "number") return f.legs[0].stops;
   return null;
