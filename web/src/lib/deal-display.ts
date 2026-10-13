@@ -4,7 +4,7 @@ import {
   findTrackedDestination,
   trackedDestinationLabel,
 } from "@/lib/scan/scrappa-targets";
-import { dealPriceCapUsd } from "@/lib/scan/dip-gate";
+import { dealFixedStandardUsd, dealPriceCapUsd } from "@/lib/scan/dip-gate";
 import {
   maxStopsForDest,
   nightsBetween,
@@ -775,6 +775,8 @@ export function enforceDealThreshold(deal: Deal): Deal | null {
   );
   const hero = applyDateOption(deal, under[0]!);
   hero.dateOptions = capDateOptions(under.slice(1));
+  const fixedStandard = dealFixedStandardUsd(hero);
+  if (fixedStandard != null) hero.averagePrice = fixedStandard;
   if (
     typeof hero.averagePrice === "number" &&
     hero.averagePrice > 0 &&

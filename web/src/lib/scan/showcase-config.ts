@@ -243,6 +243,15 @@ export function manualStandardUsd(destCode: string): number | null {
   return MANUAL_STANDARDS[destCode.trim().toUpperCase()] ?? null;
 }
 
+/** Sabit Standart (USD) — medyan / Google avg / kart snapshot'ını her zaman ezer. */
+export const FIXED_STANDARDS: Record<string, number> = {
+  SKP: 140,
+};
+
+export function fixedStandardUsd(destCode: string): number | null {
+  return FIXED_STANDARDS[destCode.trim().toUpperCase()] ?? null;
+}
+
 /** deal-display BOOKING_DISPLAY_FACTOR ile aynı olmalı (döngüsel import yüzünden kopya). */
 const STRICT_DISPLAY_FACTOR = 0.97;
 

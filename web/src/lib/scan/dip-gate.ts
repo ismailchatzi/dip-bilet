@@ -1,5 +1,9 @@
 import type { Deal } from "@/lib/types";
-import { hardFloorUsd, strictRawCapUsd } from "@/lib/scan/showcase-config";
+import {
+  fixedStandardUsd,
+  hardFloorUsd,
+  strictRawCapUsd,
+} from "@/lib/scan/showcase-config";
 
 function destCodeOf(deal: Deal) {
   if (
@@ -28,6 +32,10 @@ export function dealPriceCapUsd(deal: Deal): number | null {
   if (snapshot != null) return snapshot;
   const floor = hardFloorUsd(destCodeOf(deal));
   return floor != null && floor > 0 ? floor : null;
+}
+
+export function dealFixedStandardUsd(deal: Deal): number | null {
+  return fixedStandardUsd(destCodeOf(deal));
 }
 
 /** Fiyat eşiğin (veya floor’un) üstünde olamaz. */
