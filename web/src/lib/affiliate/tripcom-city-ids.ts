@@ -60,6 +60,7 @@ export const TRIPCOM_CITY_ID: Record<string, number> = {
   UFA: 3902,
   VAN: 1750,
   ALG: 1271,
+  CPT: 683,
 };
 
 /** Başlık doğrulaması için İngilizce / yerel adlar */
@@ -117,6 +118,7 @@ const CITY_TITLE_ALIASES: Record<string, string[]> = {
   UFA: ["ufa"],
   VAN: ["van"],
   ALG: ["algiers"],
+  CPT: ["cape town"],
 };
 
 const FETCH_HEADERS: HeadersInit = {

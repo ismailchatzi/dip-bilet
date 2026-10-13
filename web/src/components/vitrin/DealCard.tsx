@@ -17,14 +17,7 @@ import {
 import type { Deal } from "@/lib/types";
 import Link from "next/link";
 
-export function DealCard({
-  deal,
-  rankText,
-}: {
-  deal: Deal;
-  /** "Fiyatların %96'sından ucuz" — tarama verisinden. */
-  rankText?: string | null;
-}) {
+export function DealCard({ deal }: { deal: Deal }) {
   const dest = dealDestCode(deal) || dealCityName(deal);
   const found = dealFoundLabel(deal);
   const mark = dealSourceCipher(deal);
@@ -52,7 +45,6 @@ export function DealCard({
             <span className="vitrin-card__off">%{shownOff} indirim</span>
           ) : null}
         </p>
-        {rankText ? <p className="vitrin-card__rank">{rankText}</p> : null}
         <div className="vitrin-card__meta">
           <span>
             <PlaneIcon />

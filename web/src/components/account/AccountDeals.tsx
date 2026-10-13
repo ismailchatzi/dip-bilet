@@ -11,7 +11,6 @@ import {
 } from "@/lib/departures";
 import { destinationByCode } from "@/lib/destinations";
 import {
-  canonicalDestCode,
   dealMatchesDests,
   dealMatchesFlightTypes,
   dealMatchesOrigins,
@@ -21,11 +20,6 @@ import {
   vitrinHeroDeals,
   type FlightTypeFilter,
 } from "@/lib/deal-display";
-import {
-  cheaperThanPercent,
-  rankBadgeText,
-  type PriceInsight,
-} from "@/lib/price-insights";
 import { sortByFoundAt } from "@/lib/scan/deal-archive";
 import { createClient } from "@/lib/supabase/client";
 import type { Deal, DealsPayload } from "@/lib/types";
@@ -58,23 +52,6 @@ export function AccountDeals() {
   const [priceMax, setPriceMax] = useState(0);
   const [boundMin, setBoundMin] = useState(0);
   const [boundMax, setBoundMax] = useState(0);
-  const [insights, setInsights] = useState<Record<string, PriceInsight>>({});
-
-  useEffect(() => {
-    let active = true;
-    fetch("/api/price-insights")
-      .then((r) => (r.ok ? r.json() : { insights: {} }))
-      .then((j: { insights?: Record<string, PriceInsight> }) => {
-        if (active) setInsights(j.insights ?? {});
-      })
-      .catch(() => {
-        /* rozet yok */
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   useEffect(() => {
     let active = true;
 
@@ -238,20 +215,7 @@ export function AccountDeals() {
       {visible.length > 0 ? (
         <div className="vitrin-grid">
           {visible.map((deal) => (
-            <DealCard
-              key={deal.id}
-              deal={deal}
-              rankText={
-                deal.currency === "USD"
-                  ? rankBadgeText(
-                      cheaperThanPercent(
-                        insights[canonicalDestCode(dealDestCode(deal))],
-                        deal.price,
-                      ),
-                    )
-                  : null
-              }
-            />
+            <DealCard key={deal.id} deal={deal} />
           ))}
         </div>
       ) : null}
