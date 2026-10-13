@@ -20,7 +20,7 @@ Defter: `scrappaJob` / `scrappaRematchJob` (A) ve `scrappaJobB` / `scrappaRematc
 - **Near gün 5–21:** A, günde **1×** (28 şehir)
 - **Full gün 22–180:** günde **2 dilim** (8 şehir). Aynı gün 1→7 yok. Haftanın çifti: **ikisi de B** (1. full bitince 2. full).
 - `sort_by=cheapest`. Hesap başı kota ~1M/ay.
-- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE/BKK en fazla 2.
+- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE/BKK en fazla 2. New York, Los Angeles, Miami, São Paulo, Sidney, Tokyo, Seul, Hong Kong da **her stratejide** en fazla 2 (`TWO_STOPS`, konaklama 4–10 gece aynı kalır).
 
 ### Full dilimler (liste sırası, bölge gate’i değil)
 | Dilim | Şehirler |

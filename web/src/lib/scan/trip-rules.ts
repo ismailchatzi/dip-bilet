@@ -8,9 +8,22 @@ export function stayRange(code: string): [number, number] {
   return isLongHaulDest(code) ? [7, 10] : [4, 10];
 }
 
-/** Bali / Phuket / Maldivler / Bangkok: 2 aktarma. Diğer şehirler: 1. */
+/** Konaklama süresini (stayRange) değiştirmez; yalnız aktarma sınırı. Şehir + havalimanı kodları. */
+const TWO_STOPS = new Set([
+  "NYC", "JFK", "EWR", "LGA",
+  "LAX",
+  "MIA",
+  "SAO", "GRU", "VCP",
+  "SYD",
+  "TYO", "HND", "NRT",
+  "SEL", "ICN", "GMP",
+  "HKG",
+]);
+
+/** Bali / Phuket / Maldivler / Bangkok + TWO_STOPS: 2 aktarma. Diğer şehirler: 1. */
 export function maxStopsForDest(code: string) {
-  return isLongHaulDest(code) ? 2 : 1;
+  const c = code.toUpperCase();
+  return isLongHaulDest(c) || TWO_STOPS.has(c) ? 2 : 1;
 }
 
 export function scrappaMaxStopsParam(code: string) {
