@@ -61,6 +61,14 @@ const PEXELS: Record<string, number[]> = {
   CPT: [37833044, 38238572, 33622090],
   HAM: [23024771, 29611407, 18252988],
   NUE: [32472176, 34270718, 8405817],
+  JFK: [37558772, 29014458, 37558800],
+  EWR: [37558772, 29014458, 37558800],
+  MIA: [35065601, 14484202, 19920549],
+  GRU: [6420227, 109914, 34165783],
+  SYD: [39323381, 37930276, 36877480],
+  ICN: [38650647, 31414671, 31414674],
+  SIN: [38436983, 39717729, 35872761],
+  HKG: [1058683, 36745089, 34254219],
 };
 
 function pexelsUrl(id: number, width: number) {
@@ -132,6 +140,20 @@ const NAME_TO_CODE: Record<string, string> = {
   napoli: "NAP",
   naples: "NAP",
   manila: "MNL",
+  "new york": "JFK",
+  "los angeles": "LAX",
+  miami: "MIA",
+  "são paulo": "GRU",
+  "sao paulo": "GRU",
+  sidney: "SYD",
+  sydney: "SYD",
+  tokyo: "HND",
+  seul: "ICN",
+  seoul: "ICN",
+  "kuala lumpur": "KUL",
+  singapur: "SIN",
+  singapore: "SIN",
+  "hong kong": "HKG",
 };
 
 for (const dest of SCRAPPA_DESTINATIONS) {
