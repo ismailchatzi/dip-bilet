@@ -3096,11 +3096,35 @@ a {
   color: #111;
 }
 
+.vitrin-card__trip,
+.deal-detail__trip {
+  margin: 0.35rem 0 0;
+  color: #6b7280;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.deal-detail__trip {
+  margin: 0 0 0.15rem;
+}
+
 .vitrin-card__prices {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0.45rem;
-  margin: 0.45rem 0 0.7rem;
+  margin: 0.15rem 0 0.7rem;
+}
+
+.vitrin-card__off {
+  align-self: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.35rem;
+  background: #ecfdf3;
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .vitrin-card__prices strong {

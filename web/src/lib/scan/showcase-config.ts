@@ -102,7 +102,12 @@ const BALKAN_VIZESIZ = new Set([
   "DXB",
 ]);
 
-const TROPIK = new Set(["HKT", "MLE", "DPS", "BKK"]);
+/** Uzak hat: sezonluk kapı 0.82, örneklem 30 / 7 gün (remote-targets şehirleri dahil). */
+const TROPIK = new Set([
+  "HKT", "MLE", "DPS", "BKK",
+  "JFK", "EWR", "LAX", "MIA", "GRU", "SYD",
+  "HND", "NRT", "ICN", "KUL", "SIN", "HKG",
+]);
 
 export function routeLaneForDest(destCode: string): RouteLane {
   const c = destCode.trim().toUpperCase();

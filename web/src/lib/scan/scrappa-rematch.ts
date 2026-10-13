@@ -231,7 +231,7 @@ function pendingList(
 }
 
 /** Bu turun tarihleri (booking sonrası fiyat dahil) aynı tarihli eski kaydı ezer. */
-function cityCardWithFresh(prev: Deal[], fresh: Deal | null): Deal | undefined {
+export function cityCardWithFresh(prev: Deal[], fresh: Deal | null): Deal | undefined {
   if (!fresh) return foldOneCardPerCity(prev)[0];
   const freshTrips = new Set(
     dealDateChoices(fresh).map((c) => dealWithDateChoice(fresh, c).id),

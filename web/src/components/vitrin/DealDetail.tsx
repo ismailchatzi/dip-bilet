@@ -247,6 +247,7 @@ export function DealDetail({
         </div>
 
         <aside className="deal-detail__buy">
+          <p className="deal-detail__trip">GİDİŞ DÖNÜŞ TOPLAM</p>
           <p className="deal-detail__from">
             {formatDealMoney(shownPrice, view.currency)}
             {typeof view.averagePrice === "number" ? (

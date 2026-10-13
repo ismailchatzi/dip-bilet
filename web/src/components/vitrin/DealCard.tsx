@@ -9,6 +9,7 @@ import {
   dealHref,
   dealOutOrigin,
   dealSourceCipher,
+  displayDealDiscountPercent,
   displayDealPrice,
   formatDealMoney,
   isOldShowcaseDeal,
@@ -28,6 +29,7 @@ export function DealCard({
   const found = dealFoundLabel(deal);
   const mark = dealSourceCipher(deal);
   const shownPrice = displayDealPrice(deal.price);
+  const shownOff = displayDealDiscountPercent(deal);
   const oldDeal = isOldShowcaseDeal(deal);
   return (
     <Link href={dealHref(deal)} className="vitrin-card">
@@ -40,10 +42,14 @@ export function DealCard({
         {oldDeal ? <OldDealStamp deal={deal} /> : null}
       <div className="vitrin-card__body">
         <h3 className="vitrin-card__title">{dealCityTitle(deal)}</h3>
+        <p className="vitrin-card__trip">GİDİŞ DÖNÜŞ TOPLAM</p>
         <p className="vitrin-card__prices">
           <strong>{formatDealMoney(shownPrice, deal.currency)}</strong>
           {typeof deal.averagePrice === "number" ? (
             <s>{formatDealMoney(deal.averagePrice, deal.currency)}</s>
+          ) : null}
+          {typeof shownOff === "number" && shownOff > 0 ? (
+            <span className="vitrin-card__off">%{shownOff} indirim</span>
           ) : null}
         </p>
         {rankText ? <p className="vitrin-card__rank">{rankText}</p> : null}
