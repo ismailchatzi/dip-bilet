@@ -368,6 +368,9 @@ export function dealCityKey(deal: Deal) {
   }
   const fromName = destPhotoCode(dealCityName(deal));
   if (fromName) return canonicalDestCode(fromName);
+  // "Kuala Lumpur Federal Bölgesi" (Google Deals) ile "Kuala Lumpur" aynı şehir.
+  const fromCode = code ? destPhotoCode(code) : null;
+  if (fromCode) return canonicalDestCode(fromCode);
   // Takip edilmeyen havalimanlarında (örn. Londra: LHR/STN) aynı şehri tek kabul et.
   return dealCityName(deal);
 }
