@@ -80,6 +80,8 @@ export type ScrappaJob = {
   partnerStartedAt?: string;
   /** Bu one-way bitince rematch yok (B'nin 1. full'ü). */
   skipRematch?: boolean;
+  /** B full: bu dilimde şehir bitiminde doğrulaması ele alınmış (aday var/yok) şehirler. */
+  cityRematched?: string[];
 };
 
 /**

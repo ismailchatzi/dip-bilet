@@ -29,7 +29,9 @@ import {
   fullChunksForWeekday,
 } from "@/lib/scan/scrappa-schedule";
 import { currentLane } from "@/lib/scan/scrappa-lane";
+import { countRematchCandidates } from "@/lib/scan/scrappa-match";
 import {
+  allDestinations,
   obsWindowForFullPair,
   obsWindowForOneWayJob,
   type ScrappaObsWindow,
@@ -204,7 +206,7 @@ function shouldForceNewDay(
 
 /**
  * A: 04:00 near → rematch (yalnız o near yazımları). Full yok.
- * B: 04:01 günün 1. full → bitince 2. full → ikisinin rematch'i (yalnız o iki full yazımları).
+ * B: 04:01 günün 1. full → 2. full; her şehir bitince adayı varsa o şehrin rematch'i.
  */
 export async function startScrappaDay(opts?: {
   force?: boolean;
@@ -395,6 +397,39 @@ async function enqueueAutoRematch(
   return { ok: true };
 }
 
+/**
+ * B full: taraması biten (henüz ele alınmamış) şehirler → adayı olanlar hemen rematch'e.
+ * Adayı olmayan şehrin doğrulaması atlanır. Yeni koda geçişte dilimin önceki şehirleri de yakalanır.
+ */
+async function rematchFinishedCities(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  job: ScrappaJob,
+  becameIdle: boolean,
+): Promise<{ job: ScrappaJob; destCodes: string[] }> {
+  const dests = allDestinations();
+  const start = job.destStart ?? 0;
+  const upTo = becameIdle ? (job.destLimit ?? dests.length) : job.destIndex;
+  const handled = new Set(job.cityRematched ?? []);
+  const finished = dests
+    .slice(start, upTo)
+    .filter((d) => !handled.has(d.code));
+  if (finished.length === 0) return { job, destCodes: [] };
+
+  const obs = obsWindowForOneWayJob(job);
+  const destCodes: string[] = [];
+  for (const dest of finished) {
+    const n = await countRematchCandidates(admin, dest, obs);
+    console.log(`B şehir bitti ${dest.code}: aday ${n}${n > 0 ? " → rematch" : " → doğrulama atlandı"}`);
+    if (n > 0) destCodes.push(dest.code);
+  }
+  const next: ScrappaJob = {
+    ...job,
+    cityRematched: [...handled, ...finished.map((d) => d.code)],
+  };
+  await saveScrappaJob(admin, next);
+  return { job: next, destCodes };
+}
+
 export async function runScrappaTick(force = false) {
   const admin = createAdminClient();
   if (!admin) {
@@ -473,30 +508,6 @@ export async function runScrappaTick(force = false) {
     };
   }
 
-  // A rematch RT fazındayken B one-way basmasın — aynı IP’de RT yağmurunu kes. Booking’de bekleme yok.
-  if (currentLane() === "b") {
-    const aRematch = board.deals?.scrappaRematchJob;
-    if (aRematch?.status === "running" && (aRematch.phase ?? "rt") === "rt") {
-      const until = new Date(Date.now() + 60_000).toISOString();
-      if (job?.status === "running") {
-        await saveScrappaJob(admin, {
-          ...job,
-          pausedUntil: until,
-          lastError: "A rematch — B bekliyor",
-          heartbeatAt: new Date().toISOString(),
-        });
-      }
-      console.log("B: A rematch sürüyor — one-way bekliyor");
-      return {
-        ok: true,
-        running: Boolean(job?.status === "running"),
-        paused: true,
-        skipped: "A rematch — B bekliyor",
-        pausedUntil: until,
-      };
-    }
-  }
-
   if (!job || job.status !== "running") {
     return { ok: true, running: false, skipped: "iş yok" };
   }
@@ -570,10 +581,36 @@ export async function runScrappaTick(force = false) {
 
   const becameIdle = prevStatus === "running" && job.status === "idle";
   const pendingQueue = normalizeQueue(job.queue);
-  // Near bitince rematch. Full bitince: B skipRematch ise yok; A partner varsa B yazsın diye bekler.
+
+  if (currentLane() === "b" && finishedWindow === "full" && !batch.hold) {
+    const city = await rematchFinishedCities(admin, job, becameIdle);
+    job = city.job;
+    if (city.destCodes.length > 0) {
+      const rematch = await enqueueAutoRematch(
+        admin,
+        becameIdle ? pendingQueue : [],
+        { destCodes: city.destCodes, obs: obsWindowForOneWayJob(job) },
+      );
+      if (!rematch.ok && becameIdle) await continueDayQueue(job);
+      return {
+        ok: batch.ok,
+        running: true,
+        dest: batch.dest,
+        scanned: batch.scanned,
+        saved: batch.saved,
+        rematch: { ...rematch, enqueued: true },
+        next: batch.next,
+        errors: batch.errors,
+        lastError: batch.lastError ?? job.lastError,
+      };
+    }
+  }
+
+  // Near bitince rematch. B full: şehir bitiminde (yukarıda), dilim sonu toplu rematch yok.
   const shouldRematch =
     becameIdle &&
     !job.skipRematch &&
+    !(currentLane() === "b" && finishedWindow === "full") &&
     (finishedWindow === "near" || pendingQueue.length === 0);
 
   if (

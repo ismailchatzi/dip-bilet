@@ -563,6 +563,16 @@ export async function applyBookingToDeal(
   };
 }
 
+/** Scrappa isteği atmadan: bu gözlemlerde eşik / sezonluk dip adayı var mı. */
+export async function countRematchCandidates(
+  admin: SupabaseClient,
+  dest: ScrappaDestination,
+  obs?: MatchObsFilter,
+): Promise<number> {
+  const rows = await loadObservations(admin, dest.code, obs);
+  return matchDestDrafts(dest, rows, new Date().toISOString()).length;
+}
+
 export async function matchDestFromDb(
   admin: SupabaseClient,
   dest: ScrappaDestination,

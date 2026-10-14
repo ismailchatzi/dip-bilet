@@ -230,6 +230,7 @@ export async function stopScrappaJob(
     partnerChunk: current?.partnerChunk,
     partnerStartedAt: current?.partnerStartedAt,
     skipRematch: current?.skipRematch,
+    cityRematched: current?.cityRematched,
   };
   await saveScrappaJob(admin, job);
   return job;

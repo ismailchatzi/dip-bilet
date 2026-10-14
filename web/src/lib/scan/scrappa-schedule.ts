@@ -39,10 +39,10 @@ export const SCRAPPA_SESSION_CIRCUIT_AFTER = 7;
 export const SCRAPPA_SESSION_CIRCUIT_PAUSE_MS = 15 * 60 * 1000;
 
 /**
- * One-way dilim bitince → RT rematch → booking arasında nefes (1–2 dk).
+ * One-way (dilim / B full'de şehir) bitince → RT rematch → booking arasında nefes.
  * Rematch tick’te sleep yok: pausedUntil ile drain bekler.
  */
-export const SCRAPPA_PHASE_BREATHER_MS = 90_000;
+export const SCRAPPA_PHASE_BREATHER_MS = 15_000;
 
 /** Full tarama: 28 şehir → 7 dilim × 4. */
 export const FULL_CHUNK_SIZE = 4;

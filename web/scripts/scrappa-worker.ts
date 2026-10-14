@@ -1,7 +1,7 @@
-/**
+﻿/**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
- * A 04:00 near→rematch. B 04:01 full1→full2→rematch. Ayrı kilit.
+ * A 04:00 near→rematch. B 04:01 full1→full2, her şehir bitince (aday varsa) rematch. Ayrı kilit.
  * One-way gap 2s. Art arda 7× 502 → 15 dk pause, kaldığı yerden.
  * Env: SCRAPPA_API_KEY (A), SCRAPPA_API_KEY_B (B)
  */
@@ -281,6 +281,14 @@ async function main() {
     }
     claimWorkerOrExit("drain", lane);
     console.log("drain: tek işçi devraldı");
+    await drain(true);
+    return;
+  }
+
+  if (cmd === "restart") {
+    // Yeni kod: canlı işçiyi devral, iş / cursor'a dokunma — kaldığı yerden.
+    claimWorkerOrExit("restart", lane, { steal: true });
+    console.log("restart: işçi yeni kodla kaldığı yerden");
     await drain(true);
     return;
   }
