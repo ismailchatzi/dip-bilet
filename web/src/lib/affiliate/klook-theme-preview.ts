@@ -43,7 +43,14 @@ export async function probeKlookPage(pageUrl: string): Promise<KlookPageProbe> {
       headers: FETCH_HEADERS,
       next: { revalidate: 21600 },
     });
-    if (!res.ok) {
+    // Klook sunucu isteklerine Cloudflare 403 veriyor; liste sitemap'ten doğrulandı
+    if (res.status === 403) {
+      const probe: KlookPageProbe = { imageUrl: null, bookable: true };
+      probeCache.set(pageUrl, { at: Date.now(), probe });
+      return probe;
+    }
+    // Kaldırılan şehir ana sayfaya yönleniyor (Üsküp vakası)
+    if (!res.ok || new URL(res.url).pathname.replace(/\/$/, "") === "") {
       probeCache.set(pageUrl, { at: Date.now(), probe: dead });
       return dead;
     }

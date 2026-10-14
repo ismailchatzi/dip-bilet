@@ -38,12 +38,26 @@ function cardImageUrl(raw: string) {
   return u.toString();
 }
 
+/** Tiqets JSON-LD bazen "https://www.tiqets.comhttps//www.tiqets.com/en/…" veriyor */
+function normalizeTiqetsUrl(raw: string): string {
+  let url = raw.trim();
+  const doubled = url.match(/^https?:\/\/www\.tiqets\.com(https?:?\/\/.+)$/i);
+  if (doubled) url = doubled[1]!;
+  url = url.replace(/^(https?)\/\//i, "$1://").replace(/^(https?):\/(?!\/)/i, "$1://");
+  if (url.startsWith("/")) url = `${TIQETS_ORIGIN}${url}`;
+  try {
+    return new URL(url).toString();
+  } catch {
+    return "";
+  }
+}
+
 function productFromLdItem(item: Record<string, unknown>): TiqetsProductPreview | null {
   const type = item["@type"];
   if (type !== "Product" && type !== "Event") return null;
 
   const name = typeof item.name === "string" ? item.name.trim() : "";
-  const bookUrl = typeof item.url === "string" ? item.url.trim() : "";
+  const bookUrl = typeof item.url === "string" ? normalizeTiqetsUrl(item.url) : "";
   if (!name || !bookUrl) return null;
 
   const imageRaw = item.image;

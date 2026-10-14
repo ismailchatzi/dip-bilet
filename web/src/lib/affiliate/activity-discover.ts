@@ -36,6 +36,11 @@ const THEME_SLUG_PRIORITIES: string[][] = [
   ],
 ];
 
+/** Aynı slug'lı iki şehir (Bristol UK / Bristol CT) — sitemap'te sonuncusu kazanıyor */
+const PINNED_CITY_PATH: Record<string, string> = {
+  BRS: "bristol-attractions-c67569",
+};
+
 let sitemapIndex: Map<string, string> | null = null;
 let sitemapLoadedAt = 0;
 const SITEMAP_TTL_MS = 24 * 3600 * 1000;
@@ -252,9 +257,9 @@ export async function discoverTiqetsCity(
   }
 
   try {
-    const index = await loadTiqetsSitemapIndex();
     const names = await englishNamesForActivityDiscovery(code, cityLabel, destinationLabel);
-    const path = lookupTiqetsPath(index, ...names);
+    const path =
+      PINNED_CITY_PATH[code] ?? lookupTiqetsPath(await loadTiqetsSitemapIndex(), ...names);
     if (!path || !pathBelongsToCity(path, names)) {
       cityConfigCache.set(cacheKey, { at: Date.now(), config: null });
       return null;

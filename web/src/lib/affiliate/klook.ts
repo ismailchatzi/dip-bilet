@@ -6,77 +6,36 @@ const KLOOK_ORIGIN = "https://www.klook.com";
 const TP_CLICK = "https://c87.travelpayouts.com/click";
 const TP_PROMO_ID = "2075";
 
-/**
- * Tiqets yoksa Klook yedek — yalnız şehir/liste deep link’leri.
- * Tekil “Currently unavailable” aktivite URL’leri yok (Saraybosna vakası).
- */
-const KLOOK_CITY: Record<
-  string,
-  { cityUrl: string; themeUrls: [string, string, string, string] }
-> = {
-  // SJJ çıkarıldı: sabit aktivite linklerinin hepsi unavailable
-  TIA: {
-    cityUrl: `${KLOOK_ORIGIN}/city/443-tirana-municipally-things-to-do/`,
-    themeUrls: [
-      `${KLOOK_ORIGIN}/experiences/list/tirana-municipally-tours/c443-cate9/`,
-      `${KLOOK_ORIGIN}/experiences/list/tirana-municipally-attraction-tickets/c443-cate8/`,
-      `${KLOOK_ORIGIN}/experiences/list/tirana-municipally-day-trips/c443-cate10/`,
-      `${KLOOK_ORIGIN}/city/443-tirana-municipally-things-to-do/`,
-    ],
-  },
-  BEG: {
-    cityUrl: `${KLOOK_ORIGIN}/city/belgrade-things-to-do/`,
-    themeUrls: [
-      `${KLOOK_ORIGIN}/city/belgrade-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/belgrade-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/belgrade-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/belgrade-things-to-do/`,
-    ],
-  },
-  SKP: {
-    cityUrl: `${KLOOK_ORIGIN}/city/444-skopje-things-to-do/`,
-    themeUrls: [
-      `${KLOOK_ORIGIN}/city/444-skopje-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/444-skopje-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/444-skopje-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/444-skopje-things-to-do/`,
-    ],
-  },
-  TBS: {
-    cityUrl: `${KLOOK_ORIGIN}/city/453-tbilisi-things-to-do/`,
-    themeUrls: [
-      `${KLOOK_ORIGIN}/experiences/list/tbilisi-attraction-tickets/c453-cate8/`,
-      `${KLOOK_ORIGIN}/experiences/list/tbilisi-tours/c453-cate9/`,
-      `${KLOOK_ORIGIN}/experiences/list/tbilisi-day-trips/c453-cate10/`,
-      `${KLOOK_ORIGIN}/city/453-tbilisi-things-to-do/`,
-    ],
-  },
-  GYD: {
-    cityUrl: `${KLOOK_ORIGIN}/city/342-baku-things-to-do/`,
-    themeUrls: [
-      `${KLOOK_ORIGIN}/en-US/experiences/list/baku-tours-experiences/c342/`,
-      `${KLOOK_ORIGIN}/city/342-baku-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/342-baku-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/342-baku-things-to-do/`,
-    ],
-  },
-  MLE: {
-    cityUrl: `${KLOOK_ORIGIN}/city/527-male-things-to-do/`,
-    themeUrls: [
-      `${KLOOK_ORIGIN}/en-US/experiences/list/male-tours-experiences/c527/`,
-      `${KLOOK_ORIGIN}/city/527-male-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/527-male-things-to-do/`,
-      `${KLOOK_ORIGIN}/city/527-male-things-to-do/`,
-    ],
-  },
+type KlookTheme = "1-things-to-do" | "1001-tours" | "1002-day-trips" | "1013-water-activities" | "1005-food-tours";
+
+const THEME_LABEL: Record<KlookTheme, { suffix: string; category: string; subId: string }> = {
+  "1-things-to-do": { suffix: "Yapılacaklar", category: "Popüler", subId: "klook-all" },
+  "1001-tours": { suffix: "Şehir turları", category: "Rehberli gezi", subId: "klook-tours" },
+  "1002-day-trips": { suffix: "Günübirlik turlar", category: "Gezi", subId: "klook-daytrips" },
+  "1013-water-activities": { suffix: "Su aktiviteleri", category: "Deneyim", subId: "klook-water" },
+  "1005-food-tours": { suffix: "Yemek turları", category: "Lezzet", subId: "klook-food" },
 };
 
-const TEASER_THEMES = [
-  { suffix: "Müze & galeri", category: "Kültür", subId: "klook-museums" },
-  { suffix: "Şehir turu", category: "Rehberli gezi", subId: "klook-tours" },
-  { suffix: "Skip-the-line bilet", category: "Popüler", subId: "klook-skip" },
-  { suffix: "Deneyim & aktivite", category: "Deneyim", subId: "klook-exp" },
-] as const;
+/**
+ * Tiqets yoksa Klook yedek — yalnız şehir/liste sayfaları (tekil aktivite linki yok).
+ * Destination ID + temalar klook.com/sitemap-destination-ttd-plain_en.xml'den, 2026-10-14.
+ * TIA/SKP/BEG/SJJ Klook'tan kalktı (şehir sayfası ana sayfaya yönleniyor).
+ * DMM (1 aktivite) ve São Paulo (eyalet sayfası, 2 aktivite) zayıf → eklenmedi.
+ */
+const KLOOK_CITY: Record<string, { dest: string; themes: KlookTheme[] }> = {
+  GYD: { dest: "c342-baku", themes: ["1-things-to-do", "1001-tours", "1002-day-trips", "1005-food-tours"] },
+  TBS: { dest: "c453-tbilisi", themes: ["1-things-to-do", "1001-tours", "1002-day-trips", "1005-food-tours"] },
+  MLE: { dest: "c527-male", themes: ["1-things-to-do", "1001-tours", "1013-water-activities"] },
+  ALA: { dest: "c4642-almaty", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
+  BSL: { dest: "c23494-basel", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
+  MLH: { dest: "c23494-basel", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
+  MED: { dest: "c701873-medina", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
+  CMN: { dest: "c18433-prefecture-of-casablanca", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
+};
+
+function klookThemeUrl(dest: string, theme: KlookTheme) {
+  return `${KLOOK_ORIGIN}/destination/${dest}/${theme}/`;
+}
 
 /** Klook vitrini — yalnız Tiqets’in kapsamadığı vitrin şehirleri */
 export function klookCitySupported(iata: string) {
@@ -84,8 +43,8 @@ export function klookCitySupported(iata: string) {
 }
 
 export function klookCityUrl(iata: string) {
-  const code = iata.trim().toUpperCase();
-  return KLOOK_CITY[code]?.cityUrl ?? `${KLOOK_ORIGIN}/en-US/`;
+  const cfg = KLOOK_CITY[iata.trim().toUpperCase()];
+  return cfg ? klookThemeUrl(cfg.dest, "1-things-to-do") : `${KLOOK_ORIGIN}/en-US/`;
 }
 
 /** Travelpayouts Klook — promo 2075 */
@@ -111,33 +70,27 @@ async function buildTeaserCards(iata: string, cityLabel: string): Promise<Activi
   const cfg = KLOOK_CITY[code];
   if (!cfg) return [];
 
-  const probes = await probeKlookThemeUrls(cfg.themeUrls);
+  const urls = cfg.themes.map((t) => klookThemeUrl(cfg.dest, t));
+  const probes = await probeKlookThemeUrls(urls);
   const photos = destPhotoUrls(code);
   const cards: ActivityOfferCard[] = [];
-  const usedUrls = new Set<string>();
 
-  for (let idx = 0; idx < TEASER_THEMES.length; idx++) {
-    const theme = TEASER_THEMES[idx]!;
-    const url = cfg.themeUrls[idx]!;
+  cfg.themes.forEach((theme, idx) => {
     const probe = probes[idx];
-    // Ölü / unavailable / doğrulanamayan → kart yok (dest foto ile maskeleme yok)
-    if (!probe?.bookable) continue;
-    if (usedUrls.has(url)) continue;
-    usedUrls.add(url);
-
-    const imageUrl = probe.imageUrl ?? photos[idx] ?? photos[0];
-    if (!imageUrl) continue;
-
+    if (!probe?.bookable) return;
+    const imageUrl = probe.imageUrl ?? photos[idx % Math.max(photos.length, 1)];
+    if (!imageUrl) return;
+    const label = THEME_LABEL[theme];
     cards.push({
-      id: `klook-teaser-${code}-${idx}`,
-      name: `${cityLabel} — ${theme.suffix}`,
+      id: `klook-teaser-${code}-${theme}`,
+      name: `${cityLabel} — ${label.suffix}`,
       imageUrl,
-      category: theme.category,
+      category: label.category,
       priceFormatted: "Aktiviteleri gör",
-      bookUrl: klookAffiliateUrl(url, theme.subId),
+      bookUrl: klookAffiliateUrl(urls[idx]!, label.subId),
       livePrice: false,
     });
-  }
+  });
 
   return cards;
 }
@@ -149,17 +102,15 @@ export async function fetchKlookActivityOfferCards(
   const code = iata.trim().toUpperCase();
   if (!klookCitySupported(code)) return null;
 
-  const cfg = KLOOK_CITY[code]!;
-  const cityProbe = await probeKlookPage(cfg.cityUrl);
+  const cityUrl = klookCityUrl(code);
+  const cityProbe = await probeKlookPage(cityUrl);
+  if (!cityProbe.bookable) return null;
   const cards = await buildTeaserCards(code, cityLabel);
-
-  // Ne kart ne şehir sayfası doğrulanırsa vitrin yok
-  if (cards.length === 0 && !cityProbe.bookable) return null;
   if (cards.length === 0) return null;
 
   return {
     cards,
-    searchUrl: klookAffiliateUrl(cfg.cityUrl, "klook"),
+    searchUrl: klookAffiliateUrl(cityUrl, "klook"),
     livePrices: false,
     provider: "klook",
   };
