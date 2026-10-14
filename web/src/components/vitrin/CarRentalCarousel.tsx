@@ -19,6 +19,7 @@ type Payload = {
 const PROVIDER_LABEL: Record<CarRentalProvider, string> = {
   qeeq: "QEEQ",
   economybookings: "EconomyBookings",
+  vrooem: "Vrooem",
 };
 
 export function CarRentalCarousel({

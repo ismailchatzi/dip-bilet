@@ -7,7 +7,7 @@ export type CarRentalCard = {
   bookUrl: string;
 };
 
-export type CarRentalProvider = "qeeq" | "economybookings";
+export type CarRentalProvider = "qeeq" | "economybookings" | "vrooem";
 
 export type CarRentalResult = {
   location: string;
