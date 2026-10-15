@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CityFaresPayload } from "@/lib/scan/city-cache";
-import { mergeCityLows } from "@/lib/scan/deal-archive";
+import {
+  mergeCityLows,
+  mergeShowcaseDeals,
+  nextSuppressedDestCodes,
+} from "@/lib/scan/deal-archive";
 import { DEPARTURE_LABEL } from "@/lib/scan/routes";
 import {
   mergeSeenDestinations,
@@ -102,14 +106,26 @@ export async function patchScanBoard(
             current.deals?.scrappaRematchJobB,
           ),
         ),
-        deals:
-          Date.parse(incoming.fetchedAt) >= Date.parse(latest.deals?.fetchedAt ?? "")
-            ? incoming.deals
-            : (latest.deals?.deals ?? incoming.deals),
-        archive:
-          Date.parse(incoming.fetchedAt) >= Date.parse(latest.deals?.fetchedAt ?? "")
-            ? incoming.archive
-            : (latest.deals?.archive ?? incoming.archive),
+        // fetchedAt yenisi kazanırdı → eksik anlık görüntü tüm vitrini eziyordu.
+        // Şehir birleşimi: çakışan yazımlarda kart kaybı olmasın.
+        suppressedDestCodes: nextSuppressedDestCodes(
+          latest.deals?.suppressedDestCodes,
+          incoming.suppressedDestCodes,
+          incoming.deals,
+        ),
+        deals: mergeShowcaseDeals(
+          latest.deals?.deals,
+          incoming.deals,
+          nextSuppressedDestCodes(
+            latest.deals?.suppressedDestCodes,
+            incoming.suppressedDestCodes,
+            incoming.deals,
+          ),
+        ),
+        archive: mergeShowcaseDeals(
+          latest.deals?.archive,
+          incoming.archive,
+        ),
         // Rekor kaybolmasın: eski sürüm yazıcılar alanı düşürse de birleşir.
         cityLows: mergeCityLows(
           current.deals?.cityLows,

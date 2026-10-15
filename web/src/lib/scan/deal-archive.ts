@@ -4,6 +4,7 @@ import {
   dealWithDateChoice,
   dealWithinStopLimit,
   familyLastDealFoundAt,
+  foldOneCardPerCity,
   isDomesticDeal,
   isFoundAtWithinKeep,
   isUnverifiedOneWaySum,
@@ -25,6 +26,46 @@ export const ARCHIVE_KEEP_DAYS = 60;
 export const ARCHIVE_SHOW_MAX = 12;
 
 export { SHOWCASE_FOUND_KEEP_DAYS, familyLastDealFoundAt };
+
+/**
+ * İki vitrin yazımı çakışınca kart kaybını önle: şehir birleşimi.
+ * `suppressed` içindeki şehirler (elle silinen) geri gelmez.
+ */
+export function mergeShowcaseDeals(
+  latest: Deal[] | undefined,
+  incoming: Deal[] | undefined,
+  suppressed: string[] = [],
+): Deal[] {
+  const blocked = new Set(
+    suppressed.map((c) => c.trim().toUpperCase()).filter(Boolean),
+  );
+  return foldOneCardPerCity([...(latest ?? []), ...(incoming ?? [])]).filter(
+    (d) => {
+      const code = dealDestCode(d);
+      return !code || !blocked.has(code);
+    },
+  );
+}
+
+/** Yeni kartı olan şehirler suppress listesinden düşer. */
+export function nextSuppressedDestCodes(
+  previous: string[] | undefined,
+  incoming: string[] | undefined,
+  incomingDeals: Deal[] | undefined,
+): string[] {
+  const published = new Set(
+    (incomingDeals ?? [])
+      .map((d) => dealDestCode(d))
+      .filter((c): c is string => Boolean(c)),
+  );
+  return [
+    ...new Set(
+      [...(previous ?? []), ...(incoming ?? [])]
+        .map((c) => c.trim().toUpperCase())
+        .filter((c) => c && !published.has(c)),
+    ),
+  ];
+}
 
 export function sortByFoundAt(deals: Deal[]) {
   return [...deals].sort((a, b) => {

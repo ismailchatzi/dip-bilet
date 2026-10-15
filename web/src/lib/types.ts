@@ -175,6 +175,11 @@ export type DealsPayload = {
   deals: Deal[];
   /** Uçuş günü geçmiş kartlar; anasayfa ertesi gün gösterir. */
   archive?: Deal[];
+  /**
+   * Elle / güvenlik için vitrinden düşürülen şehirler.
+   * patchScanBoard birleştirince geri gelmesin; o şehre yeni kart yazılınca listeden çıkar.
+   */
+  suppressedDestCodes?: string[];
   /** Şehir başına bugüne kadar vitrine girmiş en ucuz paket (kalıcı; anasayfa kartları). */
   cityLows?: Deal[];
   warning?: string;
