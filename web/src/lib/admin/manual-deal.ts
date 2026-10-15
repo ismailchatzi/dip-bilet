@@ -309,8 +309,21 @@ export async function removeManualDealFromShowcase(
   if (next.length === previous.length) {
     return { ok: false, error: "Kart bulunamadı" };
   }
+  const removed = previous.find((d) => d.id === dealId);
+  const removedCode = removed ? dealDestCode(removed) : "";
   const { payload, live, previousLive } = foldShowcase(board.deals, next);
-  const saved = await patchScanBoard(admin, { deals: payload });
+  // patchScanBoard kartları birleştirir; silinen şehir suppress edilmezse geri gelir.
+  const saved = await patchScanBoard(admin, {
+    deals: {
+      ...payload,
+      suppressedDestCodes: [
+        ...new Set([
+          ...(board.deals?.suppressedDestCodes ?? []),
+          ...(removedCode ? [removedCode] : []),
+        ]),
+      ],
+    },
+  });
   if (!saved.ok) return { ok: false, error: saved.error ?? "Silinemedi" };
   await notifyNewDeals(admin, previousLive, live);
   return { ok: true };
