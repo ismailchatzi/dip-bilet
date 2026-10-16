@@ -114,6 +114,22 @@ export const TRIPCOM_CITY_ID: Record<string, number> = {
   SIN: 73,
   HKG: 58,
   BKK: 359,
+  /** Tracked + Google Deals şehirleri (URL hotels-list-N doğrulandı) */
+  SOF: 792,
+  FLR: 687,
+  SPU: 3264,
+  NTE: 1484,
+  TNG: 3686,
+  TFN: 3508,
+  TFS: 3508,
+  PEK: 1,
+  PKX: 1,
+  CRL: 196,
+  EVN: 3245,
+  PFO: 3291,
+  TOS: 3713,
+  RVN: 1794,
+  SCO: 7516,
 };
 
 /** Başlık doğrulaması için İngilizce / yerel adlar */
@@ -172,6 +188,20 @@ const CITY_TITLE_ALIASES: Record<string, string[]> = {
   VAN: ["van"],
   ALG: ["algiers"],
   CPT: ["cape town"],
+  SOF: ["sofia"],
+  FLR: ["florence", "firenze"],
+  SPU: ["split"],
+  NTE: ["nantes"],
+  TNG: ["tangier", "tanger"],
+  TFN: ["santa cruz de tenerife", "tenerife"],
+  TFS: ["tenerife"],
+  PEK: ["beijing"],
+  PKX: ["beijing"],
+  CRL: ["brussels", "bruxelles"],
+  AER: ["sochi"],
+  SVX: ["yekaterinburg", "ekaterinburg"],
+  EVN: ["yerevan", "erevan"],
+  ECN: ["nicosia", "lefkosa", "northern cyprus"],
 };
 
 const FETCH_HEADERS: HeadersInit = {
@@ -256,29 +286,55 @@ export async function verifyTripcomCityId(
   }
 }
 
+async function googleOrganicLinks(q: string): Promise<string[]> {
+  const serpKey = process.env.SERPAPI_API_KEY?.trim();
+  const searchKey = process.env.SEARCHAPI_API_KEY?.trim();
+  const encoded = encodeURIComponent(q);
+
+  const tryUrl = async (url: string) => {
+    const res = await fetch(url, { next: { revalidate: 86400 } });
+    if (!res.ok) return [] as string[];
+    const json = (await res.json()) as {
+      organic_results?: Array<{ link?: string }>;
+    };
+    return (json.organic_results ?? [])
+      .map((r) => r.link)
+      .filter((l): l is string => Boolean(l));
+  };
+
+  if (serpKey) {
+    try {
+      const links = await tryUrl(
+        `https://serpapi.com/search.json?engine=google&q=${encoded}&num=8&api_key=${serpKey}`,
+      );
+      if (links.length) return links;
+    } catch {
+      /* SearchApi dene */
+    }
+  }
+  if (searchKey) {
+    try {
+      return await tryUrl(
+        `https://www.searchapi.io/api/v1/search?engine=google&q=${encoded}&num=8&api_key=${searchKey}`,
+      );
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 async function discoverViaSerpApi(
   aliases: string[],
 ): Promise<number | null> {
-  const key = process.env.SERPAPI_API_KEY?.trim();
-  if (!key) return null;
-
   for (const name of aliases) {
     if (name.length < 3 || /^[A-Z]{3}$/i.test(name)) continue;
     const slug = slugifyCity(name);
-    const q = encodeURIComponent(
-      `site:us.trip.com/hotels "${name}" hotels-list${slug ? ` OR ${slug}-hotels-list` : ""}`,
-    );
+    const q = `site:us.trip.com/hotels "${name}" hotels-list${slug ? ` OR ${slug}-hotels-list` : ""}`;
     try {
-      const res = await fetch(
-        `https://serpapi.com/search.json?engine=google&q=${q}&num=8&api_key=${key}`,
-        { next: { revalidate: 86400 } },
-      );
-      if (!res.ok) continue;
-      const json = (await res.json()) as {
-        organic_results?: Array<{ link?: string }>;
-      };
-      for (const row of json.organic_results ?? []) {
-        const m = row.link?.match(/hotels-list-(\d+)/i);
+      const links = await googleOrganicLinks(q);
+      for (const link of links) {
+        const m = link.match(/hotels-list-(\d+)/i) || link.match(/hotels-c(\d+)/i);
         if (!m) continue;
         const id = Number(m[1]);
         if (!Number.isFinite(id) || id <= 0) continue;

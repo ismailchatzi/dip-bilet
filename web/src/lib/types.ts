@@ -169,8 +169,10 @@ export type SeenDestination = {
 };
 
 export type DealsPayload = {
-  source: "serpapi" | "cache" | "demo";
+  source: "serpapi" | "searchapi" | "cache" | "demo";
   fetchedAt: string;
+  /** Son Google Deals çekimi (kota / throttle). Scrappa foldShowcase silmez. */
+  googleDealsFetchedAt?: string;
   departure: string;
   deals: Deal[];
   /** Uçuş günü geçmiş kartlar; anasayfa ertesi gün gösterir. */

@@ -151,6 +151,26 @@ const DEST_COUNTRY: Record<string, string> = {
   TLV: "İsrail",
   KWI: "Kuveyt",
   DOH: "Katar",
+  FLR: "İtalya",
+  SPU: "Hırvatistan",
+  NTE: "Fransa",
+  TNG: "Fas",
+  TFN: "İspanya",
+  TFS: "İspanya",
+  EVN: "Ermenistan",
+  INI: "Sırbistan",
+  TOS: "Norveç",
+  RVN: "Finlandiya",
+  PFO: "Kıbrıs",
+  SCO: "Kazakistan",
+  YIW: "Çin",
+  ISU: "Irak",
+  MRA: "Libya",
+  HSA: "Kazakistan",
+  LFW: "Togo",
+  MQM: "Türkiye",
+  HTY: "Türkiye",
+  IGD: "Türkiye",
   // Uzak hat (remote-targets)
   JFK: "ABD",
   EWR: "ABD",
@@ -403,7 +423,9 @@ export function dealCityName(deal: Deal) {
 
 export function dealCityTitle(deal: Deal) {
   const city = dealCityName(deal);
-  const country = DEST_COUNTRY[dealDestCode(deal)];
+  const country =
+    DEST_COUNTRY[dealDestCode(deal)] ??
+    (deal.country?.trim() ? deal.country.trim() : undefined);
   return country ? `${city}, ${country}` : city;
 }
 

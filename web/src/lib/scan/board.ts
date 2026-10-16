@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { dealDestCode } from "@/lib/deal-display";
+import { hasDestPhotos } from "@/lib/destination-photos";
 import type { CityFaresPayload } from "@/lib/scan/city-cache";
 import {
   mergeCityLows,
@@ -10,7 +12,19 @@ import {
   mergeSeenDestinations,
   unionSeenDestinationRows,
 } from "@/lib/scan/seen-destinations";
-import type { DealsPayload, ScrappaJob, ScrappaRematchJob } from "@/lib/types";
+import type { Deal, DealsPayload, ScrappaJob, ScrappaRematchJob } from "@/lib/types";
+
+/** Yerel / Pexels varken Google encrypted-tbn thumbnail kalmasın. */
+function preferLocalPhotos(deals: Deal[] | undefined): Deal[] | undefined {
+  if (!deals) return deals;
+  return deals.map((d) => {
+    const code = dealDestCode(d);
+    if (hasDestPhotos(code) || hasDestPhotos(d.destination)) {
+      return d.photoUrl ? { ...d, photoUrl: undefined } : d;
+    }
+    return d;
+  });
+}
 
 export type ScanBoard = {
   deals: DealsPayload | null;
@@ -84,6 +98,10 @@ export async function patchScanBoard(
   const deals = incoming
     ? {
         ...incoming,
+        googleDealsFetchedAt:
+          incoming.googleDealsFetchedAt ??
+          latest.deals?.googleDealsFetchedAt ??
+          current.deals?.googleDealsFetchedAt,
         scrappaJob: newerScrappaJob(
           incoming.scrappaJob,
           newerScrappaJob(latest.deals?.scrappaJob, current.deals?.scrappaJob),
@@ -113,18 +131,19 @@ export async function patchScanBoard(
           incoming.suppressedDestCodes,
           incoming.deals,
         ),
-        deals: mergeShowcaseDeals(
-          latest.deals?.deals,
-          incoming.deals,
-          nextSuppressedDestCodes(
-            latest.deals?.suppressedDestCodes,
-            incoming.suppressedDestCodes,
+        deals: preferLocalPhotos(
+          mergeShowcaseDeals(
+            latest.deals?.deals,
             incoming.deals,
+            nextSuppressedDestCodes(
+              latest.deals?.suppressedDestCodes,
+              incoming.suppressedDestCodes,
+              incoming.deals,
+            ),
           ),
         ),
-        archive: mergeShowcaseDeals(
-          latest.deals?.archive,
-          incoming.archive,
+        archive: preferLocalPhotos(
+          mergeShowcaseDeals(latest.deals?.archive, incoming.archive),
         ),
         // Rekor kaybolmasın: eski sürüm yazıcılar alanı düşürse de birleşir.
         cityLows: mergeCityLows(

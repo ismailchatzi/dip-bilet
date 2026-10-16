@@ -1,13 +1,17 @@
 import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { foldOneCardPerCity } from "@/lib/deal-display";
-import { fetchGoogleDeals } from "@/lib/providers/serpapi-deals";
+import {
+  fetchGoogleDeals,
+  googleDealsProviderPreference,
+  type GoogleDealsProvider,
+} from "@/lib/providers/serpapi-deals";
 import { patchScanBoard, readScanBoard } from "@/lib/scan/board";
 import { archiveTripKey, foldShowcase, isLiveDeal } from "@/lib/scan/deal-archive";
 import { passesGoogleDealGates } from "@/lib/scan/google-deals-gates";
 import { checkAgainstOwnOneWays } from "@/lib/scan/google-deals-sanity";
 import { routeKey, seasonKey } from "@/lib/scan/dates";
 import { insertObservations, type ObservationRow } from "@/lib/scan/observations";
-import { destPhotoCode } from "@/lib/destination-photos";
+import { destPhotoCode, hasDestPhotos } from "@/lib/destination-photos";
 import {
   findTrackedDestination,
   trackedDestinationLabel,
@@ -23,8 +27,68 @@ export type SerpapiDealsScanResult = {
   added: number;
   skippedDup: number;
   skippedGate: number;
+  skippedPhoto?: number;
+  provider?: GoogleDealsProvider;
   error?: string;
 };
+
+/** Google ülke adını kart başlığı için Türkçeleştir. */
+function countryTr(raw?: string): string | undefined {
+  const s = raw?.trim();
+  if (!s) return undefined;
+  const map: Record<string, string> = {
+    Turkey: "Türkiye",
+    Italy: "İtalya",
+    Spain: "İspanya",
+    France: "Fransa",
+    Germany: "Almanya",
+    Greece: "Yunanistan",
+    Croatia: "Hırvatistan",
+    Serbia: "Sırbistan",
+    Morocco: "Fas",
+    Armenia: "Ermenistan",
+    Norway: "Norveç",
+    Finland: "Finlandiya",
+    Cyprus: "Kıbrıs",
+    Kazakhstan: "Kazakistan",
+    China: "Çin",
+    Iraq: "Irak",
+    Libya: "Libya",
+    Togo: "Togo",
+    Eritrea: "Eritre",
+    "United Arab Emirates": "BAE",
+    "Saudi Arabia": "Suudi Arabistan",
+    "United Kingdom": "Birleşik Krallık",
+    Netherlands: "Hollanda",
+    Belgium: "Belçika",
+    Portugal: "Portekiz",
+    Austria: "Avusturya",
+    Hungary: "Macaristan",
+    Bulgaria: "Bulgaristan",
+    Romania: "Romanya",
+    Poland: "Polonya",
+    "Czech Republic": "Çekya",
+    Czechia: "Çekya",
+    Russia: "Rusya",
+    "South Korea": "Güney Kore",
+    "Korea, Republic of": "Güney Kore",
+    Thailand: "Tayland",
+    Malaysia: "Malezya",
+    Singapore: "Singapur",
+    Indonesia: "Endonezya",
+    Maldives: "Maldivler",
+    Egypt: "Mısır",
+    Lebanon: "Lübnan",
+    Georgia: "Gürcistan",
+    Azerbaijan: "Azerbaycan",
+    "Bosnia and Herzegovina": "Bosna-Hersek",
+    Albania: "Arnavutluk",
+    "North Macedonia": "Kuzey Makedonya",
+    "United States": "ABD",
+    Japan: "Japonya",
+  };
+  return map[s] ?? s;
+}
 
 function destFromHit(hit: {
   arrival_airport_code?: string;
@@ -78,6 +142,7 @@ function toShowcaseDeal(
     stops?: number;
     airline?: string;
     thumbnail?: string;
+    country?: string;
   },
   dest: { code: string; name: string; label?: string; airport?: string },
   foundAt: string,
@@ -89,11 +154,15 @@ function toShowcaseDeal(
     strike != null
       ? Math.round(((strike - hit.price) / strike) * 100)
       : hit.discount;
+  // Yerel / Pexels varsa Google thumbnail kullanma (kalitesiz encrypted-tbn).
+  const localPhotos = hasDestPhotos(dest.code) || hasDestPhotos(dest.name);
+  const photoUrl = localPhotos ? undefined : hit.thumbnail?.trim() || undefined;
 
   return {
     id: `gdeals:${dest.code}:${hit.origin}:${hit.outDate}:${hit.origin}:${hit.retDate}`,
     destination: dest.label ?? `${dest.name} (${dest.code})`,
     ...(dest.airport ? { destAirport: dest.airport } : {}),
+    ...(countryTr(hit.country) ? { country: countryTr(hit.country) } : {}),
     price: Math.round(hit.price),
     averagePrice: strike,
     thresholdPrice: threshold,
@@ -106,7 +175,7 @@ function toShowcaseDeal(
     returnDate: hit.retDate,
     airline: hit.airline,
     stops: hit.stops,
-    photoUrl: hit.thumbnail?.trim() || undefined,
+    photoUrl,
     googleFlightsUrl: hit.link,
     departureLabel: departureLabel(hit.origin),
     foundAt,
@@ -190,7 +259,27 @@ export async function runSerpapiDealsScan(
 ): Promise<SerpapiDealsScanResult> {
   const today = turkeyTodayIso();
   const origin = originForThisScan();
-  const fetched = await fetchGoogleDeals(origin);
+  const prefer = googleDealsProviderPreference();
+  const hasSearch = Boolean(process.env.SEARCHAPI_API_KEY?.trim());
+  const hasSerp = Boolean(process.env.SERPAPI_API_KEY?.trim());
+
+  let fetched: Awaited<ReturnType<typeof fetchGoogleDeals>>;
+
+  if (prefer === "searchapi" || (!hasSerp && hasSearch)) {
+    fetched = await fetchGoogleDeals(origin, { provider: "searchapi" });
+  } else if (prefer === "serpapi" || !hasSearch) {
+    fetched = await fetchGoogleDeals(origin, { provider: "serpapi" });
+  } else {
+    // auto: SerpApi dene; kota bitince SearchApi (SerpApi cron sıklığıyla aynı).
+    const serp = await fetchGoogleDeals(origin, { provider: "serpapi" });
+    if (serp.ok) {
+      fetched = serp;
+    } else {
+      console.warn("serpapi-deals → searchapi fallback", serp.error);
+      fetched = await fetchGoogleDeals(origin, { provider: "searchapi" });
+    }
+  }
+
   if (!fetched.ok) {
     return {
       ok: false,
@@ -199,6 +288,7 @@ export async function runSerpapiDealsScan(
       added: 0,
       skippedDup: 0,
       skippedGate: 0,
+      provider: fetched.provider,
       error: fetched.error,
     };
   }
@@ -208,6 +298,7 @@ export async function runSerpapiDealsScan(
   const foundAt = new Date().toISOString();
   const matched: Deal[] = [];
   let skippedGate = 0;
+  let skippedPhoto = 0;
 
   for (const hit of fetched.deals) {
     const dest = destFromHit(hit);
@@ -222,6 +313,12 @@ export async function runSerpapiDealsScan(
     if (outDate < today) continue;
 
     if (typeof hit.stops === "number" && hit.stops > maxStopsForDest(dest.code)) {
+      continue;
+    }
+
+    // Dış kaynak kartlarıyla aynı: yerel/Pexels görsel yoksa vitrine alma.
+    if (!hasDestPhotos(dest.code) && !hasDestPhotos(dest.name)) {
+      skippedPhoto += 1;
       continue;
     }
 
@@ -270,6 +367,7 @@ export async function runSerpapiDealsScan(
           stops: typeof hit.stops === "number" ? hit.stops : undefined,
           airline: hit.airline,
           thumbnail: hit.thumbnail,
+          country: hit.country,
         },
         dest,
         foundAt,
@@ -286,6 +384,7 @@ export async function runSerpapiDealsScan(
       added: 0,
       skippedDup: 0,
       skippedGate,
+      skippedPhoto,
       error: "Supabase yok",
     };
   }
@@ -305,6 +404,10 @@ export async function runSerpapiDealsScan(
     const outDate = deal.outboundDate ?? "";
     if (!code || !/^\d{4}-\d{2}-\d{2}$/.test(outDate)) {
       skippedGate += 1;
+      continue;
+    }
+    if (!hasDestPhotos(code) && !hasDestPhotos(deal.destination)) {
+      skippedPhoto += 1;
       continue;
     }
     const gate = passesGoogleDealGates({
@@ -335,7 +438,11 @@ export async function runSerpapiDealsScan(
         continue;
       }
     }
-    keptExisting.push(deal);
+    // Yerel / Pexels varsa eski Google thumbnail’i temizle.
+    keptExisting.push({
+      ...deal,
+      photoUrl: hasDestPhotos(code) ? undefined : deal.photoUrl,
+    });
   }
 
   const byTrip = new Map(keptExisting.map((d) => [archiveTripKey(d), d]));
@@ -356,8 +463,9 @@ export async function runSerpapiDealsScan(
         discountPercent: cheaper ? deal.discountPercent : prev.discountPercent,
         dealBadge: cheaper ? deal.dealBadge : prev.dealBadge,
         lastCheckedAt: foundAt,
-        photoUrl: prev.photoUrl || deal.photoUrl,
-        airline: prev.airline || deal.airline,
+        country: deal.country || prev.country,
+        photoUrl: deal.photoUrl || prev.photoUrl,
+        airline: deal.airline || prev.airline,
         stops: typeof prev.stops === "number" ? prev.stops : deal.stops,
       });
       continue;
@@ -366,12 +474,30 @@ export async function runSerpapiDealsScan(
     fresh.push(deal);
   }
 
+  const cleanedLive = foldOneCardPerCity([...byTrip.values()]).map((d) => {
+    const code = destCodeFromDeal(d);
+    if (hasDestPhotos(code) || hasDestPhotos(d.destination)) {
+      return { ...d, photoUrl: undefined };
+    }
+    return d;
+  });
+
   const { payload, live, previousLive } = foldShowcase(
     board.deals,
-    foldOneCardPerCity([...byTrip.values()]),
+    cleanedLive,
     foundAt,
     today,
   );
+  payload.source = fetched.provider === "searchapi" ? "searchapi" : "serpapi";
+  payload.googleDealsFetchedAt = foundAt;
+  // patchScanBoard eski Google thumb’ı geri getirmesin
+  payload.deals = payload.deals.map((d) => {
+    const code = destCodeFromDeal(d);
+    if (hasDestPhotos(code) || hasDestPhotos(d.destination)) {
+      return { ...d, photoUrl: undefined };
+    }
+    return d;
+  });
   const saved = await patchScanBoard(admin, { deals: payload });
   if (!saved.ok) {
     return {
@@ -381,6 +507,8 @@ export async function runSerpapiDealsScan(
       added: 0,
       skippedDup,
       skippedGate,
+      skippedPhoto,
+      provider: fetched.provider,
       error: saved.error,
     };
   }
@@ -394,5 +522,7 @@ export async function runSerpapiDealsScan(
     added: fresh.length,
     skippedDup,
     skippedGate,
+    skippedPhoto,
+    provider: fetched.provider,
   };
 }

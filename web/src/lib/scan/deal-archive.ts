@@ -209,6 +209,7 @@ export function foldShowcase(
     payload: {
       source: "cache",
       fetchedAt: foundAt,
+      googleDealsFetchedAt: previous?.googleDealsFetchedAt,
       departure: DEPARTURE_LABEL,
       deals: liveSafe,
       archive: archiveSafe,

@@ -129,6 +129,44 @@ const PEXELS: Record<string, number[]> = {
   CMN: [30362133, 31890453, 29325006],
   COV: [28951536, 35922861],
   CTA: [30442348, 28217127, 34903871],
+  FLR: [36577431, 37122204, 2422461],
+  SPU: [2901209, 32214197, 32214198],
+  NTE: [2407070, 2407071, 460672],
+  TNG: [3889854, 3889855, 3889860],
+  TFN: [2403209, 2403210, 457882],
+  TFS: [2403209, 2403210, 457882],
+  EVN: [164336, 164337, 460672],
+  INI: [32214197, 32214198, 326175],
+  TOS: [417074, 1183099, 1571442],
+  RVN: [1571442, 1183099, 417074],
+  PFO: [37845027, 37845031, 34713041],
+  CIT: [29135774, 29139302, 29139336],
+  SCO: [29135774, 29139302, 29139336],
+  YIW: [50868, 35919936, 35586895],
+  ISU: [35509988, 35509989, 31780931],
+  MRA: [27622255, 36987449, 36640667],
+  HSA: [29135774, 29139302, 18516837],
+  LFW: [32839809, 38133494, 36202135],
+  ASM: [38133494, 36202135, 31904144],
+  MQM: [30564169, 28273731, 8057328],
+  HTY: [16531469, 30384076, 6845296],
+  IGD: [31849460, 31849457, 36203089],
+};
+
+/** Aynı şehir / ekstra havalimanı → ortak foto seti */
+const PHOTO_ALIAS: Record<string, string> = {
+  CRL: "BRU",
+  ORY: "CDG",
+  BGY: "MXP",
+  STN: "LTN",
+  SHJ: "DXB",
+  MLH: "BSL",
+  SHA: "PVG",
+  PKX: "PEK",
+  TFS: "TFN",
+  ITM: "KIX",
+  HND: "NRT",
+  EWR: "JFK",
 };
 
 function pexelsUrl(id: number, width: number) {
@@ -214,6 +252,24 @@ const NAME_TO_CODE: Record<string, string> = {
   singapur: "SIN",
   singapore: "SIN",
   "hong kong": "HKG",
+  floransa: "FLR",
+  florence: "FLR",
+  firenze: "FLR",
+  split: "SPU",
+  nantes: "NTE",
+  tanca: "TNG",
+  tangier: "TNG",
+  tanger: "TNG",
+  tenerife: "TFN",
+  erivan: "EVN",
+  yerevan: "EVN",
+  niş: "INI",
+  nis: "INI",
+  tromsø: "TOS",
+  tromso: "TOS",
+  rovaniemi: "RVN",
+  baf: "PFO",
+  paphos: "PFO",
 };
 
 for (const dest of SCRAPPA_DESTINATIONS) {
@@ -234,7 +290,10 @@ export function destPhotoCode(input: string) {
   const raw = input.trim();
   if (/^[A-Z]{3}$/i.test(raw)) {
     const code = raw.toUpperCase();
-    if (FILES[code] || PEXELS[code]) return code;
+    const aliased = PHOTO_ALIAS[code] ?? code;
+    if (FILES[aliased] || PEXELS[aliased] || FILES[code] || PEXELS[code]) {
+      return aliased;
+    }
   }
   const folded = fold(raw);
   if (NAME_TO_CODE[folded]) return NAME_TO_CODE[folded];
@@ -255,6 +314,11 @@ export function destPhotoSets(codeOrName: string): DestPhotoSet[] {
     card: `/destinations/card/${file}`,
     full: `/destinations/full/${file}`,
   }));
+}
+
+/** Yerel / Pexels seti var mı — Google thumbnail tek başına yetmez. */
+export function hasDestPhotos(codeOrName: string) {
+  return destPhotoSets(codeOrName).length > 0;
 }
 
 /** Kart / küçük önizleme */

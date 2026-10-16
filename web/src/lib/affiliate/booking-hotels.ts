@@ -120,6 +120,23 @@ const BOOKING_CITY: Record<string, string> = {
   KUL: "Kuala Lumpur",
   SIN: "Singapore",
   HKG: "Hong Kong",
+  FLR: "Florence",
+  SPU: "Split",
+  NTE: "Nantes",
+  TNG: "Tangier",
+  TFN: "Santa Cruz de Tenerife",
+  TFS: "Tenerife",
+  EVN: "Yerevan",
+  INI: "Nis",
+  TOS: "Tromso",
+  RVN: "Rovaniemi",
+  PFO: "Paphos",
+  SOF: "Sofia",
+  AER: "Sochi",
+  SVX: "Yekaterinburg",
+  PEK: "Beijing",
+  PKX: "Beijing",
+  CRL: "Brussels",
 };
 
 export function bookingCityQuery(iata: string, cityLabel?: string) {
