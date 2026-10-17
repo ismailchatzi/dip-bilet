@@ -292,16 +292,26 @@ export function DealDetail({
                   </p>
                 ) : null}
                 <div className="book-modal__options">
+                  {aviasalesUrl ? (
+                    <a href={aviasalesUrl} target="_blank" rel="noopener noreferrer sponsored" className="book-modal__option">
+                      <AviasalesLogo />
+                      <span className="book-modal__option-text">
+                        <span className="book-modal__option-name">
+                          Aviasales
+                          <span className="book-modal__star" aria-hidden="true">
+                            ★
+                          </span>
+                        </span>
+                        <span className="book-modal__option-note">
+                          fırsat kartlarının %93&apos;ünde en ucuz
+                        </span>
+                      </span>
+                    </a>
+                  ) : null}
                   {kiwiUrl ? (
                     <a href={kiwiUrl} target="_blank" rel="noopener noreferrer sponsored" className="book-modal__option">
                       <KiwiLogo />
                       <span>Kiwi.com</span>
-                    </a>
-                  ) : null}
-                  {aviasalesUrl ? (
-                    <a href={aviasalesUrl} target="_blank" rel="noopener noreferrer sponsored" className="book-modal__option">
-                      <AviasalesLogo />
-                      <span>Aviasales</span>
                     </a>
                   ) : null}
                   {tripUrl ? (

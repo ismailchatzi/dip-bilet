@@ -4667,6 +4667,32 @@ a {
   background: #f5f7ff;
 }
 
+.book-modal__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.book-modal__option-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.book-modal__star {
+  color: #e6a800;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.book-modal__option-note {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #5a6472;
+  line-height: 1.25;
+}
+
 /* Reklam karşılama: /f/[code] */
 .landing {
   width: min(1040px, calc(100% - 2rem));
