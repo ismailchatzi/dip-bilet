@@ -61,6 +61,9 @@ const PEXELS: Record<string, number[]> = {
   CPT: [34729802, 6790337, 37678619],
   HAM: [23024771, 29611407, 18252988],
   NUE: [32472176, 34270718, 8405817],
+  RTM: [37878728, 39619436, 37427966],
+  TFU: [12692135, 3945233, 38861523],
+  EZE: [32983525, 34437871, 20465955],
   JFK: [37558772, 29014458, 37558800],
   EWR: [37558772, 29014458, 37558800],
   MIA: [35065601, 14484202, 19920549],
@@ -167,6 +170,8 @@ const PHOTO_ALIAS: Record<string, string> = {
   ITM: "KIX",
   HND: "NRT",
   EWR: "JFK",
+  CTU: "TFU",
+  AEP: "EZE",
 };
 
 function pexelsUrl(id: number, width: number) {
@@ -270,6 +275,9 @@ const NAME_TO_CODE: Record<string, string> = {
   rovaniemi: "RVN",
   baf: "PFO",
   paphos: "PFO",
+  rotterdam: "RTM",
+  chengdu: "TFU",
+  "buenos aires": "EZE",
 };
 
 for (const dest of SCRAPPA_DESTINATIONS) {

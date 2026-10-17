@@ -131,12 +131,8 @@ const BOOKING_CITY: Record<string, string> = {
   TOS: "Tromso",
   RVN: "Rovaniemi",
   PFO: "Paphos",
-  SOF: "Sofia",
-  AER: "Sochi",
-  SVX: "Yekaterinburg",
   PEK: "Beijing",
   PKX: "Beijing",
-  CRL: "Brussels",
 };
 
 export function bookingCityQuery(iata: string, cityLabel?: string) {

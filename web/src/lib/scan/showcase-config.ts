@@ -211,6 +211,11 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   CPT: 790,
   HAM: 130,
   NUE: 140,
+  RTM: 170,
+  TFU: 450,
+  CTU: 450,
+  EZE: 1140,
+  AEP: 1140,
 };
 
 export function strictThresholdUsd(destCode: string): number | null {
@@ -242,6 +247,11 @@ export const MANUAL_STANDARDS: Record<string, number> = {
   CPT: 1181,
   HAM: 206,
   NUE: 219,
+  RTM: 243,
+  TFU: 680,
+  CTU: 680,
+  EZE: 1289,
+  AEP: 1289,
 };
 
 export function manualStandardUsd(destCode: string): number | null {

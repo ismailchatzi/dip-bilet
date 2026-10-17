@@ -169,8 +169,6 @@ const DEST_COUNTRY: Record<string, string> = {
   HSA: "Kazakistan",
   LFW: "Togo",
   MQM: "Türkiye",
-  HTY: "Türkiye",
-  IGD: "Türkiye",
   // Uzak hat (remote-targets)
   JFK: "ABD",
   EWR: "ABD",

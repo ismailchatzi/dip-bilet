@@ -71,6 +71,11 @@ const MANUAL_CITY_NAMES: Record<string, string> = {
   PEK: "Pekin", PKX: "Pekin", CAN: "Guangzhou", KUL: "Kuala Lumpur",
   LAX: "Los Angeles", NRT: "Tokyo", HND: "Tokyo", KIX: "Osaka", ITM: "Osaka",
   CPT: "Cape Town", HAM: "Hamburg", NUE: "Nürnberg",
+  RTM: "Rotterdam",
+  TFU: "Chengdu",
+  CTU: "Chengdu",
+  EZE: "Buenos Aires",
+  AEP: "Buenos Aires",
 };
 
 function cityNameFor(
