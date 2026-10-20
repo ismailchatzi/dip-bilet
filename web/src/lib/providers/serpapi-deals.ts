@@ -1,3 +1,5 @@
+import { stayRange } from "@/lib/scan/trip-rules";
+
 export type SerpapiDealHit = {
   name?: string;
   country?: string;
@@ -64,14 +66,20 @@ function nightsBetween(outDate: string, retDate: string): number | null {
   return Math.round((b - a) / 86_400_000);
 }
 
-/** 4–10 gece (Scrappa / eski SerpApi trip_length ile aynı). */
-function withinStayWindow(outDate?: string, retDate?: string, tripDays?: number) {
+/** Konaklama: uzak/tropik 7–14, diğer 4–10 (`stayRange`). */
+function withinStayWindow(
+  destCode?: string,
+  outDate?: string,
+  retDate?: string,
+  tripDays?: number,
+) {
+  const [minN, maxN] = stayRange(destCode ?? "");
   if (typeof tripDays === "number" && Number.isFinite(tripDays)) {
-    return tripDays >= 4 && tripDays <= 10;
+    return tripDays >= minN && tripDays <= maxN;
   }
   if (!outDate || !retDate) return false;
   const nights = nightsBetween(outDate, retDate);
-  return nights != null && nights >= 4 && nights <= 10;
+  return nights != null && nights >= minN && nights <= maxN;
 }
 
 function normalizeSearchapiDeals(raw: SearchapiDealRaw[]): SerpapiDealHit[] {
@@ -79,7 +87,8 @@ function normalizeSearchapiDeals(raw: SearchapiDealRaw[]): SerpapiDealHit[] {
   for (const hit of raw) {
     const outDate = hit.outbound_date ?? "";
     const retDate = hit.return_date ?? "";
-    if (!withinStayWindow(outDate, retDate, hit.trip_length_days)) continue;
+    const dest = hit.destination?.airport_code;
+    if (!withinStayWindow(dest, outDate, retDate, hit.trip_length_days)) continue;
     out.push({
       name: hit.destination?.name,
       country: hit.destination?.country,
@@ -109,7 +118,7 @@ async function fetchFromSerpapi(
     engine: "google_flights_deals",
     departure_id: departureId,
     type: "1",
-    trip_length: "4,10",
+    trip_length: "4,14",
     currency: "USD",
     gl: "tr",
     hl: "tr",
@@ -127,7 +136,14 @@ async function fetchFromSerpapi(
       error: json.error || `HTTP ${res.status}`,
     };
   }
-  return { ok: true, deals: json.deals ?? [] };
+  const deals = (json.deals ?? []).filter((d) =>
+    withinStayWindow(
+      d.arrival_airport_code,
+      d.outbound_date ?? d.start_date,
+      d.return_date ?? d.end_date,
+    ),
+  );
+  return { ok: true, deals };
 }
 
 async function fetchFromSearchapi(
@@ -165,7 +181,7 @@ export function googleDealsProviderPreference(): GoogleDealsProvider | "auto" {
 }
 
 /**
- * Tek havalimanı + 4–10 gün. IST,SAW birleşik istek Google’dan boş dönüyor. 1 hak.
+ * Tek havalimanı + konaklama stayRange (4–10 / uzak-tropik 7–14). IST,SAW birleşik boş. 1 hak.
  * `provider` verilirse yalnız o kaynak; yoksa GOOGLE_DEALS_PROVIDER / auto (SerpApi → SearchApi).
  */
 export async function fetchGoogleDeals(

@@ -20,13 +20,14 @@ Defter: `scrappaJob` / `scrappaRematchJob` (A) ve `scrappaJobB` / `scrappaRematc
 - **Near gün 5–21:** A, günde **1×** (28 şehir)
 - **Full gün 22–180:** günde **2 dilim** (8 şehir). Aynı gün 1→7 yok. Haftanın çifti: **ikisi de B** (1. full bitince 2. full).
 - `sort_by=cheapest`. Hesap başı kota ~1M/ay.
-- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE/BKK en fazla 2. New York, Los Angeles, Miami, São Paulo, Sidney, Tokyo, Seul, Hong Kong da **her stratejide** en fazla 2 (`TWO_STOPS`, konaklama 4–10 gece aynı kalır).
+- Aktarma: Avrupa vb. en fazla 1; DPS/HKT/MLE/BKK en fazla 2. New York, Los Angeles, Miami, São Paulo, Sidney, Tokyo, Seul, Hong Kong da **her stratejide** en fazla 2 (`TWO_STOPS`).
+- Konaklama: Avrupa/Balkan vb. **4–10** gece. Uzak hat + Bali/Phuket/Maldivler/Bangkok (+ KUL, SIN): **7–14** gece.
 
 ### Uzak hat (A, 2026-10-14+) — `scripts/remote-lane.ts` (cron `3-59/4 remote-test.ts` onu çağırır)
 - A'nın near + near rematch'i bitince (yoksa 13:00 sonrası) başlar; A işi gelirse kilidi bırakır; ertesi sabah **03:30** durur. 04:00/04:01 düzeni değişmez.
 - Gün aşırı: 14 Eki **1. grup** (New York JFK+EWR, Los Angeles, Miami, São Paulo, Sidney), 15 Eki **2. grup** (Tokyo HND+NRT, Seul, Kuala Lumpur, Singapur, Hong Kong), sonra sırayla.
 - Avrupa stratejisi: yalnız **IST**, 22–180 gün, tek yön gidiş + dönüş (`scrappa_oneway`). **Şehir bitince** o şehrin gözlemleriyle rematch (top 3+2, 3 deneme, hero'da dur) → 15 sn → final hero booking → vitrin. Nefes 15 sn.
-- Kapı: elle eşik varsa o (LAX 560, HND/NRT 640, KUL 440); yoksa sezonluk uzak hat (medyan × 0.82, örneklem 30 / 7 gün). Konaklama 4–10 gece.
+- Kapı: elle eşik varsa o (LAX 560, HND/NRT 640, KUL 440, GRU 1050, SYD 1100); yoksa sezonluk uzak hat (medyan × 0.82, örneklem 30 / 7 gün). Konaklama **7–14** gece.
 - `SCRAPPA_DESTINATIONS` / full dilimler / Google Deals'a girmez.
 
 ### Full dilimler (liste sırası, bölge gate’i değil)

@@ -172,6 +172,8 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   DUB: 160,
   BRS: 170,
   GZT: 70,
+  GRU: 1050,
+  SYD: 1100,
   BJV: 90,
   KYA: 80,
   BRI: 210,
@@ -252,6 +254,8 @@ export const MANUAL_STANDARDS: Record<string, number> = {
   CTU: 680,
   EZE: 1289,
   AEP: 1289,
+  GRU: 1269,
+  SYD: 1370,
 };
 
 export function manualStandardUsd(destCode: string): number | null {
@@ -261,7 +265,8 @@ export function manualStandardUsd(destCode: string): number | null {
 /** Sabit Standart (USD) — medyan / Google avg / kart snapshot'ını her zaman ezer. */
 export const FIXED_STANDARDS: Record<string, number> = {
   SKP: 140,
-};
+  GRU: 1269,
+  SYD: 1370,
 
 export function fixedStandardUsd(destCode: string): number | null {
   return FIXED_STANDARDS[destCode.trim().toUpperCase()] ?? null;

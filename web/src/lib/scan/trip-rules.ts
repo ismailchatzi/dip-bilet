@@ -1,11 +1,30 @@
+/** Aktarma: Bali / Phuket / Maldivler / Bangkok → 2 (TWO_STOPS ile birlikte). */
 const LONG_HAUL = new Set(["DPS", "HKT", "MLE", "BKK"]);
+
+/**
+ * Konaklama 7–14 gece: uzak hat + tropik Asya.
+ * Diğer şehirler: 4–10.
+ */
+const EXTENDED_STAY = new Set([
+  "DPS", "HKT", "MLE", "BKK",
+  "NYC", "JFK", "EWR", "LGA",
+  "LAX",
+  "MIA",
+  "SAO", "GRU", "VCP",
+  "SYD",
+  "TYO", "HND", "NRT",
+  "SEL", "ICN", "GMP",
+  "KUL",
+  "SIN",
+  "HKG",
+]);
 
 export function isLongHaulDest(code: string) {
   return LONG_HAUL.has(code.toUpperCase());
 }
 
 export function stayRange(code: string): [number, number] {
-  return isLongHaulDest(code) ? [7, 10] : [4, 10];
+  return EXTENDED_STAY.has(code.trim().toUpperCase()) ? [7, 14] : [4, 10];
 }
 
 /** Konaklama süresini (stayRange) değiştirmez; yalnız aktarma sınırı. Şehir + havalimanı kodları. */
