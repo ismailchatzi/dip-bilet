@@ -72,6 +72,7 @@ const PEXELS: Record<string, number[]> = {
   ICN: [38650647, 31414671, 31414674],
   SIN: [38436983, 39717729, 35872761],
   HKG: [1058683, 36745089, 34254219],
+  MRS: [15878303, 29803747, 34415769],
   MED: [29102586, 6476996, 38498727],
   MLX: [30564169, 28273731, 8057328],
   NCE: [31312437, 25547418, 6587767],
@@ -172,7 +173,23 @@ const PHOTO_ALIAS: Record<string, string> = {
   EWR: "JFK",
   CTU: "TFU",
   AEP: "EZE",
+  /** Skyscanner şehir kodu → fotoğrafı olan havalimanı */
+  SEL: "ICN",
+  TYO: "HND",
+  LON: "LTN",
+  PAR: "CDG",
+  ROM: "FCO",
+  MIL: "MXP",
+  NYC: "JFK",
+  OSA: "KIX",
+  BJS: "PEK",
+  SAO: "GRU",
+  BUE: "EZE",
+  BUH: "OTP",
 };
+
+/** Şehre ait set yokken kart düşmesin — belirli bir destinasyon değil. */
+const FALLBACK_PEXELS_ID = 3646733;
 
 function pexelsUrl(id: number, width: number) {
   return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${width}`;
@@ -278,7 +295,13 @@ const NAME_TO_CODE: Record<string, string> = {
   rotterdam: "RTM",
   chengdu: "TFU",
   "buenos aires": "EZE",
+  marsilya: "MRS",
+  marseille: "MRS",
 };
+
+export function fallbackDestPhotoUrl() {
+  return pexelsUrl(FALLBACK_PEXELS_ID, 800);
+}
 
 for (const dest of SCRAPPA_DESTINATIONS) {
   NAME_TO_CODE[dest.name.toLocaleLowerCase("tr-TR")] = dest.code;

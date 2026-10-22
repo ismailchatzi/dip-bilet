@@ -48,6 +48,17 @@ export function parseUcuzaucakPrice(text: string) {
   return { gbp: null, try: Math.min(...tl) };
 }
 
+/** "İstanbul Tokyo Uçak Bileti" → "Tokyo". Pazarlama cümlesi veya iki şehir (| ) yok sayılır. */
+export function destNameFromTitle(title: string): string | null {
+  const m = title.match(
+    /^(?:İstanbul|Istanbul|Ankara|İzmir|Izmir|Antalya|Adana|Trabzon|Gaziantep|Dalaman|Bodrum)\s+(.+?)\s+(?:Ucuza\s+)?Uçak\s+Bileti\s*$/iu,
+  );
+  if (!m) return null;
+  const name = m[1]!.replace(/\s+/g, " ").trim();
+  if (!name || name.includes("|") || name.length > 32) return null;
+  return name;
+}
+
 export function parseStops(text: string): number | null {
   if (/aktarmas[ıi]z/i.test(text)) return 0;
   const m = text.match(/(\d+)\s*aktarmal[ıi]/i);
@@ -100,6 +111,7 @@ export async function readUcuzaucak(
         priceTry: price?.try ?? null,
         summary: text.slice(0, 600),
         detailStatus: detail.status,
+        destName: destNameFromTitle(item.title),
       },
     });
   }

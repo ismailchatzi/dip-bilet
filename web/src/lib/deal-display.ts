@@ -145,6 +145,7 @@ const DEST_COUNTRY: Record<string, string> = {
   RUH: "Suudi Arabistan",
   TPE: "Tayvan",
   OTP: "Romanya",
+  SKD: "Özbekistan",
   ALP: "Suriye",
   DAM: "Suriye",
   PRN: "Kosova",
@@ -181,6 +182,8 @@ const DEST_COUNTRY: Record<string, string> = {
   KIX: "Japonya",
   ITM: "Japonya",
   ICN: "Güney Kore",
+  SEL: "Güney Kore",
+  TYO: "Japonya",
   KUL: "Malezya",
   HKG: "Çin",
 };

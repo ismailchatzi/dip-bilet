@@ -8,7 +8,7 @@ import {
   googleFlightsSearchUrl,
   isUnverifiedOneWaySum,
 } from "@/lib/deal-display";
-import { destPhotoUrls } from "@/lib/destination-photos";
+import { destPhotoUrls, fallbackDestPhotoUrl } from "@/lib/destination-photos";
 import { notifyNewDeals } from "@/lib/notify-new-deals";
 import { readScanBoard, patchScanBoard } from "@/lib/scan/board";
 import { foldShowcase } from "@/lib/scan/deal-archive";
@@ -76,6 +76,25 @@ const MANUAL_CITY_NAMES: Record<string, string> = {
   CTU: "Chengdu",
   EZE: "Buenos Aires",
   AEP: "Buenos Aires",
+  MRS: "Marsilya",
+  OTP: "Bükreş",
+  SKD: "Semerkant",
+  GRU: "São Paulo",
+  SYD: "Sidney",
+  ICN: "Seul",
+  /** Skyscanner şehir kodu — havalimanı değil */
+  SEL: "Seul",
+  TYO: "Tokyo",
+  LON: "Londra",
+  PAR: "Paris",
+  ROM: "Roma",
+  MIL: "Milano",
+  NYC: "New York",
+  OSA: "Osaka",
+  BJS: "Pekin",
+  SAO: "São Paulo",
+  BUE: "Buenos Aires",
+  BUH: "Bükreş",
 };
 
 function cityNameFor(
@@ -125,8 +144,11 @@ export function buildExternalCard(
   const city = canonicalDestCode(airport);
   const template = (board?.deals ?? []).find((d) => dealDestCode(d) === city);
 
-  const name = cityNameFor(city, board, input.cityName);
-  if (!name) return { ok: false, reason: "isim_yok" };
+  const named = cityNameFor(city, board, input.cityName);
+  const fallbackName = input.cityName?.trim();
+  const name =
+    named ||
+    (fallbackName && !/^[A-Z]{3}$/i.test(fallbackName) ? fallbackName : airport);
 
   const threshold = template?.thresholdPrice ?? hardFloorUsd(city);
   if (threshold == null || threshold <= 0) return { ok: false, reason: "esik_yok" };
@@ -140,14 +162,14 @@ export function buildExternalCard(
   const id = `external:${city}:${input.origin}:${input.outboundDate}:${input.origin}:${input.returnDate}`;
   const local = destPhotoUrls(city).length > 0 ? destPhotoUrls(city) : destPhotoUrls(name);
   const remote = local.filter((u) => /^https?:\/\//.test(u));
-  const photoUrl =
+  let photoUrl =
     template?.photoUrl ||
     (remote.length > 0
       ? seededPick(remote, id)
       : local.length > 0
         ? undefined
         : photoFor(city, board));
-  if (local.length === 0 && !photoUrl) return { ok: false, reason: "gorsel_yok" };
+  if (!photoUrl && local.length === 0) photoUrl = fallbackDestPhotoUrl();
 
   const tracked = findTrackedDestination(city);
   const destAirport = airport !== city ? airport : undefined;

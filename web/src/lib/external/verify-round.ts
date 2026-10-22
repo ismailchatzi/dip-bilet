@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canonicalDestCode, dealDateChoices, dealDestCode, displayDealPrice } from "@/lib/deal-display";
 import { buildExternalCard, publishExternalCard } from "@/lib/external/showcase";
+import { destNameFromTitle } from "@/lib/external/ucuzaucak";
 import { istanbulCode } from "@/lib/external/pairs";
 import type { ExternalDatePair } from "@/lib/external/types";
 import { scrappaRoundTrip, ScrappaUnavailableError } from "@/lib/providers/scrappa";
@@ -32,14 +33,30 @@ const MAX_ATTEMPTS = 3;
 /** Scrappa paketi kaynak fiyatının en fazla bu katı olabilir. */
 const PRICE_TOLERANCE = 1.05;
 
-type TripCheck = { status: "ok" | "fail"; at: string; scrappaUsd: number | null };
+type TripCheck = {
+  status: "ok" | "fail";
+  at: string;
+  scrappaUsd: number | null;
+  /** Kapı / tarih elenmesi — Scrappa’ya gitmeden fail */
+  reason?: string;
+};
 type VerifyInfo = {
   status?: "ok" | "fail";
   attempts?: number;
   sourceUsd?: number;
   cardId?: string;
   trips?: Record<string, TripCheck>;
+  /** Satır neden kapandı (eşik üstü vb.) */
+  closeReason?: string;
 };
+
+/** Scrappa denemeden kapatılacak kalıcı kapılar — kuyrukta bekletme. */
+const PERMANENT_SKIP = new Set([
+  "esik_ustu",
+  "esik_yok",
+  "isim_yok",
+  "gorsel_yok",
+]);
 type Row = {
   id: number;
   source: string;
@@ -215,7 +232,8 @@ export async function runExternalVerifyRound(
 
   const pending = rows.filter((r) => {
     const v = verifyOf(r);
-    return v.status !== "ok" && (v.attempts ?? 0) < MAX_ATTEMPTS;
+    if (v.status === "ok" || v.status === "fail") return false;
+    return (v.attempts ?? 0) < MAX_ATTEMPTS;
   });
   const needFx = pending.some((r) => (r.currency ?? "USD").toUpperCase() !== "USD");
   const rates = needFx ? await usdRates() : null;
@@ -224,32 +242,69 @@ export async function runExternalVerifyRound(
   const minOut = addDaysIso(turkeyTodayIso(), MIN_LEAD_DAYS);
   const trips = new Map<string, Trip>();
   const skips: string[] = [];
+  /** Kapıdan düşen satırlar — Scrappa yok, kuyruktan sil (status=fail). */
+  const toClose: { row: Row; reason: string; trips?: Record<string, TripCheck> }[] =
+    [];
 
   for (const row of pending) {
     const usd = toUsd(Number(row.price), row.currency ?? "USD", rates);
     if (usd == null) {
       skips.push(`#${row.id} kur yok (${row.currency})`);
+      toClose.push({ row, reason: `kur_yok:${row.currency ?? "?"}` });
       continue;
     }
     const checked = verifyOf(row).trips ?? {};
     const candidates = rowTrips(row, minOut);
     if (candidates.length === 0) {
       skips.push(`#${row.id} uygun tarih yok`);
+      toClose.push({ row, reason: "uygun_tarih_yok" });
       continue;
     }
-    const cityName =
-      typeof row.details.destName === "string" ? row.details.destName : undefined;
+    const storedName =
+      typeof row.details.destName === "string" ? row.details.destName.trim() : "";
+    const cityName = storedName || destNameFromTitle(row.title) || undefined;
+    const tripsDone: Record<string, TripCheck> = { ...checked };
+    let openOk = 0;
+    let permanentFail = 0;
+    const atGate = new Date().toISOString();
+
     for (const c of candidates) {
-      if (checked[c.key]) continue;
+      if (tripsDone[c.key]?.status === "ok") {
+        openOk += 1;
+        continue;
+      }
+      if (tripsDone[c.key]?.status === "fail") {
+        permanentFail += 1;
+        continue;
+      }
 
       const probe = buildExternalCard(
-        { airport: c.airport, origin: c.origin, outboundDate: c.out, returnDate: c.ret, fullUsd: Math.round(usd), cityName },
+        {
+          airport: c.airport,
+          origin: c.origin,
+          outboundDate: c.out,
+          returnDate: c.ret,
+          fullUsd: Math.round(usd),
+          cityName,
+        },
         board,
       );
       if (!probe.ok) {
-        skips.push(`#${row.id} ${c.origin}→${c.airport} ${c.out}→${c.ret} $${Math.round(usd)}: ${probe.reason}`);
+        skips.push(
+          `#${row.id} ${c.origin}→${c.airport} ${c.out}→${c.ret} $${Math.round(usd)}: ${probe.reason}`,
+        );
+        if (PERMANENT_SKIP.has(probe.reason)) {
+          tripsDone[c.key] = {
+            status: "fail",
+            at: atGate,
+            scrappaUsd: null,
+            reason: probe.reason,
+          };
+          permanentFail += 1;
+        }
         continue;
       }
+      openOk += 1;
       const prev = trips.get(c.key);
       if (prev) {
         prev.rows.push(row);
@@ -257,6 +312,23 @@ export async function runExternalVerifyRound(
       } else {
         trips.set(c.key, { ...c, usd, rows: [row], cityName });
       }
+    }
+
+    // Hiç Scrappa adayı yok + tüm tarihler kalıcı kapıdan düştü → satırı kapat
+    if (openOk === 0 && permanentFail > 0) {
+      const reason =
+        Object.values(tripsDone).find((t) => t.reason)?.reason ?? "kapı";
+      toClose.push({ row, reason, trips: tripsDone });
+    } else if (openOk === 0 && candidates.every((c) => tripsDone[c.key])) {
+      toClose.push({ row, reason: "tum_tarihler_fail", trips: tripsDone });
+    } else if (
+      !noWrite &&
+      Object.keys(tripsDone).length > Object.keys(checked).length
+    ) {
+      // Kısmi: eşik üstü tarihleri fail yaz, diğerleri kuyrukta kalsın
+      const v = verifyOf(row);
+      await saveVerify(admin, row, { ...v, trips: tripsDone });
+      row.details = { ...row.details, verify: { ...v, trips: tripsDone } };
     }
   }
 
@@ -269,14 +341,43 @@ export async function runExternalVerifyRound(
     .sort((a, b) => a.out.localeCompare(b.out));
 
   console.log(
-    `${stamp} bekleyen ilan ${pending.length} · doğrulanacak tarih ${queue.length} · elenen ${skips.length}`,
+    `${stamp} bekleyen ilan ${pending.length} · doğrulanacak tarih ${queue.length} · elenen ${skips.length} · kapatılacak ${toClose.length}`,
   );
   for (const s of skips.slice(0, 40)) console.log(`  - ${s}`);
+  for (const c of toClose.slice(0, 20)) {
+    console.log(`  × #${c.row.id} kapat: ${c.reason}`);
+  }
   for (const t of queue) {
     console.log(
       `  ? ${t.origin}→${t.airport} ${t.out}→${t.ret} kaynak $${Math.round(t.usd)} (${t.rows.map((r) => `${r.source}#${r.id}`).join(", ")})`,
     );
   }
+
+  if (!noWrite && toClose.length > 0) {
+    const at = new Date().toISOString();
+    for (const c of toClose) {
+      const v = verifyOf(c.row);
+      await saveVerify(admin, c.row, {
+        ...v,
+        status: "fail",
+        closeReason: c.reason,
+        trips: c.trips ?? v.trips,
+        attempts: v.attempts ?? 0,
+      });
+      // in-memory: sonraki satırlar aynı row’u tekrar kapatmasın
+      c.row.details = {
+        ...c.row.details,
+        verify: {
+          ...v,
+          status: "fail",
+          closeReason: c.reason,
+          at,
+        },
+      };
+    }
+    console.log(`  kapıdan ${toClose.length} ilan kuyruktan düşürüldü (status=fail)`);
+  }
+
   if (dry || queue.length === 0) return { checks: 0 };
 
   const pauseUntil = loadPauseUntil();

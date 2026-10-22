@@ -151,6 +151,7 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   BLQ: 180,
   NCE: 160,
   MUC: 140,
+  MRS: 165,
   BUD: 100,
   DMM: 220,
   SJJ: 110,
@@ -163,9 +164,11 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   CAI: 150,
   LTN: 140,
   SKP: 110,
+  SKD: 300,
   VCE: 180,
   PRG: 120,
   OVB: 1400,
+  OTP: 90,
   CDG: 150,
   VAN: 100,
   MSR: 100,
@@ -208,6 +211,9 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   LAX: 560,
   NRT: 640,
   HND: 640,
+  TYO: 640,
+  ICN: 470,
+  SEL: 470,
   KIX: 660,
   ITM: 660,
   CPT: 790,
@@ -244,6 +250,9 @@ export const MANUAL_STANDARDS: Record<string, number> = {
   LAX: 744,
   NRT: 861,
   HND: 861,
+  TYO: 861,
+  ICN: 652,
+  SEL: 652,
   KIX: 890,
   ITM: 890,
   CPT: 1181,
@@ -256,6 +265,12 @@ export const MANUAL_STANDARDS: Record<string, number> = {
   AEP: 1289,
   GRU: 1269,
   SYD: 1370,
+  MRS: 246,
+  SKD: 355,
+  OTP: 115,
+  ICN: 652,
+  SEL: 652,
+  TYO: 861,
 };
 
 export function manualStandardUsd(destCode: string): number | null {
@@ -267,6 +282,13 @@ export const FIXED_STANDARDS: Record<string, number> = {
   SKP: 140,
   GRU: 1269,
   SYD: 1370,
+  MRS: 246,
+  SKD: 355,
+  OTP: 115,
+  ICN: 652,
+  SEL: 652,
+  TYO: 861,
+};
 
 export function fixedStandardUsd(destCode: string): number | null {
   return FIXED_STANDARDS[destCode.trim().toUpperCase()] ?? null;
