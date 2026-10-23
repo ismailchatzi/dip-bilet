@@ -145,6 +145,7 @@ const DEST_COUNTRY: Record<string, string> = {
   RUH: "Suudi Arabistan",
   TPE: "Tayvan",
   OTP: "Romanya",
+  JMK: "Yunanistan",
   SKD: "Özbekistan",
   ALP: "Suriye",
   DAM: "Suriye",

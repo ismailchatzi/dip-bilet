@@ -169,6 +169,7 @@ export const MANUAL_THRESHOLDS: Record<string, number> = {
   PRG: 120,
   OVB: 1400,
   OTP: 90,
+  JMK: 130,
   CDG: 150,
   VAN: 100,
   MSR: 100,
@@ -268,9 +269,7 @@ export const MANUAL_STANDARDS: Record<string, number> = {
   MRS: 246,
   SKD: 355,
   OTP: 115,
-  ICN: 652,
-  SEL: 652,
-  TYO: 861,
+  JMK: 240,
 };
 
 export function manualStandardUsd(destCode: string): number | null {
@@ -285,6 +284,7 @@ export const FIXED_STANDARDS: Record<string, number> = {
   MRS: 246,
   SKD: 355,
   OTP: 115,
+  JMK: 240,
   ICN: 652,
   SEL: 652,
   TYO: 861,

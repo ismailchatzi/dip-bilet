@@ -72,6 +72,7 @@ const PEXELS: Record<string, number[]> = {
   ICN: [38650647, 31414671, 31414674],
   SIN: [38436983, 39717729, 35872761],
   HKG: [1058683, 36745089, 34254219],
+  JMK: [24449030, 37613803, 37844814],
   MRS: [15878303, 29803747, 34415769],
   MED: [29102586, 6476996, 38498727],
   MLX: [30564169, 28273731, 8057328],
@@ -297,6 +298,8 @@ const NAME_TO_CODE: Record<string, string> = {
   "buenos aires": "EZE",
   marsilya: "MRS",
   marseille: "MRS",
+  mikinos: "JMK",
+  mykonos: "JMK",
 };
 
 export function fallbackDestPhotoUrl() {

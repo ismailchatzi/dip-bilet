@@ -78,6 +78,7 @@ const MANUAL_CITY_NAMES: Record<string, string> = {
   AEP: "Buenos Aires",
   MRS: "Marsilya",
   OTP: "Bükreş",
+  JMK: "Mikinos",
   SKD: "Semerkant",
   GRU: "São Paulo",
   SYD: "Sidney",
