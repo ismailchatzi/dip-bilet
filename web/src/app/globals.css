@@ -1139,13 +1139,17 @@ a {
   border: 0;
   background: transparent;
   padding: 0;
-  color: var(--accent-soft);
+  color: #00153d;
   font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.auth-split .auth-text-btn {
+  color: #00153d;
 }
 
 .auth-legal {
