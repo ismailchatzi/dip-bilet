@@ -48,6 +48,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   useEffect(() => {
     if (mode !== "login") return;
@@ -132,6 +133,43 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
   }
 
+  async function onForgot(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    if (!configured) {
+      setError("Üyelik altyapısı henüz bağlanmadı.");
+      return;
+    }
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Bağlantı kurulamadı.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Şifre sıfırlama için e-posta yaz.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const site = window.location.origin;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${site}/auth/callback?flow=recovery&next=/sifre-yenile`,
+        },
+      );
+      if (resetError) throw resetError;
+      setMessage(
+        "Sıfırlama maili gönderildi. Gelen kutunu (ve spam’i) kontrol et.",
+      );
+    } catch (err) {
+      setError(authErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function onGoogle() {
     setError(null);
     setMessage(null);
@@ -162,6 +200,46 @@ export function AuthForm({ mode }: { mode: Mode }) {
       setError(googleError.message);
       setLoading(false);
     }
+  }
+
+  if (mode === "login" && forgotOpen) {
+    return (
+      <div className="auth-card">
+        <form className="auth-form" onSubmit={onForgot}>
+          <label className="auth-field">
+            <span>E-posta</span>
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ornek@mail.com"
+            />
+          </label>
+          {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
+          {message ? (
+            <p className="auth-alert auth-alert--ok">{message}</p>
+          ) : null}
+          <button className="btn btn-signup auth-submit" type="submit" disabled={loading}>
+            {loading ? "Gönderiliyor..." : "Sıfırlama linki gönder"}
+          </button>
+        </form>
+        <p className="auth-switch">
+          <button
+            type="button"
+            className="auth-text-btn"
+            onClick={() => {
+              setForgotOpen(false);
+              setError(null);
+              setMessage(null);
+            }}
+          >
+            Girişe dön
+          </button>
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -197,6 +275,22 @@ export function AuthForm({ mode }: { mode: Mode }) {
             }
           />
         </label>
+
+        {mode === "login" ? (
+          <p className="auth-forgot">
+            <button
+              type="button"
+              className="auth-text-btn"
+              onClick={() => {
+                setForgotOpen(true);
+                setError(null);
+                setMessage(null);
+              }}
+            >
+              Şifreni mi unuttun?
+            </button>
+          </p>
+        ) : null}
 
         {mode === "signup" ? (
           <label className="auth-field">

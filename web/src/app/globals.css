@@ -1130,6 +1130,24 @@ a {
   text-underline-offset: 2px;
 }
 
+.auth-forgot {
+  margin: -0.35rem 0 0;
+  text-align: right;
+}
+
+.auth-text-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--accent-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .auth-legal {
   margin: 0.85rem 0 0;
   text-align: center;

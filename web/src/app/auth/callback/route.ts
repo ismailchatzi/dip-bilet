@@ -68,7 +68,9 @@ export async function GET(request: Request) {
     }
 
     let isNewOAuthUser = false;
-    if (flow !== "confirm") {
+    if (flow === "recovery") {
+      nextPathResolved = "/sifre-yenile";
+    } else if (flow !== "confirm") {
       const {
         data: { user },
       } = await supabase.auth.getUser();
