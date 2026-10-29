@@ -5,6 +5,7 @@ import {
   showcaseTripDeals,
 } from "@/lib/deal-display";
 import { sendEmail } from "@/lib/email";
+import { dealAlertPushContent, sendExpoPush } from "@/lib/expo-push";
 import { sendSms } from "@/lib/sms";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -133,17 +134,22 @@ export async function notifyNewDeals(
   admin: SupabaseClient,
   previous: Deal[],
   next: Deal[],
-): Promise<{ emailed: number; smsed: number; skipped: string | null }> {
+): Promise<{
+  emailed: number;
+  smsed: number;
+  pushed: number;
+  skipped: string | null;
+}> {
   if (previous.length === 0) {
     console.log(JSON.stringify({ tag: "notify-summary", skipped: "cold-start" }));
-    return { emailed: 0, smsed: 0, skipped: "cold-start" };
+    return { emailed: 0, smsed: 0, pushed: 0, skipped: "cold-start" };
   }
 
   const events = classifyNotifyEvents(previous, next);
   logNotifyTrace(previous, next, events);
 
   if (events.length === 0) {
-    return { emailed: 0, smsed: 0, skipped: "no-new" };
+    return { emailed: 0, smsed: 0, pushed: 0, skipped: "no-new" };
   }
 
   const fresh = events.map((e) => e.deal);
@@ -151,15 +157,23 @@ export async function notifyNewDeals(
   const { data: profiles, error } = await admin
     .from("profiles")
     .select(
-      "email, phone, phone_verified, destination_codes, email_alerts, sms_alerts",
+      "email, phone, phone_verified, destination_codes, email_alerts, sms_alerts, push_alerts, expo_push_token",
     );
 
   if (error || !profiles) {
-    return { emailed: 0, smsed: 0, skipped: error?.message ?? "profiles" };
+    return {
+      emailed: 0,
+      smsed: 0,
+      pushed: 0,
+      skipped: error?.message ?? "profiles",
+    };
   }
 
   let emailed = 0;
   let smsed = 0;
+  let pushed = 0;
+  const pushBatch: { to: string; title: string; body: string; sound: "default" }[] =
+    [];
 
   for (const p of profiles) {
     const mine = relevantForUser(fresh, p.destination_codes ?? []);
@@ -225,7 +239,35 @@ export async function notifyNewDeals(
       const sms = await sendSms({ to: p.phone, text });
       if (sms.ok) smsed += 1;
     }
+
+    const token =
+      typeof p.expo_push_token === "string" ? p.expo_push_token.trim() : "";
+    if (p.push_alerts && token.startsWith("ExponentPushToken")) {
+      const content = dealAlertPushContent(mine);
+      pushBatch.push({
+        to: token,
+        title: content.title,
+        body: content.body,
+        sound: "default",
+      });
+    }
   }
 
-  return { emailed, smsed, skipped: null };
+  // Expo ~600/sn; bizde üye sayısı düşük — tek batch yeterli
+  for (let i = 0; i < pushBatch.length; i += 100) {
+    const chunk = pushBatch.slice(i, i + 100);
+    const res = await sendExpoPush(chunk);
+    if (res.ok) pushed += chunk.length;
+    else {
+      console.log(
+        JSON.stringify({
+          tag: "notify-push-fail",
+          error: res.error,
+          count: chunk.length,
+        }),
+      );
+    }
+  }
+
+  return { emailed, smsed, pushed, skipped: null };
 }

@@ -65,7 +65,9 @@ import {
   getNotificationPermission,
   isPushAlertsEnabled,
   setPushPref,
+  syncPushTokenToProfile,
 } from "./src/notifications";
+import { newPasswordError } from "./src/password";
 import { cardPhotoUrls } from "./src/photos";
 import {
   createPriceAlert,
@@ -105,6 +107,9 @@ function loginMessage(raw: string) {
   }
   if (lower.includes("email not confirmed")) {
     return "E-posta henüz onaylanmamış. Gelen kutundaki linke tıkla.";
+  }
+  if (lower.includes("user already registered")) {
+    return "Bu e-posta ile zaten kayıt var. Giriş yapmayı dene.";
   }
   return raw || "Giriş yapılamadı.";
 }
@@ -234,6 +239,23 @@ function SiteFooter() {
   );
 }
 
+function LegalLinks({ light }: { light?: boolean }) {
+  const color = light ? "#c5d0e6" : "#5a6a86";
+  return (
+    <View style={styles.legalRow}>
+      <Pressable onPress={() => Linking.openURL("https://dipbilet.com/gizlilik")}>
+        <Text style={[styles.legalLink, { color }]}>Gizlilik</Text>
+      </Pressable>
+      <Text style={[styles.legalSep, { color }]}>·</Text>
+      <Pressable
+        onPress={() => Linking.openURL("https://dipbilet.com/uyelik-sozlesmesi")}
+      >
+        <Text style={[styles.legalLink, { color }]}>Üyelik sözleşmesi</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function AccountIcon({ size = 22 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -292,20 +314,22 @@ async function createSessionFromUrl(url: string) {
 }
 
 function LoginScreen() {
-  const [mode, setMode] = useState<"login" | "forgot">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
 
-  function switchMode(next: "login" | "forgot") {
+  function switchMode(next: "login" | "signup" | "forgot") {
     setMode(next);
     setError("");
     setInfo("");
+    setPassword2("");
   }
 
-  async function submit() {
+  async function submitLogin() {
     if (!supabase) return;
     setBusy(true);
     setError("");
@@ -316,6 +340,44 @@ function LoginScreen() {
     });
     setBusy(false);
     if (loginError) setError(loginMessage(loginError.message));
+  }
+
+  async function submitSignup() {
+    if (!supabase) return;
+    setBusy(true);
+    setError("");
+    setInfo("");
+    try {
+      if (password !== password2) {
+        setError("Şifreler eşleşmiyor.");
+        return;
+      }
+      const pwdError = await newPasswordError(password);
+      if (pwdError) {
+        setError(pwdError);
+        return;
+      }
+      const { error: signError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${apiBase}/auth/callback?flow=confirm`,
+        },
+      });
+      if (signError) throw signError;
+      setInfo(
+        "Kayıt alındı. E-posta kutunu kontrol et; onay linkine tıklayınca giriş yapabilirsin.",
+      );
+      setMode("login");
+      setPassword("");
+      setPassword2("");
+    } catch (e) {
+      setError(
+        loginMessage(e instanceof Error ? e.message : "Kayıt yapılamadı."),
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function sendReset() {
@@ -377,12 +439,20 @@ function LoginScreen() {
   }
 
   return (
-    <View style={styles.login}>
+    <ScrollView
+      contentContainerStyle={styles.login}
+      keyboardShouldPersistTaps="handled"
+    >
       <Image source={logo} style={styles.loginLogo} />
       <BrandTitle />
       {mode === "forgot" ? (
         <Text style={styles.forgotHint}>
           E-posta adresini yaz; sıfırlama linkini mailine gönderelim.
+        </Text>
+      ) : null}
+      {mode === "signup" ? (
+        <Text style={styles.forgotHint}>
+          Ücretsiz üye ol — onay mailindeki linke tıklayınca giriş yapabilirsin.
         </Text>
       ) : null}
       <TextInput
@@ -395,15 +465,26 @@ function LoginScreen() {
         value={email}
         onChangeText={setEmail}
       />
-      {mode === "login" ? (
+      {mode === "login" || mode === "signup" ? (
         <TextInput
-          autoComplete="password"
+          autoComplete={mode === "signup" ? "new-password" : "password"}
           placeholder="Şifre"
           placeholderTextColor="#9aa6bd"
           secureTextEntry
           style={styles.input}
           value={password}
           onChangeText={setPassword}
+        />
+      ) : null}
+      {mode === "signup" ? (
+        <TextInput
+          autoComplete="new-password"
+          placeholder="Şifre tekrar"
+          placeholderTextColor="#9aa6bd"
+          secureTextEntry
+          style={styles.input}
+          value={password2}
+          onChangeText={setPassword2}
         />
       ) : null}
       {mode === "login" ? (
@@ -422,7 +503,7 @@ function LoginScreen() {
           <Pressable
             style={[styles.button, busy && styles.buttonOff]}
             disabled={busy}
-            onPress={submit}
+            onPress={submitLogin}
           >
             <Text style={styles.buttonText}>
               {busy ? "Giriliyor…" : "Giriş yap"}
@@ -438,8 +519,46 @@ function LoginScreen() {
             </View>
             <Text style={styles.googleButtonText}>Google ile giriş yap</Text>
           </Pressable>
+          <Pressable
+            style={styles.forgotWrap}
+            onPress={() => switchMode("signup")}
+            disabled={busy}
+          >
+            <Text style={styles.forgotLink}>Hesabın yok mu? Üye ol</Text>
+          </Pressable>
         </>
-      ) : (
+      ) : null}
+      {mode === "signup" ? (
+        <>
+          <Pressable
+            style={[styles.button, busy && styles.buttonOff]}
+            disabled={busy}
+            onPress={submitSignup}
+          >
+            <Text style={styles.buttonText}>
+              {busy ? "Kaydediliyor…" : "Üye ol"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.googleButton, busy && styles.buttonOff]}
+            disabled={busy}
+            onPress={googleLogin}
+          >
+            <View style={styles.googleIconWrap}>
+              <GoogleIcon />
+            </View>
+            <Text style={styles.googleButtonText}>Google ile üye ol</Text>
+          </Pressable>
+          <Pressable
+            style={styles.forgotWrap}
+            onPress={() => switchMode("login")}
+            disabled={busy}
+          >
+            <Text style={styles.forgotLink}>Zaten üye misin? Giriş yap</Text>
+          </Pressable>
+        </>
+      ) : null}
+      {mode === "forgot" ? (
         <>
           <Pressable
             style={[styles.button, busy && styles.buttonOff]}
@@ -458,9 +577,10 @@ function LoginScreen() {
             <Text style={styles.forgotLink}>Girişe dön</Text>
           </Pressable>
         </>
-      )}
+      ) : null}
+      <LegalLinks light />
       <SiteFooter />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -1609,6 +1729,14 @@ function FlightSettingsScreen({
           const status = await getNotificationPermission();
           if (status === "granted") {
             await setPushPref(true);
+            if (supabase) {
+              await syncPushTokenToProfile(
+                supabase,
+                session.user.id,
+                session.user.email ?? "",
+                true,
+              );
+            }
             setPushOn(true);
             setMsg("Alarm bildirimi açıldı.");
           }
@@ -1644,14 +1772,26 @@ function FlightSettingsScreen({
     setMsg("");
     try {
       if (pushOn) {
-        await disablePushAlerts();
+        await disablePushAlerts(
+          supabase,
+          session.user.id,
+          session.user.email ?? "",
+        );
         setPushOn(false);
         setMsg("Alarm bildirimi kapatıldı.");
       } else {
-        const res = await enablePushAlerts();
+        const res = await enablePushAlerts(
+          supabase,
+          session.user.id,
+          session.user.email ?? "",
+        );
         if (res.ok) {
           setPushOn(true);
-          setMsg("Alarm bildirimi açıldı.");
+          setMsg(
+            res.tokenSynced
+              ? "Alarm bildirimi açıldı."
+              : "İzin alındı. Mağaza / development build sonrası bildirimler çalışır (Expo Go’da push yok).",
+          );
         } else if (res.openedSettings) {
           pendingPush.current = true;
           setMsg(
@@ -2076,6 +2216,7 @@ function AccountSettingsScreen({
           Çıkış yap
         </Text>
       </Pressable>
+      <LegalLinks />
       <SiteFooter />
     </ScrollView>
   );
@@ -2146,6 +2287,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e4e8ef",
   },
+  legalRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 4,
+    paddingHorizontal: 16,
+  },
+  legalLink: {
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  legalSep: { fontSize: 13 },
   siteFooter: {
     alignItems: "center",
     justifyContent: "center",

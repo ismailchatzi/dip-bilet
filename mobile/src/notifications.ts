@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Linking } from "react-native";
+import Constants from "expo-constants";
+import { Linking, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const PREF_KEY = "dipbilet.pushAlerts";
 
@@ -35,31 +37,111 @@ export async function isPushAlertsEnabled() {
   return status === "granted";
 }
 
+function easProjectId() {
+  return (
+    Constants.easConfig?.projectId ??
+    (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)
+      ?.eas?.projectId
+  );
+}
+
+/** Expo push token — EAS projectId şart; Expo Go (SDK 53+) desteklemez. */
+export async function getExpoPushToken(): Promise<string | null> {
+  try {
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+    }
+    const projectId = easProjectId();
+    if (!projectId || projectId === "REPLACE_AFTER_EAS_INIT") {
+      return null;
+    }
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    return token.data || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function syncPushTokenToProfile(
+  client: SupabaseClient,
+  userId: string,
+  email: string,
+  on: boolean,
+) {
+  const token = on ? await getExpoPushToken() : null;
+  const { error } = await client.from("profiles").upsert(
+    {
+      id: userId,
+      email,
+      push_alerts: on,
+      expo_push_token: on ? token : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" },
+  );
+  if (error) throw error;
+  return Boolean(on && token);
+}
+
 /**
  * Açınca izin iste; kalıcı redde ayarlara yönlendir.
+ * Token sunucuya yazılır (EAS projectId yoksa tercihten kalır, push gidemez).
  */
-export async function enablePushAlerts(): Promise<{
+export async function enablePushAlerts(
+  client?: SupabaseClient | null,
+  userId?: string,
+  email?: string,
+): Promise<{
   ok: boolean;
   status: string;
   openedSettings?: boolean;
+  tokenSynced?: boolean;
 }> {
   let { status, canAskAgain } = await Notifications.getPermissionsAsync();
   if (status === "granted") {
     await setPushPref(true);
-    return { ok: true, status };
+    let tokenSynced = false;
+    if (client && userId) {
+      tokenSynced = await syncPushTokenToProfile(
+        client,
+        userId,
+        email ?? "",
+        true,
+      );
+    }
+    return { ok: true, status, tokenSynced };
   }
   if (status === "undetermined" || canAskAgain) {
     const req = await Notifications.requestPermissionsAsync();
     status = req.status;
     if (status === "granted") {
       await setPushPref(true);
-      return { ok: true, status };
+      let tokenSynced = false;
+      if (client && userId) {
+        tokenSynced = await syncPushTokenToProfile(
+          client,
+          userId,
+          email ?? "",
+          true,
+        );
+      }
+      return { ok: true, status, tokenSynced };
     }
   }
   await Linking.openSettings();
   return { ok: false, status, openedSettings: true };
 }
 
-export async function disablePushAlerts() {
+export async function disablePushAlerts(
+  client?: SupabaseClient | null,
+  userId?: string,
+  email?: string,
+) {
   await setPushPref(false);
+  if (client && userId) {
+    await syncPushTokenToProfile(client, userId, email ?? "", false);
+  }
 }

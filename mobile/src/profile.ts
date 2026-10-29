@@ -10,13 +10,16 @@ function destCodesFrom(raw: unknown): string[] {
 export async function loadProfilePrefs(client: SupabaseClient, userId: string) {
   const { data } = await client
     .from("profiles")
-    .select("departure_code, destination_codes, email_alerts, phone, phone_verified")
+    .select(
+      "departure_code, destination_codes, email_alerts, push_alerts, phone, phone_verified",
+    )
     .eq("id", userId)
     .maybeSingle();
   return {
     departureCode: (data?.departure_code as string | undefined) || "IST",
     destinationCodes: destCodesFrom(data?.destination_codes),
     emailAlerts: data?.email_alerts !== false,
+    pushAlerts: Boolean(data?.push_alerts),
     phone: (data?.phone as string | undefined) || "",
     phoneVerified: Boolean(data?.phone_verified),
   };
