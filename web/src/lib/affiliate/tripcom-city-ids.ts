@@ -22,6 +22,8 @@ export const TRIPCOM_CITY_ID: Record<string, number> = {
   SKP: 7617,
   SSH: 36242,
   CDG: 192,
+  /** Paris Orly — aynı Trip.com Paris cityId */
+  ORY: 192,
   MAD: 357,
   BCN: 40795,
   DPS: 723,
@@ -40,6 +42,10 @@ export const TRIPCOM_CITY_ID: Record<string, number> = {
   WAW: 293,
   LIS: 1231,
   MXP: 361,
+  /** Milano Bergamo — aynı Trip.com Milano cityId */
+  BGY: 361,
+  /** Roma Ciampino — aynı Trip.com Roma cityId */
+  CIA: 343,
   NCE: 775,
   ARN: 420,
   OSL: 827,
@@ -150,6 +156,9 @@ const CITY_TITLE_ALIASES: Record<string, string[]> = {
   SKP: ["skopje"],
   SSH: ["sharm"],
   CDG: ["paris"],
+  ORY: ["paris"],
+  BGY: ["milan"],
+  CIA: ["rome"],
   MAD: ["madrid"],
   BCN: ["barcelona"],
   DPS: ["bali"],

@@ -24,14 +24,19 @@ function pushCandidate(out: string[], code: string | null | undefined) {
 
 /**
  * Google Deals bazen ORY/BVA vb. döner; otel/araç/aktivite vitrini kanonik şehir kodu ister.
+ * Ekstra havalimanında (ORY→CDG, BGY→MXP) tracked şehir kodu önce gelir.
  */
 export function resolveActivityDestIata(
   iata: string,
   cityLabel?: string,
   destination?: string,
 ): string | null {
+  const raw = iata.trim().toUpperCase();
+  const tracked = findTrackedDestination(raw);
+  if (tracked && tripExtrasSupported(tracked.code)) return tracked.code;
+
   const candidates: string[] = [];
-  pushCandidate(candidates, iata);
+  pushCandidate(candidates, raw);
   pushCandidate(candidates, destPhotoCode(cityLabel ?? ""));
   pushCandidate(candidates, destPhotoCode(destination ?? ""));
 
@@ -39,6 +44,15 @@ export function resolveActivityDestIata(
     if (tripExtrasSupported(code)) return code;
   }
   return null;
+}
+
+/** Otel / araç API — aktivite ile aynı kanonik IATA. */
+export function resolveExtrasDestIata(
+  iata: string,
+  cityLabel?: string,
+  destination?: string,
+) {
+  return resolveActivityDestIata(iata, cityLabel, destination);
 }
 
 /** Tiqets (sitemap keşfi) → yoksa Klook (doğrulanmış Balkan vb.) */

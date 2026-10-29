@@ -31,6 +31,8 @@ const KLOOK_CITY: Record<string, { dest: string; themes: KlookTheme[] }> = {
   MLH: { dest: "c23494-basel", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
   MED: { dest: "c701873-medina", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
   CMN: { dest: "c18433-prefecture-of-casablanca", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
+  /** Tiqets EN şehir sayfası yok; Klook sitemap 2026-10-29 */
+  SOF: { dest: "c346-sofia", themes: ["1-things-to-do", "1001-tours", "1002-day-trips"] },
 };
 
 function klookThemeUrl(dest: string, theme: KlookTheme) {

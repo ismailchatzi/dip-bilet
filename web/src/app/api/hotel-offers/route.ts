@@ -1,3 +1,4 @@
+import { resolveExtrasDestIata } from "@/lib/affiliate/activities";
 import { fetchHotelOfferCards } from "@/lib/affiliate/tripcom-hotels";
 import { tripExtrasSupported } from "@/lib/affiliate/trip-extras";
 import { NextResponse } from "next/server";
@@ -10,15 +11,17 @@ function parseIsoDate(s: string | null) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const iata = searchParams.get("iata")?.trim().toUpperCase() ?? "";
+  const rawIata = searchParams.get("iata")?.trim().toUpperCase() ?? "";
   const city =
     searchParams.get("city")?.trim() ||
     searchParams.get("cityLabel")?.trim() ||
-    iata;
+    rawIata;
+  const destination = searchParams.get("destination")?.trim() || city;
   const pickup = parseIsoDate(searchParams.get("pickup"));
   const dropoff = parseIsoDate(searchParams.get("dropoff"));
+  const iata = resolveExtrasDestIata(rawIata, city, destination) ?? rawIata;
 
-  if (!iata || !pickup || !dropoff) {
+  if (!rawIata || !pickup || !dropoff) {
     return NextResponse.json({ error: "invalid_params" }, { status: 400 });
   }
   if (!tripExtrasSupported(iata)) {
