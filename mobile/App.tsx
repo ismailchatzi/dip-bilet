@@ -709,7 +709,12 @@ function VitrinScreen({
         </Pressable>
       </View>
 
-      <View style={styles.filterBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterBar}
+        contentContainerStyle={styles.filterPills}
+      >
         <FilterPill
           label="Kalkış"
           open={filterOpen === "origin"}
@@ -735,7 +740,7 @@ function VitrinScreen({
             <Text style={styles.clearPillText}>Temizle</Text>
           </Pressable>
         ) : null}
-      </View>
+      </ScrollView>
 
       {filterOpen ? (
         <ScrollView style={styles.filterPanel} nestedScrollEnabled>
@@ -2323,11 +2328,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   filterBar: {
+    height: 44,
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  filterPills: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    flexWrap: "nowrap",
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    gap: 8,
+    height: 44,
   },
   filterPill: {
     height: 36,
