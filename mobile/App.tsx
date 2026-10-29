@@ -1187,9 +1187,18 @@ function DealScreen({
     ])
       .then(([h, c, a]) => {
         if (cancelled) return;
-        setHotels(h.cards);
-        setCars(c.cards);
-        setActs(a.cards);
+        const fallbacks = cardPhotoUrls(iata, deal.cardImage);
+        const fill = (cards: ExtraCard[]) =>
+          cards.map((card, idx) => ({
+            ...card,
+            image:
+              card.image ||
+              fallbacks[idx % Math.max(fallbacks.length, 1)] ||
+              fallbacks[0],
+          }));
+        setHotels(fill(h.cards));
+        setCars(fill(c.cards));
+        setActs(fill(a.cards));
       })
       .catch(() => {
         if (cancelled) return;
@@ -1203,7 +1212,7 @@ function DealScreen({
     return () => {
       cancelled = true;
     };
-  }, [choice?.outboundDate, choice?.returnDate, iata, city, deal.destination]);
+  }, [choice?.outboundDate, choice?.returnDate, iata, city, deal.destination, deal.cardImage]);
 
   async function onDream() {
     if (!supabase || dreamBusy) return;
@@ -2314,29 +2323,44 @@ const styles = StyleSheet.create({
     color: "#8a93a3",
     letterSpacing: 0.4,
   },
-  filterBar: { maxHeight: 48, flexGrow: 0 },
+  filterBar: { flexGrow: 0 },
   filterPills: {
     paddingHorizontal: 16,
     gap: 8,
     alignItems: "center",
-    paddingBottom: 8,
+    paddingVertical: 4,
   },
   filterPill: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#e4e8ef",
+    justifyContent: "center",
+    alignItems: "center",
   },
   filterPillOn: { backgroundColor: NAVY, borderColor: NAVY },
-  filterPillText: { color: NAVY, fontWeight: "600", fontSize: 13 },
+  filterPillText: {
+    color: NAVY,
+    fontWeight: "600",
+    fontSize: 13,
+    lineHeight: 18,
+    includeFontPadding: false,
+  },
   filterPillTextOn: { color: "#fff" },
   clearPill: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    justifyContent: "center",
   },
-  clearPillText: { color: "#9b1c1c", fontWeight: "600", fontSize: 13 },
+  clearPillText: {
+    color: "#9b1c1c",
+    fontWeight: "600",
+    fontSize: 13,
+    lineHeight: 18,
+    includeFontPadding: false,
+  },
   filterPanel: {
     marginHorizontal: 16,
     marginBottom: 8,

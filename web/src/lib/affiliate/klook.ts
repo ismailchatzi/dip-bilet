@@ -80,7 +80,12 @@ async function buildTeaserCards(iata: string, cityLabel: string): Promise<Activi
   cfg.themes.forEach((theme, idx) => {
     const probe = probes[idx];
     if (!probe?.bookable) return;
-    const imageUrl = probe.imageUrl ?? photos[idx % Math.max(photos.length, 1)];
+    const fallback = photos[idx % Math.max(photos.length, 1)] ?? photos[0];
+    const probed =
+      typeof probe.imageUrl === "string" && probe.imageUrl.startsWith("http")
+        ? probe.imageUrl
+        : undefined;
+    const imageUrl = probed ?? fallback;
     if (!imageUrl) return;
     const label = THEME_LABEL[theme];
     cards.push({
