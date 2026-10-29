@@ -709,12 +709,7 @@ function VitrinScreen({
         </Pressable>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterPills}
-        style={styles.filterBar}
-      >
+      <View style={styles.filterBar}>
         <FilterPill
           label="Kalkış"
           open={filterOpen === "origin"}
@@ -740,7 +735,7 @@ function VitrinScreen({
             <Text style={styles.clearPillText}>Temizle</Text>
           </Pressable>
         ) : null}
-      </ScrollView>
+      </View>
 
       {filterOpen ? (
         <ScrollView style={styles.filterPanel} nestedScrollEnabled>
@@ -907,8 +902,12 @@ function FilterPill({
     <Pressable
       style={[styles.filterPill, open && styles.filterPillOn]}
       onPress={onPress}
+      hitSlop={4}
     >
-      <Text style={[styles.filterPillText, open && styles.filterPillTextOn]}>
+      <Text
+        numberOfLines={1}
+        style={[styles.filterPillText, open && styles.filterPillTextOn]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -2323,17 +2322,17 @@ const styles = StyleSheet.create({
     color: "#8a93a3",
     letterSpacing: 0.4,
   },
-  filterBar: { flexGrow: 0 },
-  filterPills: {
-    paddingHorizontal: 16,
+  filterBar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    alignItems: "center",
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   filterPill: {
+    height: 36,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
+    borderRadius: 18,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#e4e8ef",
@@ -2344,22 +2343,25 @@ const styles = StyleSheet.create({
   filterPillText: {
     color: NAVY,
     fontWeight: "600",
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     includeFontPadding: false,
+    textAlignVertical: "center",
   },
   filterPillTextOn: { color: "#fff" },
   clearPill: {
+    height: 36,
     paddingHorizontal: 12,
-    paddingVertical: 10,
     justifyContent: "center",
+    alignItems: "center",
   },
   clearPillText: {
     color: "#9b1c1c",
     fontWeight: "600",
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     includeFontPadding: false,
+    textAlignVertical: "center",
   },
   filterPanel: {
     marginHorizontal: 16,
