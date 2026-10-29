@@ -1,5 +1,9 @@
 .secrets/
 web/node_modules/
+mobile/node_modules/
+mobile/.expo/
+mobile/.env
+mobile/dist/
 web/.next/
 web/.cache/
 web/.env*
@@ -9,4 +13,5 @@ web/.env.local
 .DS_Store
 serpapi-key.txt
 **/serpapi-key.txt
-assets/
+/assets/
+!mobile/assets/

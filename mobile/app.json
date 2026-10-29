@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Dip Bilet",
+    "slug": "dip-bilet",
+    "scheme": "dipbilet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#04193f"
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#04193f",
+      "barStyle": "light-content"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#04193f",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-font",
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#04193f",
+          "image": "./assets/splash.png",
+          "resizeMode": "cover"
+        }
+      ]
+    ]
+  }
+}

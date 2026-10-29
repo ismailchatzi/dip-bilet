@@ -1,0 +1,47 @@
+/** Hayal destinasyon seçimi — vitrin + uzak hat şehirleri. */
+export const DREAM_DEST_CATALOG: { code: string; name: string }[] = [
+  { code: "AMS", name: "Amsterdam" },
+  { code: "ATH", name: "Atina" },
+  { code: "BCN", name: "Barselona" },
+  { code: "BEG", name: "Belgrad" },
+  { code: "BER", name: "Berlin" },
+  { code: "BKK", name: "Bangkok" },
+  { code: "BUD", name: "Budapeşte" },
+  { code: "CDG", name: "Paris" },
+  { code: "DPS", name: "Bali" },
+  { code: "DXB", name: "Dubai" },
+  { code: "FCO", name: "Roma" },
+  { code: "FRA", name: "Frankfurt" },
+  { code: "GYD", name: "Bakü" },
+  { code: "HKT", name: "Phuket" },
+  { code: "KYA", name: "Konya" },
+  { code: "LTN", name: "Londra" },
+  { code: "MAD", name: "Madrid" },
+  { code: "MLE", name: "Maldivler" },
+  { code: "MUC", name: "Münih" },
+  { code: "MXP", name: "Milano" },
+  { code: "PRG", name: "Prag" },
+  { code: "SJJ", name: "Saraybosna" },
+  { code: "SKP", name: "Üsküp" },
+  { code: "SOF", name: "Sofya" },
+  { code: "SSH", name: "Şarm el Şeyh" },
+  { code: "TBS", name: "Tiflis" },
+  { code: "TIA", name: "Tiran" },
+  { code: "VCE", name: "Venedik" },
+  { code: "VIE", name: "Viyana" },
+  { code: "JFK", name: "New York" },
+  { code: "LAX", name: "Los Angeles" },
+  { code: "MIA", name: "Miami" },
+  { code: "GRU", name: "São Paulo" },
+  { code: "SYD", name: "Sidney" },
+  { code: "HND", name: "Tokyo" },
+  { code: "ICN", name: "Seul" },
+  { code: "KUL", name: "Kuala Lumpur" },
+  { code: "SIN", name: "Singapur" },
+  { code: "HKG", name: "Hong Kong" },
+].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+
+export function destLabel(code: string) {
+  const hit = DREAM_DEST_CATALOG.find((d) => d.code === code.toUpperCase());
+  return hit ? `${hit.name} (${hit.code})` : code.toUpperCase();
+}
