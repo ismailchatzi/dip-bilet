@@ -6,6 +6,7 @@ import {
 } from "@/lib/deal-display";
 import { sendEmail } from "@/lib/email";
 import { dealAlertPushContent, sendExpoPush } from "@/lib/expo-push";
+import { dispatchPriceAlerts } from "@/lib/send-price-alerts";
 import { sendSms } from "@/lib/sms";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -273,6 +274,21 @@ export async function notifyNewDeals(
         }),
       );
     }
+  }
+
+  // Vitrine yeni/ucuz kart yazılınca fiyat alarmlarını hemen dene (:20/:50 yedek)
+  try {
+    const pa = await dispatchPriceAlerts(admin, { send: true, deals: next });
+    console.log(
+      JSON.stringify({ tag: "price-alert-after-notify", ...pa }),
+    );
+  } catch (e) {
+    console.log(
+      JSON.stringify({
+        tag: "price-alert-after-notify-fail",
+        error: e instanceof Error ? e.message : String(e),
+      }),
+    );
   }
 
   return { emailed, smsed, pushed, skipped: null };
