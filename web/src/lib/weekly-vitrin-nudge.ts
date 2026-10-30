@@ -1,7 +1,11 @@
 /**
- * Haftada bir (akşam) — “vitrini kontrol et” maili.
- * Havuzdan rastgele seçilir; kullanıcı onayladığı id’ler ACTIVE’te kalır.
+ * Haftada bir (akşam) — “vitrini kontrol et” mail + push.
+ * Havuzdan rastgele; ACTIVE id’ler kullanılır.
  */
+import { sendEmail } from "@/lib/email";
+import { sendExpoPush } from "@/lib/expo-push";
+import { siteOrigin } from "@/lib/deal-display";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type WeeklyVitrinNudge = {
   id: number;
@@ -121,4 +125,154 @@ export function pickWeeklyVitrinNudge(seed?: number) {
       ? Math.abs(Math.floor(seed)) % pool.length
       : Math.floor(Math.random() * pool.length);
   return pool[i]!;
+}
+
+export function weeklyVitrinNudgeEmail(nudge: WeeklyVitrinNudge) {
+  const origin = siteOrigin();
+  const href = `${origin}/firsatlarim`;
+  const subject = nudge.subject;
+  const text = [
+    "Merhaba,",
+    "",
+    nudge.lead,
+    "",
+    `Vitrine git: ${href}`,
+    "",
+    "Sevgiler,",
+    "Dip Bilet",
+  ].join("\n");
+  const html = `
+    <div style="font-family:Georgia,serif;line-height:1.6;color:#00153d;max-width:520px">
+      <p>Merhaba,</p>
+      <p>${nudge.lead}</p>
+      <p style="margin:24px 0">
+        <a href="${href}" style="display:inline-block;background:#00153d;color:#fff;font-weight:700;padding:12px 22px;border-radius:8px;text-decoration:none">Vitrine git</a>
+      </p>
+      <p style="margin-top:28px">Sevgiler,<br/>Dip Bilet</p>
+    </div>
+  `.trim();
+  return { subject, text, html };
+}
+
+export function weeklyVitrinNudgePush(nudge: WeeklyVitrinNudge) {
+  return {
+    title: nudge.subject,
+    body: nudge.lead,
+    data: { screen: "vitrin" },
+  };
+}
+
+export type WeeklyNudgeDispatchResult = {
+  profiles: number;
+  mailed: number;
+  pushed: number;
+  nudgeId: number | null;
+};
+
+/**
+ * email_alerts / push_alerts açık üyelere haftalık hatırlatma.
+ * Aynı koşuda herkese aynı havuz mesajı (destek için).
+ */
+export async function dispatchWeeklyVitrinNudges(
+  admin: SupabaseClient,
+  opts: { send?: boolean } = {},
+): Promise<WeeklyNudgeDispatchResult> {
+  const send = opts.send !== false;
+  const nudge = pickWeeklyVitrinNudge();
+  if (!nudge) {
+    return { profiles: 0, mailed: 0, pushed: 0, nudgeId: null };
+  }
+
+  const { data: profiles, error } = await admin
+    .from("profiles")
+    .select("email, email_alerts, push_alerts, expo_push_token");
+  if (error) throw new Error(error.message);
+
+  const rows = profiles ?? [];
+  let mailed = 0;
+  let pushed = 0;
+  const pushBatch: {
+    to: string;
+    title: string;
+    body: string;
+    data: Record<string, string>;
+    sound: "default";
+  }[] = [];
+  const mailContent = weeklyVitrinNudgeEmail(nudge);
+  const pushContent = weeklyVitrinNudgePush(nudge);
+
+  for (const p of rows) {
+    const email = typeof p.email === "string" ? p.email.trim() : "";
+    const wantEmail = p.email_alerts !== false && Boolean(email);
+    const token =
+      typeof p.expo_push_token === "string" ? p.expo_push_token.trim() : "";
+    const wantPush =
+      Boolean(p.push_alerts) && token.startsWith("ExponentPushToken");
+
+    if (!wantEmail && !wantPush) continue;
+
+    console.log(
+      JSON.stringify({
+        tag: "weekly-nudge",
+        mode: send ? "send" : "dry",
+        nudgeId: nudge.id,
+        email: email || null,
+        mail: wantEmail,
+        push: wantPush,
+      }),
+    );
+
+    if (!send) continue;
+
+    if (wantEmail) {
+      const mail = await sendEmail({
+        to: email,
+        subject: mailContent.subject,
+        html: mailContent.html,
+        text: mailContent.text,
+      });
+      if (mail.ok) mailed += 1;
+      else {
+        console.log(
+          JSON.stringify({
+            tag: "weekly-nudge-mail-fail",
+            email,
+            error: mail.error,
+          }),
+        );
+      }
+    }
+
+    if (wantPush) {
+      pushBatch.push({
+        to: token,
+        title: pushContent.title,
+        body: pushContent.body,
+        data: pushContent.data,
+        sound: "default",
+      });
+    }
+  }
+
+  for (let i = 0; i < pushBatch.length; i += 100) {
+    const chunk = pushBatch.slice(i, i + 100);
+    const res = await sendExpoPush(chunk);
+    if (res.ok) pushed += chunk.length;
+    else {
+      console.log(
+        JSON.stringify({
+          tag: "weekly-nudge-push-fail",
+          error: res.error,
+          count: chunk.length,
+        }),
+      );
+    }
+  }
+
+  return {
+    profiles: rows.length,
+    mailed,
+    pushed,
+    nudgeId: nudge.id,
+  };
 }

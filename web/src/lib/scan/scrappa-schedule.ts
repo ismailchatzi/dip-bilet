@@ -115,6 +115,8 @@ export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
     `cd ${webDir} && /usr/bin/npx tsx scripts/external-verify.ts`;
   const alerts =
     `cd ${webDir} && /usr/bin/npx tsx scripts/send-price-alerts.ts --send`;
+  const weekly =
+    `cd ${webDir} && /usr/bin/npx tsx scripts/send-weekly-vitrin-nudge.ts --send`;
   return [
     `55 3 * * * ${bin} cutoff >> /var/log/scrappa-a.log 2>&1`,
     // A ve B aynı dakikada değil: aynı dakikada ikisi birden npx kilidine takılıp B sessizce düşebiliyordu.
@@ -125,7 +127,9 @@ export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
     `1-59/4 * * * * ${bin} b drain >> /var/log/scrappa-b.log 2>&1`,
     // Dış kuyruk: A boşken Scrappa RT doğrula (A meşgul / 03:40–04:20’de kendi çıkar)
     `*/15 * * * * ${ext} >> /var/log/scrappa-external.log 2>&1`,
-    // Üye fiyat alarmı: vitrin eşiği tutunca mail + push (açıksa)
+    // Üye fiyat alarmı: vitrin eşiği tutunca mail + push (açıksa); vitrin güncellemesinde de anında
     `20,50 * * * * ${alerts} >> /var/log/price-alerts.log 2>&1`,
+    // Haftalık vitrin hatırlatması — Çarşamba 20:00 TR (mail + push)
+    `0 20 * * 3 ${weekly} >> /var/log/weekly-nudge.log 2>&1`,
   ];
 }
