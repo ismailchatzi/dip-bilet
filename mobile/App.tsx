@@ -42,6 +42,7 @@ import {
   type FlightTypeFilter,
   familyLowPrice,
   fetchShowcaseDeals,
+  findDealByPushId,
   isCheaperFreshDateOption,
   isOldDateOption,
   isOldShowcaseDeal,
@@ -64,7 +65,10 @@ import {
   enablePushAlerts,
   getNotificationPermission,
   isPushAlertsEnabled,
+  maybePromptPushOnLogin,
+  type PushOpenPayload,
   setPushPref,
+  subscribePushOpens,
   syncPushTokenToProfile,
 } from "./src/notifications";
 import { newPasswordError } from "./src/password";
@@ -121,6 +125,7 @@ export default function App() {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [screen, setScreen] = useState<AppScreen>("vitrin");
   const [allDeals, setAllDeals] = useState<Deal[]>([]);
+  const pendingPushRef = useRef<PushOpenPayload | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -156,10 +161,64 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
+  const openFromPush = useCallback(async (payload: PushOpenPayload) => {
+    if (!supabase) return;
+    const wantDeal =
+      payload.screen === "deal" && Boolean(payload.dealId?.trim());
+    if (!wantDeal) {
+      setDeal(null);
+      setScreen("vitrin");
+      return;
+    }
+    try {
+      const list = await fetchShowcaseDeals(supabase);
+      setAllDeals(list);
+      const found = findDealByPushId(list, payload.dealId!);
+      if (found) {
+        setDeal(found);
+        setScreen("deal");
+        return;
+      }
+    } catch {
+      /* vitrine düş */
+    }
+    setDeal(null);
+    setScreen("vitrin");
+  }, []);
+
+  useEffect(() => {
+    return subscribePushOpens((payload) => {
+      if (!session) {
+        pendingPushRef.current = payload;
+        return;
+      }
+      void openFromPush(payload);
+    });
+  }, [session, openFromPush]);
+
+  useEffect(() => {
+    if (!session || !pendingPushRef.current) return;
+    const pending = pendingPushRef.current;
+    pendingPushRef.current = null;
+    void openFromPush(pending);
+  }, [session, openFromPush]);
+
   useEffect(() => {
     if (!ready || !fontsLoaded) return;
     SplashScreen.hideAsync().catch(() => {});
   }, [ready, fontsLoaded]);
+
+  useEffect(() => {
+    if (!ready || !session || !supabase) return;
+    const t = setTimeout(() => {
+      void maybePromptPushOnLogin(
+        supabase,
+        session.user.id,
+        session.user.email ?? "",
+      );
+    }, 800);
+    return () => clearTimeout(t);
+  }, [ready, session?.user.id]);
 
   if (!ready || !fontsLoaded) {
     return (

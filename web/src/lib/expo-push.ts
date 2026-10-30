@@ -21,10 +21,18 @@ function shownMoney(deal: Deal) {
 }
 
 /** Kısa push metni — e-posta/SMS ile aynı fırsatlar. */
-export function dealAlertPushContent(deals: Deal[]) {
+export function dealAlertPushContent(deals: Deal[]): {
+  title: string;
+  body: string;
+  data: Record<string, string>;
+} {
   const top = deals.slice(0, 3);
   if (top.length === 0) {
-    return { title: "Dip Bilet", body: "Yeni dip fırsat var." };
+    return {
+      title: "Dip Bilet",
+      body: "Yeni dip fırsat var.",
+      data: { screen: "vitrin" },
+    };
   }
   if (top.length === 1) {
     const d = top[0]!;
@@ -34,11 +42,29 @@ export function dealAlertPushContent(deals: Deal[]) {
     return {
       title: `${dealCityTitle(d)} ${shownMoney(d)}`,
       body: `Yeni dip fırsat${discount}. Uygulamada bak.`,
+      data: { screen: "deal", dealId: d.id },
     };
   }
   return {
     title: `${top.length} yeni dip fırsat`,
     body: top.map((d) => `${dealCityTitle(d)} ${shownMoney(d)}`).join(" · "),
+    data: { screen: "vitrin" },
+  };
+}
+
+/** Üye fiyat alarmı tuttu — tek fırsat. */
+export function priceAlertPushContent(
+  deal: Deal,
+  alertText: string,
+): {
+  title: string;
+  body: string;
+  data: Record<string, string>;
+} {
+  return {
+    title: `Fiyat alarmın tuttu · ${dealCityTitle(deal)} ${shownMoney(deal)}`,
+    body: `${alertText}. Uygulamada bak.`,
+    data: { screen: "deal", dealId: deal.id },
   };
 }
 

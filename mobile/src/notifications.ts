@@ -145,3 +145,98 @@ export async function disablePushAlerts(
     await syncPushTokenToProfile(client, userId, email ?? "", false);
   }
 }
+
+const LOGIN_PROMPT_KEY = "dipbilet.pushLoginPrompted";
+
+/**
+ * İlk girişte sistem “izin ver / verme” diyaloğu.
+ * Reddedilirse ayarlara zorla göndermez; bir daha sormaz.
+ * İzin zaten açıksa pref + token’ı senkronlar.
+ */
+export async function maybePromptPushOnLogin(
+  client: SupabaseClient,
+  userId: string,
+  email: string,
+): Promise<void> {
+  const prompted = await AsyncStorage.getItem(LOGIN_PROMPT_KEY);
+  if (prompted === "1") {
+    const status = await getNotificationPermission();
+    if (status === "granted" && (await getPushPref())) {
+      await syncPushTokenToProfile(client, userId, email, true).catch(
+        () => false,
+      );
+    }
+    return;
+  }
+
+  await AsyncStorage.setItem(LOGIN_PROMPT_KEY, "1");
+  let { status, canAskAgain } = await Notifications.getPermissionsAsync();
+
+  if (status === "granted") {
+    await setPushPref(true);
+    await syncPushTokenToProfile(client, userId, email, true).catch(
+      () => false,
+    );
+    return;
+  }
+
+  if (status === "undetermined" || canAskAgain) {
+    const req = await Notifications.requestPermissionsAsync();
+    status = req.status;
+    if (status === "granted") {
+      await setPushPref(true);
+      await syncPushTokenToProfile(client, userId, email, true).catch(
+        () => false,
+      );
+    } else {
+      await setPushPref(false);
+    }
+  }
+}
+
+export type PushOpenPayload = {
+  screen?: string;
+  dealId?: string;
+};
+
+const LAST_OPEN_KEY = "dipbilet.lastPushOpenId";
+
+export function parsePushData(data: unknown): PushOpenPayload {
+  if (!data || typeof data !== "object") return {};
+  const d = data as Record<string, unknown>;
+  return {
+    screen: typeof d.screen === "string" ? d.screen : undefined,
+    dealId: typeof d.dealId === "string" ? d.dealId : undefined,
+  };
+}
+
+async function markPushOpenHandled(id: string) {
+  const prev = await AsyncStorage.getItem(LAST_OPEN_KEY);
+  if (prev === id) return false;
+  await AsyncStorage.setItem(LAST_OPEN_KEY, id);
+  return true;
+}
+
+/** Bildirime tıklanınca (soğuk açılış + uygulama içi). */
+export function subscribePushOpens(
+  handler: (payload: PushOpenPayload) => void,
+) {
+  const fromResponse = async (
+    response: Notifications.NotificationResponse | null,
+  ) => {
+    if (!response) return;
+    const id = response.notification.request.identifier;
+    const fresh = await markPushOpenHandled(id);
+    if (!fresh) return;
+    handler(parsePushData(response.notification.request.content.data));
+  };
+
+  Notifications.getLastNotificationResponseAsync()
+    .then(fromResponse)
+    .catch(() => {});
+
+  const sub = Notifications.addNotificationResponseReceivedListener((r) => {
+    void fromResponse(r);
+  });
+  return () => sub.remove();
+}

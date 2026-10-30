@@ -274,6 +274,20 @@ export function cityLowDeal(deals: Deal[], code: string): Deal | null {
   return best;
 }
 
+/** Push dealId → vitrinde kart (önce id, yoksa şehir). */
+export function findDealByPushId(deals: Deal[], dealId: string): Deal | null {
+  const id = dealId.trim();
+  if (!id) return null;
+  const exact = deals.find((d) => d.id === id);
+  if (exact) return exact;
+  const bits = id.split(":");
+  const city = (PREFIXES.has(bits[0] ?? "") ? bits[1] : bits[0])
+    ?.trim()
+    .toUpperCase();
+  if (!city) return null;
+  return cityLowDeal(deals, city);
+}
+
 /** Hero veya diğer tarihlerde ilk dolu havayolu (rematch bazen yalnız option’da bırakıyor). */
 export function resolveAirline(
   deal: Deal,

@@ -172,8 +172,13 @@ export async function notifyNewDeals(
   let emailed = 0;
   let smsed = 0;
   let pushed = 0;
-  const pushBatch: { to: string; title: string; body: string; sound: "default" }[] =
-    [];
+  const pushBatch: {
+    to: string;
+    title: string;
+    body: string;
+    data: Record<string, string>;
+    sound: "default";
+  }[] = [];
 
   for (const p of profiles) {
     const mine = relevantForUser(fresh, p.destination_codes ?? []);
@@ -248,6 +253,7 @@ export async function notifyNewDeals(
         to: token,
         title: content.title,
         body: content.body,
+        data: content.data,
         sound: "default",
       });
     }

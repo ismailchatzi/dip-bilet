@@ -2,8 +2,8 @@
  * Üye fiyat alarmları — vitrindeki canlı fırsatları alarmlarla eşler, tutanlara e-posta.
  * Tarama defterine dokunmaz; yalnız scan_board okur, price_alerts günceller.
  *
- * npx tsx scripts/send-price-alerts.ts          → kuru çalışma (kim eşleşir, mail yok)
- * npx tsx scripts/send-price-alerts.ts --send   → e-posta gönder + alarmı işaretle
+ * npx tsx scripts/send-price-alerts.ts          → kuru çalışma (kim eşleşir)
+ * npx tsx scripts/send-price-alerts.ts --send   → e-posta + push (açıksa) + alarmı işaretle
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -19,6 +19,7 @@ import {
   vitrinHeroDeals,
 } from "@/lib/deal-display";
 import { sendEmail } from "@/lib/email";
+import { priceAlertPushContent, sendExpoPush } from "@/lib/expo-push";
 import { monthLabel } from "@/lib/price-insights";
 import { readScanBoard } from "@/lib/scan/board";
 import { isLiveDeal } from "@/lib/scan/deal-archive";
@@ -99,14 +100,24 @@ async function main() {
   const today = turkeyTodayIso();
 
   const userIds = [...new Set(alerts.map((a) => a.user_id))];
-  const { data: profiles } = await admin.from("profiles").select("id, email").in("id", userIds);
-  const emailOf = new Map(
-    ((profiles ?? []) as { id: string; email: string | null }[]).map((p) => [p.id, p.email]),
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, email, push_alerts, expo_push_token")
+    .in("id", userIds);
+  type ProfileRow = {
+    id: string;
+    email: string | null;
+    push_alerts: boolean | null;
+    expo_push_token: string | null;
+  };
+  const profileOf = new Map(
+    ((profiles ?? []) as ProfileRow[]).map((p) => [p.id, p]),
   );
 
   const now = Date.now();
   let matched = 0;
   let sent = 0;
+  let pushed = 0;
   for (const alert of alerts) {
     const max = Number(alert.max_price);
     const best = trips
@@ -129,25 +140,64 @@ async function main() {
     const city = findTrackedDestination(alert.dest_code)?.name ?? alert.dest_code;
     const when = alert.month ? `${monthLabel(alert.month)} ${alert.month.slice(0, 4)}` : "herhangi bir ay";
     const alertText = `${city} · ${when} · ${formatDealMoney(max, alert.currency)} altı`;
-    const to = emailOf.get(alert.user_id);
+    const profile = profileOf.get(alert.user_id);
+    const to = profile?.email?.trim() || "";
+    const pushToken =
+      typeof profile?.expo_push_token === "string"
+        ? profile.expo_push_token.trim()
+        : "";
+    const wantPush =
+      Boolean(profile?.push_alerts) &&
+      pushToken.startsWith("ExponentPushToken");
     console.log(
-      `${send ? "GÖNDER" : "KURU"} alarm#${alert.id} ${alertText} → ${best.outboundDate}/${best.returnDate} ${formatDealMoney(price, best.currency)} ${to ? "(mail var)" : "(mail yok)"}`,
+      `${send ? "GÖNDER" : "KURU"} alarm#${alert.id} ${alertText} → ${best.outboundDate}/${best.returnDate} ${formatDealMoney(price, best.currency)} mail:${to ? "evet" : "yok"} push:${wantPush ? "evet" : "yok"}`,
     );
-    if (!send || !to) continue;
+    if (!send) continue;
+    if (!to && !wantPush) continue;
 
-    const content = priceAlertEmailContent(best, alertText);
-    const mail = await sendEmail({ to, subject: content.subject, html: content.html, text: content.text });
-    if (!mail.ok) {
-      console.log(`  mail hatası: ${mail.error}`);
-      continue;
+    let delivered = false;
+    if (to) {
+      const content = priceAlertEmailContent(best, alertText);
+      const mail = await sendEmail({
+        to,
+        subject: content.subject,
+        html: content.html,
+        text: content.text,
+      });
+      if (mail.ok) {
+        sent += 1;
+        delivered = true;
+      } else {
+        console.log(`  mail hatası: ${mail.error}`);
+      }
     }
-    sent += 1;
+    if (wantPush) {
+      const pushContent = priceAlertPushContent(best, alertText);
+      const push = await sendExpoPush([
+        {
+          to: pushToken,
+          title: pushContent.title,
+          body: pushContent.body,
+          data: pushContent.data,
+          sound: "default",
+        },
+      ]);
+      if (push.ok) {
+        pushed += 1;
+        delivered = true;
+      } else {
+        console.log(`  push hatası: ${push.error}`);
+      }
+    }
+    if (!delivered) continue;
     await admin
       .from("price_alerts")
       .update({ last_sent_key: key, last_sent_at: new Date(now).toISOString() })
       .eq("id", alert.id);
   }
-  console.log(`alarm: ${alerts.length} · eşleşen: ${matched} · gönderilen: ${sent}${send ? "" : " (kuru çalışma)"}`);
+  console.log(
+    `alarm: ${alerts.length} · eşleşen: ${matched} · mail: ${sent} · push: ${pushed}${send ? "" : " (kuru çalışma)"}`,
+  );
 }
 
 main().catch((e) => {
