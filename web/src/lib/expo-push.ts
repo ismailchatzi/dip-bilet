@@ -1,5 +1,6 @@
 import type { Deal } from "@/lib/types";
 import {
+  dealCityKey,
   dealCityTitle,
   displayDealDiscountPercent,
   displayDealPrice,
@@ -20,7 +21,16 @@ function shownMoney(deal: Deal) {
   return formatDealMoney(displayDealPrice(deal.price), deal.currency || "USD");
 }
 
-/** Kısa push metni — e-posta/SMS ile aynı fırsatlar. */
+function dealPushData(deal: Deal): Record<string, string> {
+  const code = dealCityKey(deal).trim().toUpperCase();
+  return {
+    screen: "deal",
+    dealId: deal.id,
+    ...(code ? { destCode: code } : {}),
+  };
+}
+
+/** Hayal destinasyon / yeni fırsat push. */
 export function dealAlertPushContent(deals: Deal[]): {
   title: string;
   body: string;
@@ -29,8 +39,8 @@ export function dealAlertPushContent(deals: Deal[]): {
   const top = deals.slice(0, 3);
   if (top.length === 0) {
     return {
-      title: "Dip Bilet",
-      body: "Yeni dip fırsat var.",
+      title: "Dip Bilet Fırsat",
+      body: "Takip ettiğin destinasyonlarda yeni fırsat olabilir. Hemen incele!",
       data: { screen: "vitrin" },
     };
   }
@@ -38,16 +48,20 @@ export function dealAlertPushContent(deals: Deal[]): {
     const d = top[0]!;
     const pct = displayDealDiscountPercent(d);
     const discount =
-      typeof pct === "number" && pct > 0 ? ` · %${pct} altında` : "";
+      typeof pct === "number" && pct > 0
+        ? ` Normal fiyattan %${pct} daha ucuz.`
+        : "";
     return {
-      title: `${dealCityTitle(d)} ${shownMoney(d)}`,
-      body: `Yeni dip fırsat${discount}. Uygulamada bak.`,
-      data: { screen: "deal", dealId: d.id },
+      title: "Dip Bilet Fırsat",
+      body: `${dealCityTitle(d)} ${shownMoney(d)}.${discount} Takip ettiğin destinasyonda fırsatı yakalamak için hemen incele!`,
+      data: dealPushData(d),
     };
   }
   return {
-    title: `${top.length} yeni dip fırsat`,
-    body: top.map((d) => `${dealCityTitle(d)} ${shownMoney(d)}`).join(" · "),
+    title: "Dip Bilet Fırsat",
+    body: `${top.length} yeni fırsat: ${top
+      .map((d) => `${dealCityTitle(d)} ${shownMoney(d)}`)
+      .join(" · ")}. Hemen incele!`,
     data: { screen: "vitrin" },
   };
 }
@@ -62,9 +76,9 @@ export function priceAlertPushContent(
   data: Record<string, string>;
 } {
   return {
-    title: `Fiyat alarmın tuttu · ${dealCityTitle(deal)} ${shownMoney(deal)}`,
-    body: `${alertText}. Uygulamada bak.`,
-    data: { screen: "deal", dealId: deal.id },
+    title: "Dip Bilet Fırsat",
+    body: `${dealCityTitle(deal)} ${shownMoney(deal)}. Alarmın tuttu (${alertText}). Hemen incele!`,
+    data: dealPushData(deal),
   };
 }
 

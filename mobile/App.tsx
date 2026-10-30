@@ -126,6 +126,8 @@ export default function App() {
   const [screen, setScreen] = useState<AppScreen>("vitrin");
   const [allDeals, setAllDeals] = useState<Deal[]>([]);
   const pendingPushRef = useRef<PushOpenPayload | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const [pushNavTick, setPushNavTick] = useState(0);
 
   useEffect(() => {
     if (!supabase) {
@@ -148,6 +150,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
     if (!supabase) return;
     const handle = (url: string) => {
       if (url.includes("auth/callback") || url.includes("access_token") || url.includes("code=")) {
@@ -164,7 +170,8 @@ export default function App() {
   const openFromPush = useCallback(async (payload: PushOpenPayload) => {
     if (!supabase) return;
     const wantDeal =
-      payload.screen === "deal" && Boolean(payload.dealId?.trim());
+      payload.screen === "deal" &&
+      (Boolean(payload.dealId?.trim()) || Boolean(payload.destCode?.trim()));
     if (!wantDeal) {
       setDeal(null);
       setScreen("vitrin");
@@ -173,7 +180,11 @@ export default function App() {
     try {
       const list = await fetchShowcaseDeals(supabase);
       setAllDeals(list);
-      const found = findDealByPushId(list, payload.dealId!);
+      const found = findDealByPushId(
+        list,
+        payload.dealId ?? "",
+        payload.destCode,
+      );
       if (found) {
         setDeal(found);
         setScreen("deal");
@@ -186,22 +197,29 @@ export default function App() {
     setScreen("vitrin");
   }, []);
 
+  const openFromPushRef = useRef(openFromPush);
+  useEffect(() => {
+    openFromPushRef.current = openFromPush;
+  }, [openFromPush]);
+
+  // Push dinleyicisini bir kez bağla — session race yüzünden karta gidememe olmasın
   useEffect(() => {
     return subscribePushOpens((payload) => {
-      if (!session) {
+      if (!sessionRef.current) {
         pendingPushRef.current = payload;
+        setPushNavTick((n) => n + 1);
         return;
       }
-      void openFromPush(payload);
+      void openFromPushRef.current(payload);
     });
-  }, [session, openFromPush]);
+  }, []);
 
   useEffect(() => {
     if (!session || !pendingPushRef.current) return;
     const pending = pendingPushRef.current;
     pendingPushRef.current = null;
     void openFromPush(pending);
-  }, [session, openFromPush]);
+  }, [session, pushNavTick, openFromPush]);
 
   useEffect(() => {
     if (!ready || !fontsLoaded) return;

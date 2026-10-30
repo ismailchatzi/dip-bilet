@@ -274,18 +274,28 @@ export function cityLowDeal(deals: Deal[], code: string): Deal | null {
   return best;
 }
 
-/** Push dealId → vitrinde kart (önce id, yoksa şehir). */
-export function findDealByPushId(deals: Deal[], dealId: string): Deal | null {
+/** Push dealId / destCode → vitrinde kart. */
+export function findDealByPushId(
+  deals: Deal[],
+  dealId: string,
+  destCodeHint?: string,
+): Deal | null {
   const id = dealId.trim();
-  if (!id) return null;
-  const exact = deals.find((d) => d.id === id);
-  if (exact) return exact;
-  const bits = id.split(":");
-  const city = (PREFIXES.has(bits[0] ?? "") ? bits[1] : bits[0])
-    ?.trim()
-    .toUpperCase();
-  if (!city) return null;
-  return cityLowDeal(deals, city);
+  if (id) {
+    const exact = deals.find((d) => d.id === id);
+    if (exact) return exact;
+    const bits = id.split(":");
+    const city = (PREFIXES.has(bits[0] ?? "") ? bits[1] : bits[0])
+      ?.trim()
+      .toUpperCase();
+    if (city) {
+      const byIdCity = cityLowDeal(deals, city);
+      if (byIdCity) return byIdCity;
+    }
+  }
+  const hint = destCodeHint?.trim().toUpperCase();
+  if (hint) return cityLowDeal(deals, hint);
+  return null;
 }
 
 /** Hero veya diğer tarihlerde ilk dolu havayolu (rematch bazen yalnız option’da bırakıyor). */

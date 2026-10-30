@@ -197,6 +197,7 @@ export async function maybePromptPushOnLogin(
 export type PushOpenPayload = {
   screen?: string;
   dealId?: string;
+  destCode?: string;
 };
 
 const LAST_OPEN_KEY = "dipbilet.lastPushOpenId";
@@ -204,9 +205,12 @@ const LAST_OPEN_KEY = "dipbilet.lastPushOpenId";
 export function parsePushData(data: unknown): PushOpenPayload {
   if (!data || typeof data !== "object") return {};
   const d = data as Record<string, unknown>;
+  const str = (v: unknown) =>
+    v == null || v === "" ? undefined : String(v).trim() || undefined;
   return {
-    screen: typeof d.screen === "string" ? d.screen : undefined,
-    dealId: typeof d.dealId === "string" ? d.dealId : undefined,
+    screen: str(d.screen),
+    dealId: str(d.dealId),
+    destCode: str(d.destCode)?.toUpperCase(),
   };
 }
 
@@ -217,7 +221,7 @@ async function markPushOpenHandled(id: string) {
   return true;
 }
 
-/** Bildirime tıklanınca (soğuk açılış + uygulama içi). */
+/** Bildirime tıklanınca (soğuk açılış + uygulama içi). Bir kez bağla. */
 export function subscribePushOpens(
   handler: (payload: PushOpenPayload) => void,
 ) {
