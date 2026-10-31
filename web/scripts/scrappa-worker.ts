@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Netlify dışı Scrappa taraması. VPS (TZ=Europe/Istanbul):
  *
  * A 04:00 near→rematch. B 04:01 full1→full2, her şehir bitince (aday varsa) rematch. Ayrı kilit.
@@ -14,7 +14,10 @@ import {
   stopScrappaScans,
 } from "@/lib/scan/scrappa-tick";
 import {
+  hasRematchBookingBacklog,
   rematchJobFromPayload,
+  rematchNeedsWorker,
+  resumeRematchBooking,
   saveRematchJob,
   startRematchJob,
 } from "@/lib/scan/scrappa-rematch";
@@ -273,13 +276,21 @@ async function main() {
     const deals = admin ? (await readScanBoard(admin)).deals : null;
     const job = jobFromPayload(deals);
     const rematch = rematchJobFromPayload(deals);
-    const running =
-      (job?.status === "running" && !job.halted) || rematch?.status === "running";
-    if (!running && !process.argv.includes("--force")) {
+    const oneWayLive = job?.status === "running" && !job.halted;
+    const bookingBacklog =
+      rematchNeedsWorker(rematch) &&
+      rematch?.status === "idle" &&
+      !oneWayLive; // aynı hesapta one-way varken rematch çalma
+    const running = oneWayLive || rematch?.status === "running";
+    if (!running && !bookingBacklog && !process.argv.includes("--force")) {
       console.log("drain: devam edecek iş yok");
       return;
     }
     claimWorkerOrExit("drain", lane);
+    if (bookingBacklog && rematch && admin) {
+      console.log("drain: idle rematch’te booking backlog — resume");
+      await resumeRematchBooking(admin, rematch);
+    }
     console.log("drain: tek işçi devraldı");
     await drain(true);
     return;
@@ -308,6 +319,13 @@ async function main() {
         phase: existing.phase,
         dest: existing.destIndex,
       });
+    } else if (
+      existing?.status === "idle" &&
+      hasRematchBookingBacklog(existing) &&
+      !(job?.status === "running" && !job.halted)
+    ) {
+      // startRematchJob pending’i siler — yarım booking’i koru
+      await resumeRematchBooking(admin, existing);
     } else if (job?.status === "running" && !job.halted) {
       console.log("rematch skip — tek yön kaldığı yerden", {
         window: job.window,

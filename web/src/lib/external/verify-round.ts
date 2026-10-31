@@ -422,6 +422,7 @@ export async function runExternalVerifyRound(
         destination: trip.airport,
         departureDate: trip.out,
         returnDate: trip.ret,
+        startingCapUsd: trip.usd * PRICE_TOLERANCE,
       });
     } catch (err) {
       if (err instanceof ScrappaUnavailableError) {

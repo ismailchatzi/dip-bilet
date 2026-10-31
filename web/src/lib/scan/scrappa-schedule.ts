@@ -111,6 +111,8 @@ export const SCRAPPA_CRON_SCHEDULE = [
 /** crontab satırları (TZ=Europe/Istanbul, web/ kökü). */
 export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
   const bin = `cd ${webDir} && /usr/bin/npx tsx scripts/scrappa-worker.ts`;
+  const remote =
+    `cd ${webDir} && /usr/bin/npx tsx scripts/remote-test.ts`;
   const ext =
     `cd ${webDir} && /usr/bin/npx tsx scripts/external-verify.ts`;
   const alerts =
@@ -125,6 +127,8 @@ export function scrappaCrontabLines(webDir = "/root/dip-bilet/web"): string[] {
     // :00 ile start çakışmasın diye drain 1'den (1,5,9…)
     `1-59/4 * * * * ${bin} a drain >> /var/log/scrappa-a.log 2>&1`,
     `1-59/4 * * * * ${bin} b drain >> /var/log/scrappa-b.log 2>&1`,
+    // Uzak hat: A near+rematch bitince (veya 13:00 fallback); A kilidi / 03:30 stop
+    `3-59/4 * * * * ${remote} >> /var/log/scrappa-remote.log 2>&1`,
     // Dış kuyruk: A boşken Scrappa RT doğrula (A meşgul / 03:40–04:20’de kendi çıkar)
     `*/15 * * * * ${ext} >> /var/log/scrappa-external.log 2>&1`,
     // Üye fiyat alarmı: vitrin eşiği tutunca mail + push (açıksa); vitrin güncellemesinde de anında

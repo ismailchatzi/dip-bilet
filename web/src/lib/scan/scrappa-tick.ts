@@ -13,9 +13,13 @@ import {
   stopScrappaJob,
 } from "@/lib/scan/scrappa-job";
 import {
+  hasRematchBookingBacklog,
   isRematchJobFresh,
   isRematchJobStale,
+  rematchBookingBacklog,
   rematchJobFromPayload,
+  rematchNeedsWorker,
+  resumeRematchBooking,
   runRematchTick,
   saveRematchJob,
   startRematchJob,
@@ -352,9 +356,19 @@ async function enqueueAutoRematch(
     partnerChunk?: number;
     obs?: ScrappaObsWindow;
   },
-): Promise<{ ok: boolean; skipped?: string; error?: string }> {
+): Promise<{ ok: boolean; skipped?: string; error?: string; accepted?: boolean }> {
   const board = await readScanBoard(admin);
   const existing = rematchJobFromPayload(board.deals);
+
+  // Önce yarım booking — yeni RT pending'i silmesin
+  if (existing && hasRematchBookingBacklog(existing)) {
+    console.log("auto-rematch: booking backlog — önce resume", {
+      pending: rematchBookingBacklog(existing),
+    });
+    await resumeRematchBooking(admin, existing);
+    return { ok: true, skipped: "booking-backlog", accepted: false };
+  }
+
   if (existing?.status === "running" && !isRematchJobStale(existing)) {
     console.log("auto-rematch: mevcut job var — drain kaldığı yerden");
     if (
@@ -364,7 +378,6 @@ async function enqueueAutoRematch(
       await saveRematchJob(admin, {
         ...existing,
         continueQueue: normalizeQueue(continueQueue),
-        destCodes: extra?.destCodes ?? existing.destCodes,
         partnerChunk: extra?.partnerChunk ?? existing.partnerChunk,
         obsObservedAtGte:
           extra?.obs?.observedAtGte ?? existing.obsObservedAtGte,
@@ -376,14 +389,15 @@ async function enqueueAutoRematch(
         heartbeatAt: new Date().toISOString(),
       });
     }
-    return { ok: true };
+    // Yeni şehirler kabul edilmedi — cityRematched yazılmasın, sonra tekrar denensin
+    return { ok: true, skipped: "rematch-busy", accepted: false };
   }
   console.log("auto-rematch enqueue (drain devam eder)", {
     destCodes: extra?.destCodes?.length ?? "all",
     obs: extra?.obs,
   });
   const started = await startRematchJob(admin, {
-    force: true,
+    force: isRematchJobStale(existing),
     notify: true,
     continueQueue,
     destCodes: extra?.destCodes,
@@ -392,9 +406,12 @@ async function enqueueAutoRematch(
   });
   if (!started.ok) {
     console.log(`auto-rematch enqueue skip`, started.skipped);
-    return { ok: false, skipped: started.skipped };
+    return { ok: false, skipped: started.skipped, accepted: false };
   }
-  return { ok: true };
+  if (started.skipped === "booking-backlog") {
+    return { ok: true, skipped: "booking-backlog", accepted: false };
+  }
+  return { ok: true, accepted: true };
 }
 
 /**
@@ -422,9 +439,12 @@ async function rematchFinishedCities(
     console.log(`B şehir bitti ${dest.code}: aday ${n}${n > 0 ? " → rematch" : " → doğrulama atlandı"}`);
     if (n > 0) destCodes.push(dest.code);
   }
+  // Adayı olanları henüz işaretleme — rematch kabul edilmeden cityRematched
+  // yazılırsa şehir bir daha kuyruğa girmez (SSH/DXB kaybı).
+  const noNeed = finished.filter((d) => !destCodes.includes(d.code));
   const next: ScrappaJob = {
     ...job,
-    cityRematched: [...handled, ...finished.map((d) => d.code)],
+    cityRematched: [...handled, ...noNeed.map((d) => d.code)],
   };
   await saveScrappaJob(admin, next);
   return { job: next, destCodes };
@@ -467,7 +487,8 @@ export async function runScrappaTick(force = false) {
   }
 
   // Rematch öncelikli: one-way ile aynı oturumu paylaşmaz (sıralı).
-  if (rematchJob?.status === "running") {
+  // idle + booking backlog da worker ister (uzak hat / “iş yok” tuzağı).
+  if (rematchNeedsWorker(rematchJob)) {
     const step = await runRematchTick(admin, { force });
     let chain: {
       ok: boolean;
@@ -591,6 +612,14 @@ export async function runScrappaTick(force = false) {
         becameIdle ? pendingQueue : [],
         { destCodes: city.destCodes, obs: obsWindowForOneWayJob(job) },
       );
+      if (rematch.accepted) {
+        const marked = new Set([
+          ...(job.cityRematched ?? []),
+          ...city.destCodes,
+        ]);
+        job = { ...job, cityRematched: [...marked] };
+        await saveScrappaJob(admin, job);
+      }
       if (!rematch.ok && becameIdle) await continueDayQueue(job);
       return {
         ok: batch.ok,

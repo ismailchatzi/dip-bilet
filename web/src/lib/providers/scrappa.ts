@@ -3,6 +3,7 @@ import { maxStopsForDest, scrappaMaxStopsParam } from "@/lib/scan/trip-rules";
 type ScrappaLeg = {
   airline?: string;
   airline_code?: string;
+  airline_name?: string;
   flight_number?: string | number;
   number?: string | number;
   stops?: number;
@@ -212,7 +213,14 @@ function toFare(
     date: input.date,
     price: best.price!,
     currency: "USD",
-    airline: best.airline_name || best.legs?.[0]?.airline || id.airlineCode,
+    airline:
+      firstText(
+        best.airline_name,
+        best.airline,
+        best.legs?.[0]?.airline_name,
+        best.legs?.[0]?.airline,
+        id.airlineCode,
+      ) || id.airlineCode,
     stops: stops ?? undefined,
     durationMin: best.total_duration_minutes,
     selfTransfer: flightSelfTransfer(best) || undefined,
@@ -425,21 +433,41 @@ export async function scrappaOneWay(input: {
   );
 }
 
-/** Gidiş-dönüş paket — Scrappa v2 (2 istek: outbound token → complete total). */
+function isCompletedFare(f: ScrappaFlight) {
+  if (f.price_type === "round_trip_starting") return false;
+  if (f.itinerary_complete === true || f.price_type === "round_trip_total") return true;
+  return (
+    typeof f.price === "number" &&
+    f.price > 0 &&
+    f.price_type == null &&
+    f.itinerary_complete == null
+  );
+}
+
+/** Gidiş-dönüş paket — Scrappa v2. "Şundan başlar" satırı fiyat değil; jetonu aynı cevapta 2. adıma gider. */
 export async function scrappaRoundTrip(input: {
   origin: string;
   destination: string;
   departureDate: string;
   returnDate: string;
-  /** En ucuz gidişin paketi yoksa sıradaki gidişler (varsayılan 1 = yalnız en ucuz). */
+  /** En ucuz gidişin paketi yoksa sıradaki gidişler. Tavan yoksa varsayılan 1, tavan varsa 3. */
   outboundTries?: number;
+  /** Bu USD ve altındaki başlangıç fiyatları 2. adıma gider. Üstü için yeni arama açılmaz. */
+  startingCapUsd?: number;
   /** Her Scrappa isteğinde (outbound / complete) çağrılır — sayaç için. */
   onCall?: (stage: "outbound" | "complete") => void;
 }): Promise<ScrappaOneWay | null> {
   const apiKey = process.env.SCRAPPA_API_KEY?.trim();
   if (!apiKey) throw new Error("SCRAPPA_API_KEY eksik");
   const maxStops = maxStopsForDest(input.destination);
-  const outboundTries = Math.max(1, Math.floor(input.outboundTries ?? 1));
+  const startingCapUsd =
+    typeof input.startingCapUsd === "number" && input.startingCapUsd > 0
+      ? input.startingCapUsd
+      : null;
+  const outboundTries = Math.max(
+    1,
+    Math.floor(input.outboundTries ?? (startingCapUsd != null ? 3 : 1)),
+  );
 
   const params = new URLSearchParams({
     origin: input.origin,
@@ -534,21 +562,26 @@ export async function scrappaRoundTrip(input: {
   const outbounds = (outJson.flights ?? []).filter(
     (f) => typeof f.departure_token === "string" && f.departure_token.length > 0,
   );
-  const ranked = rankCheapest(outbounds, maxStops).slice(0, outboundTries);
+  const ranked = rankCheapest(outbounds, maxStops)
+    .filter(
+      (f) =>
+        startingCapUsd == null ||
+        (typeof f.price === "number" && f.price <= startingCapUsd),
+    )
+    .slice(0, outboundTries);
+  let bestFare: ScrappaOneWay | null = null;
+  let completedOne = false;
   for (let i = 0; i < ranked.length; i++) {
     const token = ranked[i]!.departure_token?.trim();
     if (!token) continue;
+    if (completedOne) await sleepMs(15_000);
+    completedOne = true;
     params.set("departure_token", token);
     const totalJson = await fetchV2(params, "complete");
-    const completes = (totalJson.flights ?? []).filter(
-      (f) =>
-        f.itinerary_complete === true ||
-        f.price_type === "round_trip_total" ||
-        (typeof f.price === "number" && f.price > 0),
-    );
+    const completes = (totalJson.flights ?? []).filter(isCompletedFare);
     const best = pickCheapest(completes, maxStops);
     if (!best || typeof best.price !== "number") continue;
-    return {
+    const fare: ScrappaOneWay = {
       ...toFare(
         {
           origin: input.origin,
@@ -559,6 +592,7 @@ export async function scrappaRoundTrip(input: {
       ),
       outboundTry: i + 1,
     };
+    if (!bestFare || fare.price < bestFare.price) bestFare = fare;
   }
-  return null;
+  return bestFare;
 }

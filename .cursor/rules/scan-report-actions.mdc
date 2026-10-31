@@ -5,12 +5,17 @@ alwaysApply: true
 
 # Tarama raporu & aksiyon
 
-Kullanıcı tarama durumu / raporu istediğinde **her gün** (yalnızca yarın değil):
+Kullanıcı tarama durumu / raporu istediğinde **her gün** (yalnızca yarın değil).
+Önce: `cd web && npx tsx scripts/day-scan-report.ts` (isteğe gün: `… 2026-10-18`).
 
-1. İki hat: A near→rematch (o gün near yazımları); B 04:01 1. full→2. full→(bitince) 1.+2. rematch (o gün iki full yazımları). Sabit 22:30 yok. `scanned/total`, `saved`, cursor, `lastError`, heartbeat. `scrappaJob` = A, `scrappaJobB` = B.
-2. Oturum: `cookie_session_unavailable` var mı?
-3. Vitrin: Scrappa kartı eklendi mi / doğrulandı mı?
-4. **Yapılacaklar listesi** — gerekirse madde madde. Gerek yoksa açıkça yaz:
+Raporda şunlar olsun:
+
+1. **A/B:** near→rematch (A); B 04:01 1. full→2. full→şehir sonu rematch. Sabit 22:30 yok. `scanned/saved`, cursor, `lastError`, heartbeat. `scrappaJob` = A, `scrappaJobB` = B.
+2. **Oturum:** `cookie_session_unavailable` var mı?
+3. **Vitrin:** Scrappa / bugün found-verified.
+4. **Uzak hat:** o günün grubu (1/2), şehir başı one-way tamam mı (`price_observations` scrappa_oneway), vitrine giren uzak kartlar.
+5. **Dış kaynak:** o gün yeni `external_deals`, verify ok/fail/yok, vitrindeki external kartlar, kısa backlog.
+6. **Yapılacaklar** — gerekirse madde madde. Gerek yoksa:
    - “Tarama ve eşleştirme tamam; kart eklendi / fırsat yok → ekstra işlem yok.”
 
 ## Ne zaman işlem?

@@ -32,7 +32,10 @@ import {
   matchDestFromDb,
   type RtPending,
 } from "@/lib/scan/scrappa-match";
-import { cityCardWithFresh } from "@/lib/scan/scrappa-rematch";
+import {
+  cityCardWithFresh,
+  hasRematchBookingBacklog,
+} from "@/lib/scan/scrappa-rematch";
 import {
   SCRAPPA_BOOKING_MAX_ATTEMPTS,
   SCRAPPA_REMATCH_502_BACKOFF_MS,
@@ -170,7 +173,10 @@ type Board = Awaited<ReturnType<typeof readScanBoard>>["deals"];
 
 function laneAWorkRunning(board: Board) {
   if (board?.scrappaJob?.status === "running") return "A tek yön sürüyor";
-  if (board?.scrappaRematchJob?.status === "running") return "A rematch sürüyor";
+  const rm = board?.scrappaRematchJob;
+  if (rm?.status === "running") return "A rematch sürüyor";
+  // idle + booking kuyruğu: uzak hat kilidi alınca drain booking bitiremiyordu
+  if (hasRematchBookingBacklog(rm)) return "A rematch booking kuyruğu dolu";
   return null;
 }
 

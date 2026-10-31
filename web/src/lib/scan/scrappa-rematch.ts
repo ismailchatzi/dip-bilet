@@ -230,6 +230,60 @@ function pendingList(
   return pendingRecord(job)[code] ?? [];
 }
 
+/** Booking kuyruğunda hâlâ kalem olan şehirler (rematch dest listesiyle kesişen). */
+export function rematchBookingBacklog(job: ScrappaRematchJob | null | undefined) {
+  if (!job) return [] as string[];
+  const allow = new Set(rematchDestList(job).map((d) => d.code));
+  return Object.keys(job.pendingByDest ?? {}).filter(
+    (code) => allow.has(code) && (job.pendingByDest?.[code]?.length ?? 0) > 0,
+  );
+}
+
+export function hasRematchBookingBacklog(
+  job: ScrappaRematchJob | null | undefined,
+) {
+  return rematchBookingBacklog(job).length > 0;
+}
+
+/** Drain / uzak hat / tick: rematch worker ister (canlı veya idle+booking kuyruğu). */
+export function rematchNeedsWorker(
+  job: ScrappaRematchJob | null | undefined,
+) {
+  if (!job) return false;
+  if (job.status === "running") return true;
+  return job.status === "idle" && hasRematchBookingBacklog(job);
+}
+
+/** Idle + pending booking kalıntısını silmeden running/booking’e al (baştan RT yok). */
+export async function resumeRematchBooking(
+  admin: SupabaseClient,
+  job: ScrappaRematchJob,
+): Promise<ScrappaRematchJob> {
+  const backlog = rematchBookingBacklog(job);
+  const cities = rematchDestList(job);
+  const first = cities.findIndex((d) => backlog.includes(d.code));
+  const now = new Date().toISOString();
+  const next: ScrappaRematchJob = {
+    ...job,
+    status: "running",
+    phase: "booking",
+    destIndex: first >= 0 ? first : 0,
+    bookingItemIndex: 0,
+    bookingAttempt: 0,
+    bookingBreatherDone: true,
+    heartbeatAt: now,
+    pausedUntil: undefined,
+    lastError: undefined,
+    sessionFailStreak: 0,
+  };
+  await saveRematchJob(admin, next);
+  console.log("rematch: booking resume", {
+    pending: backlog,
+    destIndex: next.destIndex,
+  });
+  return next;
+}
+
 /** Bu turun tarihleri (booking sonrası fiyat dahil) aynı tarihli eski kaydı ezer. */
 export function cityCardWithFresh(prev: Deal[], fresh: Deal | null): Deal | undefined {
   if (!fresh) return foldOneCardPerCity(prev)[0];
@@ -361,6 +415,15 @@ export async function startRematchJob(
     return { ok: false, skipped: "rematch sürüyor", job: current };
   }
 
+  // force=true bile booking kuyruğunu silme — yeni RT eski hero booking'i ezerdi
+  if (current && hasRematchBookingBacklog(current)) {
+    const resumed = await resumeRematchBooking(admin, current);
+    console.log("rematch: start iptal — önce booking backlog", {
+      pending: rematchBookingBacklog(resumed),
+    });
+    return { ok: true, skipped: "booking-backlog", job: resumed };
+  }
+
   const obs =
     opts?.obs === null
       ? undefined
@@ -421,7 +484,11 @@ export async function runRematchTick(
   partnerChunk?: number;
 }> {
   const board = await readScanBoard(admin);
-  const initial = rematchJobFromPayload(board.deals);
+  let initial = rematchJobFromPayload(board.deals);
+  // idle + booking kalıntısı: drain/tick “rematch yok” sanıp çıkmasın
+  if (initial && initial.status === "idle" && hasRematchBookingBacklog(initial)) {
+    initial = await resumeRematchBooking(admin, initial);
+  }
   if (!initial || initial.status !== "running") {
     return { ok: true, running: false, skipped: "rematch yok" };
   }
@@ -626,25 +693,19 @@ export async function runRematchTick(
     };
   }
 
-  // Boş pending şehirleri atla
+  // Boş / bitmiş pending şehirleri atla (bitmişse kalıntıyı sil)
   while (job.destIndex < rematchDestList(job).length) {
     const code = rematchDestList(job)[job.destIndex]!.code;
     const list = pendingList(job, code);
-    if (list.length === 0) {
-      job = {
-        ...job,
-        destIndex: job.destIndex + 1,
-        bookingItemIndex: 0,
-        heartbeatAt: new Date().toISOString(),
-      };
-      continue;
-    }
     const itemIndex = job.bookingItemIndex ?? 0;
-    if (itemIndex >= list.length) {
+    if (list.length === 0 || itemIndex >= list.length) {
+      const pending = pendingRecord(job);
+      delete pending[code];
       job = {
         ...job,
         destIndex: job.destIndex + 1,
         bookingItemIndex: 0,
+        pendingByDest: pending,
         heartbeatAt: new Date().toISOString(),
       };
       continue;
@@ -653,10 +714,41 @@ export async function runRematchTick(
   }
 
   if (job.destIndex >= rematchDestList(job).length) {
+    const backlog = rematchBookingBacklog(job);
+    if (backlog.length > 0) {
+      // destIndex sona dayandı ama pending duruyor → başa sar (bugün yaşanan kopma)
+      const cities = rematchDestList(job);
+      const first = cities.findIndex((d) => backlog.includes(d.code));
+      console.log("rematch: booking pending kaldı — destIndex sıfır", {
+        pending: backlog,
+        from: job.destIndex,
+        to: first >= 0 ? first : 0,
+      });
+      job = {
+        ...job,
+        status: "running",
+        phase: "booking",
+        destIndex: first >= 0 ? first : 0,
+        bookingItemIndex: 0,
+        bookingAttempt: 0,
+        heartbeatAt: new Date().toISOString(),
+        pausedUntil: undefined,
+        lastError: undefined,
+      };
+      await saveRematchJob(admin, job);
+      return {
+        ok: true,
+        running: true,
+        phase: "booking",
+        skipped: "booking pending rewind",
+      };
+    }
+
     const continueQueue = normalizeQueue(job.continueQueue);
     const finished: ScrappaRematchJob = {
       ...job,
       status: "idle",
+      pendingByDest: {},
       heartbeatAt: new Date().toISOString(),
       pausedUntil: undefined,
       lastError: undefined,
@@ -691,24 +783,29 @@ export async function runRematchTick(
     } else {
       list.splice(itemIndex, 1);
     }
-    const pending = pendingRecord(job);
-    if (list.length > 0) pending[dest.code] = list;
-    else delete pending[dest.code];
 
     const nextItemIndex = deal ? itemIndex + 1 : itemIndex;
     let nextDest = job.destIndex;
     let nextBooking = nextItemIndex;
+    let cityDone = false;
     if (deal && nextItemIndex >= list.length) {
       nextDest = job.destIndex + 1;
       nextBooking = 0;
+      cityDone = true;
     } else if (!deal) {
       // silindi: aynı index’te sonraki eleman
       nextBooking = itemIndex;
       if (itemIndex >= list.length) {
         nextDest = job.destIndex + 1;
         nextBooking = 0;
+        cityDone = true;
       }
     }
+
+    const pending = pendingRecord(job);
+    // Şehir bittiğinde kalıntı bırakma — yoksa idle@booking + dolu pending tuzağı
+    if (cityDone || list.length === 0) delete pending[dest.code];
+    else pending[dest.code] = list;
 
     job = {
       ...job,
