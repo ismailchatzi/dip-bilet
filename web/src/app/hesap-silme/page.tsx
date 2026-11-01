@@ -14,13 +14,14 @@ export const dynamic = "force-dynamic";
 
 export default async function HesapSilmePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Oturum açıksa doğrudan gerçek silme ekranına
-  if (user) {
-    redirect("/hesap-ayarlari#hesabi-sil");
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    // Oturum açıksa doğrudan gerçek silme ekranına
+    if (user) {
+      redirect("/hesap-ayarlari#hesabi-sil");
+    }
   }
 
   return (
