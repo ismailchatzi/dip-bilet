@@ -306,7 +306,7 @@ export function AccountSettings() {
         </div>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section" id="hesabi-sil">
         <h2>Hesabı yönet</h2>
         <DeleteAccountButton />
       </section>
