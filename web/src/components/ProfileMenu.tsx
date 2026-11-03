@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { GmailInboxTip } from "@/components/GmailInboxTip";
 import { createClient } from "@/lib/supabase/client";
 
 const MENU_PRIMARY = [
@@ -101,7 +102,9 @@ export function ProfileMenu() {
             </button>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <GmailInboxTip />
+      )}
     </div>
   );
 }

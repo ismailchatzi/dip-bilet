@@ -36,11 +36,12 @@ export function dealAlertPushContent(deals: Deal[]): {
   body: string;
   data: Record<string, string>;
 } {
+  const title = "Sana Özel Dip Bilet Fırsatı!";
   const top = deals.slice(0, 3);
   if (top.length === 0) {
     return {
-      title: "Dip Bilet Fırsat",
-      body: "Takip ettiğin destinasyonlarda yeni fırsat olabilir. Hemen incele!",
+      title,
+      body: "Sadece Dip Bilet'te yeni fırsat olabilir. Fiyatlar değişebilir, hemen incele!",
       data: { screen: "vitrin" },
     };
   }
@@ -48,20 +49,18 @@ export function dealAlertPushContent(deals: Deal[]): {
     const d = top[0]!;
     const pct = displayDealDiscountPercent(d);
     const discount =
-      typeof pct === "number" && pct > 0
-        ? ` Normal fiyattan %${pct} daha ucuz.`
-        : "";
+      typeof pct === "number" && pct > 0 ? `, tam %${pct} daha ucuz` : "";
     return {
-      title: "Dip Bilet Fırsat",
-      body: `${dealCityTitle(d)} ${shownMoney(d)}.${discount} Takip ettiğin destinasyonda fırsatı yakalamak için hemen incele!`,
+      title,
+      body: `Sadece Dip Bilet'te; ${dealCityTitle(d)} ${shownMoney(d)}${discount}! Fiyatlar değişebilir, takip ettiğin fırsatı yakalamak için hemen incele!`,
       data: dealPushData(d),
     };
   }
   return {
-    title: "Dip Bilet Fırsat",
-    body: `${top.length} yeni fırsat: ${top
+    title,
+    body: `Sadece Dip Bilet'te; ${top.length} yeni fırsat: ${top
       .map((d) => `${dealCityTitle(d)} ${shownMoney(d)}`)
-      .join(" · ")}. Hemen incele!`,
+      .join(" · ")}! Fiyatlar değişebilir, hemen incele!`,
     data: { screen: "vitrin" },
   };
 }
@@ -75,9 +74,12 @@ export function priceAlertPushContent(
   body: string;
   data: Record<string, string>;
 } {
+  const pct = displayDealDiscountPercent(deal);
+  const discount =
+    typeof pct === "number" && pct > 0 ? `, tam %${pct} daha ucuz` : "";
   return {
-    title: "Dip Bilet Fırsat",
-    body: `${dealCityTitle(deal)} ${shownMoney(deal)}. Alarmın tuttu (${alertText}). Hemen incele!`,
+    title: "Sana Özel Dip Bilet Fırsatı!",
+    body: `Sadece Dip Bilet'te; ${dealCityTitle(deal)} ${shownMoney(deal)}${discount}! Alarmın tuttu (${alertText}). Fiyatlar değişebilir, hemen incele!`,
     data: dealPushData(deal),
   };
 }

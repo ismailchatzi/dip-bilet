@@ -60,6 +60,7 @@ import {
   fetchHotels,
   type ExtraCard,
 } from "./src/extras";
+import { GmailInboxTip } from "./src/gmail-inbox-tip";
 import {
   disablePushAlerts,
   enablePushAlerts,
@@ -772,18 +773,21 @@ function VitrinScreen({
 
   return (
     <View style={styles.flex}>
-      <View style={styles.top}>
-        <View style={styles.topBrand}>
-          <Image source={logo} style={styles.topLogo} />
-          <Text style={styles.brandSmall}>Dip Bilet</Text>
+      <View style={styles.topWrap}>
+        <View style={styles.top}>
+          <View style={styles.topBrand}>
+            <Image source={logo} style={styles.topLogo} />
+            <Text style={styles.brandSmall}>Dip Bilet</Text>
+          </View>
+          <Pressable
+            onPress={onAccount}
+            style={styles.accountBtn}
+            accessibilityLabel="Hesap"
+          >
+            <AccountIcon />
+          </Pressable>
         </View>
-        <Pressable
-          onPress={onAccount}
-          style={styles.accountBtn}
-          accessibilityLabel="Hesap"
-        >
-          <AccountIcon />
-        </Pressable>
+        <GmailInboxTip />
       </View>
 
       <ScrollView
@@ -820,7 +824,13 @@ function VitrinScreen({
       </ScrollView>
 
       {filterOpen ? (
-        <ScrollView style={styles.filterPanel} nestedScrollEnabled>
+        <ScrollView
+          style={
+            filterOpen === "price" ? styles.filterPanelPrice : styles.filterPanel
+          }
+          nestedScrollEnabled={filterOpen !== "price"}
+          scrollEnabled={filterOpen !== "price"}
+        >
           {filterOpen === "origin"
             ? ORIGIN_AIRPORTS.map((a) => (
                 <Pressable
@@ -847,7 +857,7 @@ function VitrinScreen({
             : null}
           {filterOpen === "price" ? (
             <View style={styles.priceFilter}>
-              <Text style={styles.filterHint}>
+              <Text style={styles.priceRangeHint}>
                 ${boundMin} – ${boundMax}
               </Text>
               <View style={styles.priceInputs}>
@@ -861,7 +871,7 @@ function VitrinScreen({
                     setPriceMin(Math.min(Math.max(n, boundMin), priceMax));
                   }}
                 />
-                <Text style={styles.filterHint}>–</Text>
+                <Text style={styles.priceDash}>–</Text>
                 <TextInput
                   style={styles.priceInput}
                   keyboardType="number-pad"
@@ -2461,6 +2471,16 @@ const styles = StyleSheet.create({
     padding: 8,
     maxHeight: 220,
   },
+  filterPanelPrice: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e4e8ef",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
   filterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -2471,7 +2491,14 @@ const styles = StyleSheet.create({
   filterRowText: { color: "#111", fontSize: 15 },
   check: { color: NAVY, fontWeight: "700", minWidth: 28, textAlign: "right" },
   filterHint: { color: "#52607a", padding: 8 },
-  priceFilter: { padding: 8, gap: 8 },
+  priceFilter: { paddingHorizontal: 8, paddingTop: 4, paddingBottom: 8, gap: 4 },
+  priceRangeHint: {
+    color: "#52607a",
+    fontSize: 13,
+    paddingHorizontal: 2,
+    paddingBottom: 0,
+  },
+  priceDash: { color: "#52607a", fontSize: 16, paddingHorizontal: 2 },
   priceInputs: { flexDirection: "row", alignItems: "center", gap: 8 },
   priceInput: {
     flex: 1,
@@ -2483,6 +2510,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#111",
     backgroundColor: "#fafbfd",
+    minHeight: 40,
   },
   detailBook: {
     backgroundColor: NAVY,
@@ -2589,6 +2617,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 48,
     paddingHorizontal: 24,
+  },
+  topWrap: {
+    position: "relative",
+    zIndex: 20,
   },
   top: {
     flexDirection: "row",

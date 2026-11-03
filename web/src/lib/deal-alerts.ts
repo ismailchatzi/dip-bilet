@@ -3,7 +3,6 @@ import {
   dealAbsoluteHref,
   dealCityKey,
   dealCityTitle,
-  dealDateRange,
   dealDestCode,
   displayDealDiscountPercent,
   displayDealPrice,
@@ -34,11 +33,17 @@ function emailAssetOrigin() {
   return raw.replace(/\/$/, "");
 }
 
+function absoluteEmailAsset(pathOrUrl: string) {
+  const raw = pathOrUrl.trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const origin = emailAssetOrigin();
+  return `${origin}${raw.startsWith("/") ? raw : `/${raw}`}`;
+}
+
 function cardPhotoUrl(deal: Deal): string | null {
-  const assetOrigin = emailAssetOrigin();
   const codeOrName = dealCityKey(deal) || dealDestCode(deal) || deal.destination;
   const local = destPhotoUrls(codeOrName);
-  if (local[0]) return `${assetOrigin}${local[0]}`;
+  if (local[0]) return absoluteEmailAsset(local[0]);
   // Yerel yoksa Google thumbnail (bazı maillerde kırılabilir)
   if (deal.photoUrl) return deal.photoUrl;
   return null;
@@ -48,12 +53,11 @@ function dealCard(deal: Deal): string {
   const title = dealCityTitle(deal);
   const money = shownMoney(deal);
   const pct = displayDealDiscountPercent(deal);
-  const dates = dealDateRange(deal);
   const href = dealAbsoluteHref(deal);
   const photo = cardPhotoUrl(deal);
   const discount =
     typeof pct === "number"
-      ? `<span style="display:inline-block;background:#e6f7ee;color:#0a7a4b;font-size:13px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">%${pct} indirim</span>`
+      ? `<span style="display:inline-block;background:#e6f7ee;color:#0a7a4b;font-size:13px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">%${pct} daha ucuz</span>`
       : "";
   const imgBlock = photo
     ? `<a href="${href}" style="display:block;text-decoration:none"><img src="${photo}" alt="${title}" width="560" style="display:block;width:100%;max-width:560px;height:200px;object-fit:cover;border-radius:10px 10px 0 0;border:0"/></a>`
@@ -67,10 +71,13 @@ function dealCard(deal: Deal): string {
   <tr><td style="padding:0">${imgBlock}</td></tr>
   <tr>
     <td style="padding:18px 20px 20px;background:#fff">
-      <p style="margin:0 0 4px;font-size:20px;font-weight:800;color:#00153d">${title}${discount}</p>
-      <p style="margin:0 0 12px;font-size:13px;color:#888">${dates} &nbsp;·&nbsp; İstanbul kalkışlı</p>
+      <p style="margin:0 0 8px;font-size:26px;font-weight:900;color:#00153d;letter-spacing:-0.5px">Sadece Dip Bilet'te;</p>
+      <p style="margin:0 0 12px;font-size:20px;font-weight:800;color:#00153d">${title}${discount}</p>
       <p style="margin:0 0 16px">
         <span style="font-size:28px;font-weight:900;color:#111">${money}</span>${avg}
+      </p>
+      <p style="margin:0 0 6px;font-size:13px;color:#555;line-height:1.45;font-weight:600">
+        Fiyatlar hızlı şekilde değişebilir, acele et.
       </p>
       <p style="margin:0 0 10px;font-size:13px;color:#555;line-height:1.45">
         Bu bileti ve diğer tarihli fırsatları görüntülemek için;
@@ -103,16 +110,18 @@ export function dealAlertEmailContent(deals: Deal[]) {
   /* ----- düz metin (fallback) ----- */
   const lines = top.map((d) => {
     const pct = displayDealDiscountPercent(d);
-    const discount = typeof pct === "number" ? ` (%${pct} altında)` : "";
-    return `• ${dealCityTitle(d)}: ${shownMoney(d)}${discount} — ${dealDateRange(d)}\n  ${dealAbsoluteHref(d)}`;
+    const discount =
+      typeof pct === "number" ? `, normal fiyatından %${pct} daha ucuz` : "";
+    return `• ${dealCityTitle(d)}: ${shownMoney(d)}${discount}\n  ${dealAbsoluteHref(d)}`;
   });
   const text = [
     "Merhaba,",
     "",
-    "Yeni dip fırsat(lar) yakalandı:",
+    "Takip ettiğin bölgeden yeni dip fırsat yakalandı!",
     "",
     ...lines,
     "",
+    "Fiyatlar hızlı şekilde değişebilir, acele et.",
     "Bu bileti ve diğer tarihli fırsatları görüntülemek için vitrine git.",
     "",
     "Sevgiler,",
@@ -121,6 +130,10 @@ export function dealAlertEmailContent(deals: Deal[]) {
 
   /* ----- HTML ----- */
   const cards = top.map((d) => dealCard(d)).join("\n");
+  const headline =
+    top.length > 1
+      ? "✈ Takip ettiğin bölgelerden yeni dip fırsatlar yakalandı!"
+      : "✈ Takip ettiğin bölgeden yeni dip fırsat yakalandı!";
 
   const html = `<!DOCTYPE html>
 <html lang="tr">
@@ -134,18 +147,13 @@ export function dealAlertEmailContent(deals: Deal[]) {
     <tr>
       <td style="padding:0 0 16px">
         <a href="${origin}" style="text-decoration:none">
-          <img src="${emailAssetOrigin()}/logo-db-badge.png" alt="Dip Bilet" height="36" style="height:36px;border:0">
+          <img src="${absoluteEmailAsset("/logo-db-badge.png")}" alt="Dip Bilet" height="36" style="height:36px;border:0">
         </a>
       </td>
     </tr>
     <tr>
       <td style="font-size:26px;font-weight:900;color:#00153d;letter-spacing:-0.5px">
-        ✈ Yeni dip fırsat${top.length > 1 ? "lar" : ""} yakalandı
-      </td>
-    </tr>
-    <tr>
-      <td style="font-size:14px;color:#555;padding-top:6px">
-        İstanbul kalkışlı, eşiğin altında biletler sizi bekliyor.
+        ${headline}
       </td>
     </tr>
   </table>
@@ -175,12 +183,15 @@ export function dealAlertEmailContent(deals: Deal[]) {
 export function priceAlertEmailContent(deal: Deal, alertText: string) {
   const origin = siteOrigin();
   const subject = `🔔 Fiyat alarmın: ${dealCityTitle(deal)} — ${shownMoney(deal)}`;
+  const pct = displayDealDiscountPercent(deal);
+  const discount =
+    typeof pct === "number" ? `, normal fiyatından %${pct} daha ucuz` : "";
   const text = [
     "Merhaba,",
     "",
     `Kurduğun fiyat alarmı tuttu (${alertText}):`,
     "",
-    `• ${dealCityTitle(deal)}: ${shownMoney(deal)} — ${dealDateRange(deal)}`,
+    `• ${dealCityTitle(deal)}: ${shownMoney(deal)}${discount}`,
     `  ${dealAbsoluteHref(deal)}`,
     "",
     `Alarmlarını yönetmek için: ${origin}/ucus-ayarlari`,
@@ -199,7 +210,7 @@ export function priceAlertEmailContent(deal: Deal, alertText: string) {
     <tr>
       <td style="padding:0 0 16px">
         <a href="${origin}" style="text-decoration:none">
-          <img src="${emailAssetOrigin()}/logo-db-badge.png" alt="Dip Bilet" height="36" style="height:36px;border:0">
+          <img src="${absoluteEmailAsset("/logo-db-badge.png")}" alt="Dip Bilet" height="36" style="height:36px;border:0">
         </a>
       </td>
     </tr>
@@ -230,17 +241,26 @@ export function priceAlertEmailContent(deal: Deal, alertText: string) {
 export function dealAlertSmsContent(deals: Deal[]) {
   const cities = pickEmailDeals(deals);
   const top = cities.slice(0, 2);
-  const bits = top.map((d) => {
-    const name = dealCityTitle(d).replace(/,.*$/, "").trim();
-    return `${name} ${shownMoney(d)}`;
-  });
-  const extra = cities.length > 2 ? ` +${cities.length - 2}` : "";
   const link =
     cities.length === 1
       ? dealAbsoluteHref(cities[0]!).replace(/^https?:\/\//, "")
       : siteOrigin().replace(/^https?:\/\//, "") + "/firsatlarim";
+
   if (cities.length === 1) {
-    return `Dip Bilet: ${bits[0]}. ${link}`;
+    const d = cities[0]!;
+    const name = dealCityTitle(d).replace(/,.*$/, "").trim();
+    const pct = displayDealDiscountPercent(d);
+    const pctBit =
+      typeof pct === "number" ? `, normal fiyatından %${pct} daha ucuz` : "";
+    return `Sadece Dip Bilet'te ve sana özel: ${name} ${shownMoney(d)}${pctBit}!! Fiyatlar değişebilir hemen siteyi ziyaret et: ${link}`;
   }
-  return `Dip Bilet: ${cities.length} yeni dip. ${bits.join(", ")}${extra}. ${link}`;
+
+  const bits = top.map((d) => {
+    const name = dealCityTitle(d).replace(/,.*$/, "").trim();
+    const pct = displayDealDiscountPercent(d);
+    const pctBit = typeof pct === "number" ? ` (%${pct} daha ucuz)` : "";
+    return `${name} ${shownMoney(d)}${pctBit}`;
+  });
+  const extra = cities.length > 2 ? ` +${cities.length - 2}` : "";
+  return `Sadece Dip Bilet'te ve sana özel: ${cities.length} yeni dip. ${bits.join(", ")}${extra}!! Fiyatlar değişebilir hemen siteyi ziyaret et: ${link}`;
 }
