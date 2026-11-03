@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-const STORAGE_KEY = "dipbilet_gmail_inbox_tip_seen_v1";
+const STORAGE_KEY = "dipbilet_gmail_inbox_tip_seen_v2";
 const DURATION_MS = 20_000;
 const NAVY = "#00153d";
 
@@ -98,9 +98,14 @@ export function GmailInboxTip() {
         Fırsat maillerinin telefonda bildirim vermesi için Dip Bilet’i Ana Gelen
         Kutusu’na alın.
       </Text>
-      <Text style={styles.step}>1. Gmail’de Dip Bilet mailini açın</Text>
       <Text style={styles.step}>
-        2. <Text style={styles.strong}>Ana Gelen Kutusu</Text>na taşıyın
+        1. Telefon: maile tıklayın →{" "}
+        <Text style={styles.strong}>Taşı</Text> (sağ ok) →{" "}
+        <Text style={styles.strong}>Birincil</Text>
+      </Text>
+      <Text style={styles.step}>
+        2. Bilgisayar: gelen maili{" "}
+        <Text style={styles.strong}>Birincil</Text> sekmesine sürükleyin
       </Text>
       <Text style={styles.step}>
         3. “Gelecekteki iletiler için de uygula?” →{" "}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const STORAGE_KEY = "dipbilet_gmail_inbox_tip_seen_v1";
+const STORAGE_KEY = "dipbilet_gmail_inbox_tip_seen_v2";
 const DURATION_MS = 20_000;
 
 export function GmailInboxTip() {
@@ -103,9 +103,12 @@ export function GmailInboxTip() {
         Kutusu’na alın.
       </p>
       <ol className="gmail-inbox-tip__steps">
-        <li>Gmail’de Dip Bilet mailini açın</li>
         <li>
-          <strong>Ana Gelen Kutusu</strong>na taşıyın
+          Telefon: maile tıklayın → <strong>Taşı</strong> (sağ ok) →{" "}
+          <strong>Birincil</strong>
+        </li>
+        <li>
+          Bilgisayar: gelen maili <strong>Birincil</strong> sekmesine sürükleyin
         </li>
         <li>
           “Gelecekteki iletiler için de uygula?” → <strong>Evet</strong>
