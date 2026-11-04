@@ -167,7 +167,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
       }
       setResetSent(true);
       setMessage(
-        "Sıfırlama maili gönderildi. Linke tıkla (herhangi bir tarayıcı) veya aşağıdaki alana 6 haneli kodu yaz.",
+        "Sıfırlama maili gönderildi. Linke tıkla (herhangi bir tarayıcı) veya aşağıdaki alana 8 haneli kodu yaz.",
       );
     } catch (err) {
       setError(authErrorMessage(err));
@@ -186,8 +186,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
       return;
     }
     const code = otp.trim();
-    if (!/^\d{6}$/.test(code)) {
-      setError("Maildeki 6 haneli kodu gir.");
+    if (!/^\d{8}$/.test(code)) {
+      setError("Maildeki 8 haneli kodu gir.");
       return;
     }
     setLoading(true);
@@ -267,16 +267,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
         {resetSent ? (
           <form className="auth-form" onSubmit={onVerifyResetOtp} style={{ marginTop: "1rem" }}>
             <label className="auth-field">
-              <span>Maildeki 6 haneli kod</span>
+              <span>Maildeki 8 haneli kod</span>
               <input
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
+                pattern="[0-9]{8}"
+                maxLength={8}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="123456"
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                placeholder="12345678"
                 required
               />
             </label>

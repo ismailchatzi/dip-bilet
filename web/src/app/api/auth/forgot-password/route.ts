@@ -19,7 +19,7 @@ function recoveryMailContent(link: string, otp: string) {
     "Şifreni sıfırlamak için bu linke tıkla (herhangi bir tarayıcıda açabilirsin):",
     link,
     "",
-    `Ya da sitede şu 6 haneli kodu gir: ${otp}`,
+    `Ya da sitede şu 8 haneli kodu gir: ${otp}`,
     "",
     "Bu isteği sen yapmadıysan bu maili yok say.",
     "",
@@ -28,6 +28,7 @@ function recoveryMailContent(link: string, otp: string) {
 
   const html = `
     <div style="font-family:'Segoe UI',system-ui,sans-serif;line-height:1.55;color:#00153d;max-width:520px">
+      <p><img src="https://dipbilet.com/logo-db-badge.png" alt="Dip Bilet" height="36" style="height:36px;border:0"></p>
       <p>Merhaba,</p>
       <p>Şifreni sıfırlamak için aşağıdaki butona tıkla. Linki <strong>istediğin tarayıcıda</strong> açabilirsin.</p>
       <p style="margin:24px 0">
@@ -35,7 +36,7 @@ function recoveryMailContent(link: string, otp: string) {
       </p>
       <p style="font-size:14px;color:#555">Buton çalışmazsa bu linki kopyala:<br/><a href="${link}" style="color:#00153d;word-break:break-all">${link}</a></p>
       <p style="margin-top:28px;font-size:14px;color:#555">
-        Alternatif: sitede şu kodu gir — <strong style="font-size:18px;letter-spacing:0.08em;color:#00153d">${otp}</strong>
+        Alternatif: sitede şu 8 haneli kodu gir — <strong style="font-size:18px;letter-spacing:0.08em;color:#00153d">${otp}</strong>
       </p>
       <p style="font-size:12px;color:#888">Bu isteği sen yapmadıysan maili yok sayman yeterli.</p>
       <p style="margin-top:24px">Dip Bilet</p>
@@ -84,7 +85,7 @@ export async function POST(request: Request) {
   const otp = data.properties.email_otp || "";
   const link = `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=recovery&flow=recovery&next=${encodeURIComponent("/sifre-yenile")}`;
 
-  const content = recoveryMailContent(link, otp || "------");
+  const content = recoveryMailContent(link, otp || "--------");
   const mail = await sendEmail({
     to: email,
     subject: content.subject,

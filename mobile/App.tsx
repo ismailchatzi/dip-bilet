@@ -506,8 +506,8 @@ function LoginScreen() {
   async function submitResetWithOtp() {
     if (!supabase) return;
     const code = otp.trim();
-    if (!/^\d{6}$/.test(code)) {
-      setError("Maildeki 6 haneli kodu gir.");
+    if (!/^\d{8}$/.test(code)) {
+      setError("Maildeki 8 haneli kodu gir.");
       return;
     }
     if (password !== password2) {
@@ -585,7 +585,7 @@ function LoginScreen() {
       {mode === "forgot" ? (
         <Text style={styles.forgotHint}>
           {resetSent
-            ? "Maildeki linke tıkla veya 6 haneli kodu + yeni şifreyi buraya yaz."
+            ? "Maildeki linke tıkla veya 8 haneli kodu + yeni şifreyi buraya yaz."
             : "E-posta adresini yaz; sıfırlama mailini gönderelim."}
         </Text>
       ) : null}
@@ -704,12 +704,12 @@ function LoginScreen() {
               <TextInput
                 autoCapitalize="none"
                 keyboardType="number-pad"
-                maxLength={6}
-                placeholder="6 haneli kod"
+                maxLength={8}
+                placeholder="8 haneli kod"
                 placeholderTextColor="#9aa6bd"
                 style={styles.input}
                 value={otp}
-                onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, 6))}
+                onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, 8))}
               />
               <TextInput
                 autoComplete="new-password"
