@@ -396,6 +396,8 @@ function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resetSent, setResetSent] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -405,6 +407,8 @@ function LoginScreen() {
     setError("");
     setInfo("");
     setPassword2("");
+    setOtp("");
+    setResetSent(false);
   }
 
   async function submitLogin() {
@@ -459,7 +463,6 @@ function LoginScreen() {
   }
 
   async function sendReset() {
-    if (!supabase) return;
     const trimmed = email.trim();
     if (!trimmed) {
       setError("Şifre sıfırlama için e-posta yaz.");
@@ -469,19 +472,75 @@ function LoginScreen() {
     setError("");
     setInfo("");
     try {
-      const redirectTo = `${apiBase}/auth/callback?flow=recovery&next=/sifre-yenile`;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        trimmed,
-        { redirectTo },
-      );
-      if (resetError) throw resetError;
+      const res = await fetch(`${apiBase}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok || json.ok === false) {
+        throw new Error(
+          json.error === "mail_failed"
+            ? "Mail gönderilemedi. Biraz sonra tekrar dene."
+            : "Sıfırlama maili gönderilemedi.",
+        );
+      }
+      setResetSent(true);
       setInfo(
-        "Sıfırlama maili gönderildi. Gelen kutunu (ve spam’i) kontrol et; link siteye açılır.",
+        "Mail gönderildi. Linke tıkla veya aşağıdaki 6 haneli kodu + yeni şifreyi gir.",
       );
     } catch (e) {
       setError(
         loginMessage(
           e instanceof Error ? e.message : "Sıfırlama maili gönderilemedi.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitResetWithOtp() {
+    if (!supabase) return;
+    const code = otp.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setError("Maildeki 6 haneli kodu gir.");
+      return;
+    }
+    if (password !== password2) {
+      setError("Şifreler eşleşmiyor.");
+      return;
+    }
+    const pwdError = await newPasswordError(password);
+    if (pwdError) {
+      setError(pwdError);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setInfo("");
+    try {
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code,
+        type: "recovery",
+      });
+      if (otpError) throw otpError;
+      const { error: updError } = await supabase.auth.updateUser({ password });
+      if (updError) throw updError;
+      setInfo("Şifren güncellendi. Artık giriş yapabilirsin.");
+      setMode("login");
+      setPassword("");
+      setPassword2("");
+      setOtp("");
+      setResetSent(false);
+    } catch (e) {
+      setError(
+        loginMessage(
+          e instanceof Error ? e.message : "Kod geçersiz veya süresi dolmuş.",
         ),
       );
     } finally {
@@ -525,7 +584,9 @@ function LoginScreen() {
       <BrandTitle />
       {mode === "forgot" ? (
         <Text style={styles.forgotHint}>
-          E-posta adresini yaz; sıfırlama linkini mailine gönderelim.
+          {resetSent
+            ? "Maildeki linke tıkla veya 6 haneli kodu + yeni şifreyi buraya yaz."
+            : "E-posta adresini yaz; sıfırlama mailini gönderelim."}
         </Text>
       ) : null}
       {mode === "signup" ? (
@@ -638,15 +699,64 @@ function LoginScreen() {
       ) : null}
       {mode === "forgot" ? (
         <>
-          <Pressable
-            style={[styles.button, busy && styles.buttonOff]}
-            disabled={busy}
-            onPress={sendReset}
-          >
-            <Text style={styles.buttonText}>
-              {busy ? "Gönderiliyor…" : "Sıfırlama linki gönder"}
-            </Text>
-          </Pressable>
+          {resetSent ? (
+            <>
+              <TextInput
+                autoCapitalize="none"
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="6 haneli kod"
+                placeholderTextColor="#9aa6bd"
+                style={styles.input}
+                value={otp}
+                onChangeText={(t) => setOtp(t.replace(/\D/g, "").slice(0, 6))}
+              />
+              <TextInput
+                autoComplete="new-password"
+                placeholder="Yeni şifre"
+                placeholderTextColor="#9aa6bd"
+                secureTextEntry
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TextInput
+                autoComplete="new-password"
+                placeholder="Yeni şifre tekrar"
+                placeholderTextColor="#9aa6bd"
+                secureTextEntry
+                style={styles.input}
+                value={password2}
+                onChangeText={setPassword2}
+              />
+              <Pressable
+                style={[styles.button, busy && styles.buttonOff]}
+                disabled={busy}
+                onPress={submitResetWithOtp}
+              >
+                <Text style={styles.buttonText}>
+                  {busy ? "Kaydediliyor…" : "Şifreyi güncelle"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.forgotWrap}
+                onPress={sendReset}
+                disabled={busy}
+              >
+                <Text style={styles.forgotLink}>Kodu tekrar gönder</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable
+              style={[styles.button, busy && styles.buttonOff]}
+              disabled={busy}
+              onPress={sendReset}
+            >
+              <Text style={styles.buttonText}>
+                {busy ? "Gönderiliyor…" : "Sıfırlama maili gönder"}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             style={styles.forgotWrap}
             onPress={() => switchMode("login")}

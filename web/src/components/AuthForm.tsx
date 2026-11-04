@@ -49,6 +49,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [otp, setOtp] = useState("");
 
   useEffect(() => {
     if (mode !== "login") return;
@@ -141,30 +143,64 @@ export function AuthForm({ mode }: { mode: Mode }) {
       setError("Üyelik altyapısı henüz bağlanmadı.");
       return;
     }
-    const supabase = createClient();
-    if (!supabase) {
-      setError("Bağlantı kurulamadı.");
-      return;
-    }
     if (!email.trim()) {
       setError("Şifre sıfırlama için e-posta yaz.");
       return;
     }
     setLoading(true);
     try {
-      const site = window.location.origin;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        {
-          redirectTo: `${site}/auth/callback?flow=recovery&next=/sifre-yenile`,
-        },
-      );
-      if (resetError) throw resetError;
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok || json.ok === false) {
+        throw new Error(
+          json.error === "mail_failed"
+            ? "Mail gönderilemedi. Biraz sonra tekrar dene."
+            : "Sıfırlama maili gönderilemedi.",
+        );
+      }
+      setResetSent(true);
       setMessage(
-        "Sıfırlama maili gönderildi. Gelen kutunu (ve spam’i) kontrol et.",
+        "Sıfırlama maili gönderildi. Linke tıkla (herhangi bir tarayıcı) veya aşağıdaki alana 6 haneli kodu yaz.",
       );
     } catch (err) {
       setError(authErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onVerifyResetOtp(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Bağlantı kurulamadı.");
+      return;
+    }
+    const code = otp.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setError("Maildeki 6 haneli kodu gir.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code,
+        type: "recovery",
+      });
+      if (otpError) throw otpError;
+      window.location.href = "/sifre-yenile";
+    } catch (err) {
+      setError(authErrorMessage(err) || "Kod geçersiz veya süresi dolmuş.");
     } finally {
       setLoading(false);
     }
@@ -217,20 +253,48 @@ export function AuthForm({ mode }: { mode: Mode }) {
               placeholder="ornek@mail.com"
             />
           </label>
-          {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
+          {error && !resetSent ? (
+            <p className="auth-alert auth-alert--error">{error}</p>
+          ) : null}
           {message ? (
             <p className="auth-alert auth-alert--ok">{message}</p>
           ) : null}
           <button className="btn btn-signup auth-submit" type="submit" disabled={loading}>
-            {loading ? "Gönderiliyor..." : "Sıfırlama linki gönder"}
+            {loading && !resetSent ? "Gönderiliyor..." : "Sıfırlama maili gönder"}
           </button>
         </form>
+
+        {resetSent ? (
+          <form className="auth-form" onSubmit={onVerifyResetOtp} style={{ marginTop: "1rem" }}>
+            <label className="auth-field">
+              <span>Maildeki 6 haneli kod</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                required
+              />
+            </label>
+            {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
+            <button className="btn btn-signup auth-submit" type="submit" disabled={loading}>
+              {loading ? "Kontrol..." : "Kodu doğrula → yeni şifre"}
+            </button>
+          </form>
+        ) : null}
+
         <p className="auth-switch">
           <button
             type="button"
             className="auth-text-btn"
             onClick={() => {
               setForgotOpen(false);
+              setResetSent(false);
+              setOtp("");
               setError(null);
               setMessage(null);
             }}

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { SIGNUP_COOKIE } from "@/lib/analytics";
 import { PREF_CITY_COOKIE, landingOpenPath, normalizePrefCity } from "@/lib/landing-pref";
 import { fetchOnboardingProfile, postAuthPath } from "@/lib/onboarding";
@@ -17,7 +18,7 @@ function siteOrigin(request: Request) {
 
   const forwardedHost = request.headers.get("x-forwarded-host");
   const proto = request.headers.get("x-forwarded-proto") || "https";
-  if (forwardedHost) return `${proto}://${forwardedHost.split(",")[0].trim()}`;
+  if (forwardedHost) return `${proto}://${forwardedHost.split(",")[0]!.trim()}`;
 
   return new URL(request.url).origin;
 }
@@ -25,6 +26,8 @@ function siteOrigin(request: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
+  const otpType = searchParams.get("type");
   const flow = searchParams.get("flow");
   const next = searchParams.get("next") ?? "/firsatlarim";
   const nextPath = next.startsWith("/") ? next : "/firsatlarim";
@@ -32,7 +35,7 @@ export async function GET(request: Request) {
 
   const fail = () => NextResponse.redirect(`${base}/giris?hata=auth`);
 
-  if (!code) return fail();
+  if (!code && !(tokenHash && otpType)) return fail();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -61,16 +64,34 @@ export async function GET(request: Request) {
       },
     });
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      console.error("auth callback exchange:", error.message);
+    // token_hash: e-posta linki herhangi bir tarayıcıda açılabilir (PKCE gerekmez).
+    if (tokenHash && otpType) {
+      const { error } = await supabase.auth.verifyOtp({
+        type: otpType as EmailOtpType,
+        token_hash: tokenHash,
+      });
+      if (error) {
+        console.error("auth callback verifyOtp:", error.message);
+        return fail();
+      }
+    } else if (code) {
+      // Google OAuth / eski PKCE mailleri
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        console.error("auth callback exchange:", error.message);
+        return fail();
+      }
+    } else {
       return fail();
     }
 
     let isNewOAuthUser = false;
-    if (flow === "recovery") {
+    const recoveryFlow =
+      flow === "recovery" || otpType === "recovery" || otpType === "invite";
+
+    if (recoveryFlow) {
       nextPathResolved = "/sifre-yenile";
-    } else if (flow !== "confirm") {
+    } else if (flow !== "confirm" && otpType !== "signup" && otpType !== "email") {
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -85,12 +106,12 @@ export async function GET(request: Request) {
       }
     }
 
-    const destination =
-      flow === "confirm"
-        ? `${base}/giris?aktif=1`
-        : `${base}${nextPathResolved}`;
+    const confirmFlow = flow === "confirm" || otpType === "signup" || otpType === "email";
+    const destination = confirmFlow
+      ? `${base}/giris?aktif=1`
+      : `${base}${nextPathResolved}`;
 
-    if (flow === "confirm") {
+    if (confirmFlow) {
       await supabase.auth.signOut();
     }
 
