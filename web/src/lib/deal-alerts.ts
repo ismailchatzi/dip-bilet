@@ -9,7 +9,7 @@ import {
   formatDealMoney,
   siteOrigin,
 } from "@/lib/deal-display";
-import { destPhotoUrls } from "@/lib/destination-photos";
+import { hostedMailPhotoPath } from "@/lib/destination-photos";
 import type { Deal } from "@/lib/types";
 
 export function dealKey(deal: Deal): string {
@@ -40,27 +40,32 @@ function absoluteEmailAsset(pathOrUrl: string) {
   return `${origin}${raw.startsWith("/") ? raw : `/${raw}`}`;
 }
 
-function cardPhotoUrl(deal: Deal): string | null {
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function cardPhotoUrl(deal: Deal): string {
   const codeOrName = dealCityKey(deal) || dealDestCode(deal) || deal.destination;
-  const local = destPhotoUrls(codeOrName);
-  if (local[0]) return absoluteEmailAsset(local[0]);
-  // Yerel yoksa Google thumbnail (bazı maillerde kırılabilir)
-  if (deal.photoUrl) return deal.photoUrl;
-  return null;
+  return absoluteEmailAsset(hostedMailPhotoPath(codeOrName || "fallback"));
 }
 
 function dealCard(deal: Deal): string {
   const title = dealCityTitle(deal);
   const money = shownMoney(deal);
   const pct = displayDealDiscountPercent(deal);
-  const href = dealAbsoluteHref(deal);
-  const photo = cardPhotoUrl(deal);
+  const href = escapeHtml(dealAbsoluteHref(deal));
+  const photo = escapeHtml(cardPhotoUrl(deal));
+  const safeTitle = escapeHtml(title);
   const discount =
     typeof pct === "number"
       ? `<span style="display:inline-block;background:#e6f7ee;color:#0a7a4b;font-size:13px;font-weight:700;padding:2px 8px;border-radius:4px;margin-left:8px">%${pct} daha ucuz</span>`
       : "";
   const imgBlock = photo
-    ? `<a href="${href}" style="display:block;text-decoration:none"><img src="${photo}" alt="${title}" width="560" style="display:block;width:100%;max-width:560px;height:200px;object-fit:cover;border-radius:10px 10px 0 0;border:0"/></a>`
+    ? `<a href="${href}" style="display:block;text-decoration:none"><img src="${photo}" alt="${safeTitle}" width="560" height="200" style="display:block;width:100%;max-width:560px;height:200px;border:0"/></a>`
     : "";
   const avg = deal.averagePrice
     ? `<span style="color:#888;text-decoration:line-through;font-size:15px;margin-left:8px">${formatDealMoney(deal.averagePrice, deal.currency)}</span>`
@@ -72,7 +77,7 @@ function dealCard(deal: Deal): string {
   <tr>
     <td style="padding:18px 20px 20px;background:#fff">
       <p style="margin:0 0 8px;font-size:26px;font-weight:900;color:#00153d;letter-spacing:-0.5px">Sadece Dip Bilet'te;</p>
-      <p style="margin:0 0 12px;font-size:20px;font-weight:800;color:#00153d">${title}${discount}</p>
+      <p style="margin:0 0 12px;font-size:20px;font-weight:800;color:#00153d">${safeTitle}${discount}</p>
       <p style="margin:0 0 16px">
         <span style="font-size:28px;font-weight:900;color:#111">${money}</span>${avg}
       </p>

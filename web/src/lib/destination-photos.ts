@@ -306,6 +306,25 @@ export function fallbackDestPhotoUrl() {
   return pexelsUrl(FALLBACK_PEXELS_ID, 800);
 }
 
+/** Mail kartı her şehirde dipbilet.com üzerinden gider. */
+export function hostedMailPhotoPath(codeOrName: string) {
+  const code = (destPhotoCode(codeOrName) ?? "fallback").toLowerCase();
+  return `/destinations/mail/city-${code}.jpg`;
+}
+
+export function knownDestPhotoCodes() {
+  return [...new Set([...Object.keys(FILES), ...Object.keys(PEXELS)])];
+}
+
+/** İndirilecek kaynak: yerel kart varsa o, yoksa küçük Pexels. */
+export function sourcePhotoForMail(codeOrName: string) {
+  const code = destPhotoCode(codeOrName);
+  const file = code ? FILES[code]?.[0] : undefined;
+  if (file) return `/destinations/card/${file}`;
+  const remote = code ? destPhotoSets(code)[0]?.card : undefined;
+  return remote || fallbackDestPhotoUrl();
+}
+
 for (const dest of SCRAPPA_DESTINATIONS) {
   NAME_TO_CODE[dest.name.toLocaleLowerCase("tr-TR")] = dest.code;
   NAME_TO_CODE[dest.code.toLowerCase()] = dest.code;
