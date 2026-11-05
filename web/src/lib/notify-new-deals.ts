@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { dealAlertPushContent, sendExpoPush } from "@/lib/expo-push";
 import { dispatchPriceAlerts } from "@/lib/send-price-alerts";
 import { sendSms } from "@/lib/sms";
+import { SMS_DEAL_ALERTS_ENABLED } from "@/lib/sms-deal-alerts";
 import type { Deal } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -239,7 +240,7 @@ export async function notifyNewDeals(
       }
     }
 
-    const wantSms = p.sms_alerts !== false;
+    const wantSms = SMS_DEAL_ALERTS_ENABLED && p.sms_alerts !== false;
     if (wantSms && p.phone_verified && p.phone) {
       const text = dealAlertSmsContent(mine);
       const sms = await sendSms({ to: p.phone, text });

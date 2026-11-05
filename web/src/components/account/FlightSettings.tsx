@@ -183,21 +183,12 @@ export function FlightSettings() {
         <div className="settings-row">
           <div>
             <strong>SMS bildirimleri</strong>
-            <p>
-              {phoneVerified
-                ? "Doğrulanmış telefonuna dip fırsat SMS’i"
-                : (
-                  <>
-                    Önce telefonunu{" "}
-                    <Link href="/hesap-ayarlari">hesap ayarlarından</Link> doğrula.
-                  </>
-                )}
-            </p>
+            <p>Geçici olarak devre dışı. Fırsat SMS’i şu an gönderilmiyor.</p>
           </div>
           <Switch
             label="SMS bildirimleri"
-            checked={smsAlerts}
-            disabled={loading || !phoneVerified}
+            checked={false}
+            disabled
             onChange={() => {
               if (!phoneVerified) return;
               void patchSms(!smsAlerts);

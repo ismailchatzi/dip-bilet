@@ -147,16 +147,12 @@ export function AccountNotifications() {
       <div className="pref-row">
         <div>
           <strong>SMS ile bilgilendirme</strong>
-          <p>
-            {phoneVerified
-              ? "Doğrulanmış telefonuna SMS"
-              : "Önce hesap bilgilerinden telefon doğrula"}
-          </p>
+          <p>Geçici olarak devre dışı. Fırsat SMS’i şu an gönderilmiyor.</p>
         </div>
         <Switch
           label="SMS ile bilgilendirme"
-          checked={smsAlerts}
-          disabled={loading || !phoneVerified}
+          checked={false}
+          disabled
           onChange={() => {
             if (!phoneVerified) return;
             void patchSms(!smsAlerts);

@@ -7,6 +7,7 @@ import { trackEvent } from "@/lib/analytics";
 import { landingOpenPath, readPrefCity } from "@/lib/landing-pref";
 import { postAuthPath, fetchOnboardingProfile } from "@/lib/onboarding";
 import { newPasswordError, MIN_PASSWORD_LENGTH } from "@/lib/password";
+import { clearGmailInboxTipSession } from "@/components/GmailInboxTip";
 import { createClient, isAuthConfigured } from "@/lib/supabase/client";
 
 type Mode = "signup" | "login";
@@ -123,6 +124,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           ? await fetchOnboardingProfile(supabase, user.id)
           : null;
         const pref = readPrefCity();
+        clearGmailInboxTipSession();
         window.location.href =
           pref && profile?.onboarding_completed_at
             ? landingOpenPath(pref)
@@ -225,6 +227,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
     const site = window.location.origin;
 
+    clearGmailInboxTipSession();
     setLoading(true);
     const { error: googleError } = await supabase.auth.signInWithOAuth({
       provider: "google",

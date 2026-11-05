@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { SMS_DEAL_ALERTS_ENABLED } from "@/lib/sms-deal-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,13 @@ export async function PATCH(request: Request) {
     .select("phone, phone_verified")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (enabled && !SMS_DEAL_ALERTS_ENABLED) {
+    return NextResponse.json(
+      { error: "SMS bildirimleri geçici olarak devre dışı." },
+      { status: 403 },
+    );
+  }
 
   if (!profile?.phone_verified || !profile.phone) {
     return NextResponse.json(

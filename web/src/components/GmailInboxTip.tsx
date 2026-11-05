@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const STORAGE_KEY = "dipbilet_gmail_inbox_tip_seen_v2";
+const SESSION_KEY = "dipbilet_gmail_inbox_tip_session";
 const DURATION_MS = 20_000;
+
+/** Girişte temizlenir; sekme kapanınca sessionStorage zaten silinir. */
+export function clearGmailInboxTipSession() {
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function GmailInboxTip() {
   const [visible, setVisible] = useState(false);
@@ -18,7 +27,7 @@ export function GmailInboxTip() {
     if (closedRef.current) return;
     closedRef.current = true;
     try {
-      localStorage.setItem(STORAGE_KEY, "1");
+      sessionStorage.setItem(SESSION_KEY, "1");
     } catch {
       /* ignore */
     }
@@ -28,7 +37,8 @@ export function GmailInboxTip() {
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(STORAGE_KEY) === "1") return;
+      if (sessionStorage.getItem(SESSION_KEY) === "1") return;
+      sessionStorage.setItem(SESSION_KEY, "1");
     } catch {
       return;
     }

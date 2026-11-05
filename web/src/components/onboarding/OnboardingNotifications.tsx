@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PhoneVerify } from "@/components/account/PhoneVerify";
 import { landingOpenPath, readPrefCity } from "@/lib/landing-pref";
+import { SMS_DEAL_ALERTS_ENABLED } from "@/lib/sms-deal-alerts";
 import { createClient } from "@/lib/supabase/client";
 
 function Switch({
@@ -97,7 +98,8 @@ export function OnboardingNotifications({
         id: user.id,
         email: user.email ?? "",
         email_alerts: emailAlerts,
-        sms_alerts: phoneVerified ? smsAlerts : false,
+        sms_alerts:
+          SMS_DEAL_ALERTS_ENABLED && phoneVerified ? smsAlerts : false,
         onboarding_step: 3,
         onboarding_completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -140,16 +142,12 @@ export function OnboardingNotifications({
         <div className="pref-row onboarding-pref-row">
           <div>
             <strong>SMS bildirimleri</strong>
-            <p>
-              {phoneVerified
-                ? "Doğrulanmış telefonuna dip fırsat SMS’i"
-                : "Önce telefonunu ekle ve doğrula"}
-            </p>
+            <p>Geçici olarak devre dışı. Fırsat SMS’i şu an gönderilmiyor.</p>
           </div>
           <Switch
             label="SMS bildirimleri"
-            checked={smsAlerts}
-            disabled={loading || !phoneVerified}
+            checked={false}
+            disabled
             onChange={() => {
               if (!phoneVerified) return;
               setSmsAlerts((v) => !v);
