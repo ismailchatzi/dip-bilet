@@ -8,6 +8,7 @@ import {
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -53,7 +54,20 @@ import {
   screenPrice,
   stopsLabel,
 } from "./src/deals";
-import { DREAM_DEST_CATALOG, destLabel } from "./src/destinations";
+import {
+  currentAppVersion,
+  exitApp,
+  fetchAppVersionInfo,
+  isVersionBelow,
+  openStoreUpdate,
+  type AppVersionInfo,
+} from "./src/app-update";
+import {
+  DREAM_DEST_CATALOG,
+  destLabel,
+  fetchDreamDestCatalog,
+  type DestOption,
+} from "./src/destinations";
 import {
   fetchActivities,
   fetchCars,
@@ -62,15 +76,18 @@ import {
 } from "./src/extras";
 import { GmailInboxTip } from "./src/gmail-inbox-tip";
 import {
+  clearPushOnLogout,
   disablePushAlerts,
   enablePushAlerts,
   getNotificationPermission,
   isPushAlertsEnabled,
   maybePromptPushOnLogin,
   type PushOpenPayload,
+  setPushDisplayAllowed,
   setPushPref,
   subscribePushOpens,
   syncPushTokenToProfile,
+  unregisterDevicePushToken,
 } from "./src/notifications";
 import { newPasswordError } from "./src/password";
 import { cardPhotoUrls } from "./src/photos";
@@ -129,6 +146,21 @@ export default function App() {
   const pendingPushRef = useRef<PushOpenPayload | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const [pushNavTick, setPushNavTick] = useState(0);
+  const [forceUpdate, setForceUpdate] = useState<AppVersionInfo | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const info = await fetchAppVersionInfo();
+      if (cancelled || !info) return;
+      if (isVersionBelow(currentAppVersion(), info.minVersion)) {
+        setForceUpdate(info);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -137,14 +169,20 @@ export default function App() {
     }
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setPushDisplayAllowed(Boolean(data.session));
+      if (!data.session) {
+        void unregisterDevicePushToken();
+      }
       setReady(true);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
+      setPushDisplayAllowed(Boolean(next));
       if (!next) {
         setDeal(null);
         setScreen("vitrin");
         setAllDeals([]);
+        void unregisterDevicePushToken();
       }
     });
     return () => data.subscription.unsubscribe();
@@ -153,6 +191,18 @@ export default function App() {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  async function handleLogout() {
+    if (!supabase) return;
+    const user = session?.user;
+    if (user) {
+      await clearPushOnLogout(supabase, user.id, user.email ?? "");
+    } else {
+      setPushDisplayAllowed(false);
+      await unregisterDevicePushToken();
+    }
+    await supabase.auth.signOut();
+  }
 
   useEffect(() => {
     if (!supabase) return;
@@ -258,8 +308,40 @@ export default function App() {
     );
   }
 
-  const client = supabase;
   const loggedIn = !!session;
+
+  if (forceUpdate) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.loginScreen}>
+          <StatusBar style="light" />
+          <View style={styles.forceUpdateBox}>
+            <Image source={logo} style={styles.loginLogo} />
+            <BrandTitle />
+            <Text style={styles.forceUpdateTitle}>Güncelleme gerekli</Text>
+            <Text style={styles.forceUpdateBody}>{forceUpdate.message}</Text>
+            <Pressable
+              style={styles.button}
+              onPress={() => void openStoreUpdate(forceUpdate)}
+            >
+              <Text style={styles.buttonText}>Güncelle</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.button, styles.forceUpdateCancel]}
+              onPress={() => exitApp()}
+            >
+              <Text style={styles.buttonText}>İptal</Text>
+            </Pressable>
+            {Platform.OS === "ios" ? (
+              <Text style={styles.forceUpdateNote}>
+                iPhone’da uygulama kendiliğinden kapanmaz; Güncelle ile App Store’a gitmen gerekir.
+              </Text>
+            ) : null}
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
@@ -275,7 +357,7 @@ export default function App() {
             screen={screen}
             session={session}
             onScreen={setScreen}
-            onLogout={() => client.auth.signOut()}
+            onLogout={() => void handleLogout()}
           />
         ) : deal ? (
           <DealScreen
@@ -490,7 +572,7 @@ function LoginScreen() {
       }
       setResetSent(true);
       setInfo(
-        "Mail gönderildi. Linke tıkla veya aşağıdaki 6 haneli kodu + yeni şifreyi gir.",
+        "Mail gönderildi. Linke tıkla veya aşağıdaki 8 haneli kodu + yeni şifreyi gir.",
       );
     } catch (e) {
       setError(
@@ -1815,6 +1897,7 @@ function DestSettingsScreen({
   onBack: () => void;
 }) {
   const [codes, setCodes] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<DestOption[]>(DREAM_DEST_CATALOG);
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState("");
   const [query, setQuery] = useState("");
@@ -1824,6 +1907,7 @@ function DestSettingsScreen({
     loadProfilePrefs(supabase, session.user.id).then((p) =>
       setCodes(p.destinationCodes),
     );
+    fetchDreamDestCatalog().then(setCatalog);
   }, [session.user.id]);
 
   async function toggle(code: string) {
@@ -1847,13 +1931,13 @@ function DestSettingsScreen({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("tr-TR");
-    if (!q) return DREAM_DEST_CATALOG;
-    return DREAM_DEST_CATALOG.filter(
+    if (!q) return catalog;
+    return catalog.filter(
       (d) =>
         d.code.toLowerCase().includes(q) ||
         d.name.toLocaleLowerCase("tr-TR").includes(q),
     );
-  }, [query]);
+  }, [query, catalog]);
 
   return (
     <View style={styles.flex}>
@@ -1862,7 +1946,8 @@ function DestSettingsScreen({
       </Pressable>
       <Text style={styles.accountTitle}>Hedef destinasyonlar</Text>
       <Text style={styles.accountSub}>
-        Ekle veya kaldır — kart detayından da ekleyebilirsin.
+        Vitrinde görünen şehirler burada seçilebilir ({catalog.length} seçenek).
+        Kart detayından da ekleyebilirsin.
       </Text>
       {hint ? (
         <Text style={[styles.meta, { paddingHorizontal: 16 }]}>{hint}</Text>
@@ -2459,6 +2544,37 @@ const styles = StyleSheet.create({
     fontSize: 22,
     textAlign: "center",
     letterSpacing: 0.3,
+  },
+  forceUpdateBox: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 24,
+    gap: 14,
+  },
+  forceUpdateTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  forceUpdateBody: {
+    color: "#c9d6ef",
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  forceUpdateCancel: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#6b7fa3",
+  },
+  forceUpdateNote: {
+    color: "#9aa6bd",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 4,
   },
   login: {
     flex: 1,

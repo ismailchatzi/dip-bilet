@@ -1,5 +1,10 @@
-/** Hayal destinasyon seçimi — vitrin + uzak hat şehirleri. */
-export const DREAM_DEST_CATALOG: { code: string; name: string }[] = [
+import { apiBase } from "./supabase";
+
+/** Hayal destinasyon seçimi — vitrinde görülmüş tüm şehirler (site /api/destinations). */
+export type DestOption = { code: string; name: string };
+
+/** Ağ yokken / API düşerken yedek (Scrappa + uzak hat). */
+export const DREAM_DEST_CATALOG: DestOption[] = [
   { code: "AMS", name: "Amsterdam" },
   { code: "ATH", name: "Atina" },
   { code: "BCN", name: "Barselona" },
@@ -41,7 +46,34 @@ export const DREAM_DEST_CATALOG: { code: string; name: string }[] = [
   { code: "HKG", name: "Hong Kong" },
 ].sort((a, b) => a.name.localeCompare(b.name, "tr"));
 
-export function destLabel(code: string) {
-  const hit = DREAM_DEST_CATALOG.find((d) => d.code === code.toUpperCase());
+let catalogCache: DestOption[] | null = null;
+
+export async function fetchDreamDestCatalog(): Promise<DestOption[]> {
+  try {
+    const res = await fetch(`${apiBase}/api/destinations`, { cache: "no-store" });
+    if (!res.ok) throw new Error(String(res.status));
+    const json = (await res.json()) as {
+      destinations?: { code?: string; name?: string }[];
+    };
+    const list = (json.destinations ?? [])
+      .map((d) => ({
+        code: String(d.code ?? "")
+          .trim()
+          .toUpperCase(),
+        name: String(d.name ?? "").trim(),
+      }))
+      .filter((d) => /^[A-Z]{3}$/.test(d.code) && d.name);
+    if (list.length > 0) {
+      catalogCache = list.sort((a, b) => a.name.localeCompare(b.name, "tr"));
+      return catalogCache;
+    }
+  } catch {
+    /* yedek */
+  }
+  return catalogCache ?? DREAM_DEST_CATALOG;
+}
+
+export function destLabel(code: string, catalog: DestOption[] = catalogCache ?? DREAM_DEST_CATALOG) {
+  const hit = catalog.find((d) => d.code === code.toUpperCase());
   return hit ? `${hit.name} (${hit.code})` : code.toUpperCase();
 }

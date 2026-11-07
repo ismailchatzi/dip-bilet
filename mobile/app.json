@@ -3,7 +3,7 @@
     "name": "Dip Bilet",
     "slug": "dip-bilet",
     "scheme": "dipbilet",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,7 +30,9 @@
       "package": "com.dipbilet.app",
       "adaptiveIcon": {
         "backgroundColor": "#04193f",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [

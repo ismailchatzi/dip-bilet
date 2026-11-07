@@ -3,14 +3,22 @@ import Constants from "expo-constants";
 import { Linking, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { apiBase } from "./supabase";
 
 const PREF_KEY = "dipbilet.pushAlerts";
 
+/** Giriş yokken banner/listede gösterme. */
+let pushDisplayAllowed = false;
+
+export function setPushDisplayAllowed(allowed: boolean) {
+  pushDisplayAllowed = allowed;
+}
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
+    shouldShowBanner: pushDisplayAllowed,
+    shouldShowList: pushDisplayAllowed,
+    shouldPlaySound: pushDisplayAllowed,
     shouldSetBadge: false,
   }),
 });
@@ -144,6 +152,36 @@ export async function disablePushAlerts(
   if (client && userId) {
     await syncPushTokenToProfile(client, userId, email ?? "", false);
   }
+}
+
+/** Bu cihazın token’ını sunucudan sil — oturum olmasa da. */
+export async function unregisterDevicePushToken() {
+  const token = await getExpoPushToken();
+  if (!token) return;
+  try {
+    await fetch(`${apiBase}/api/push/unregister`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Çıkış: profil + cihaz token temizliği. signOut’tan önce çağır. */
+export async function clearPushOnLogout(
+  client: SupabaseClient,
+  userId: string,
+  email: string,
+) {
+  setPushDisplayAllowed(false);
+  try {
+    await disablePushAlerts(client, userId, email);
+  } catch {
+    /* profil yazılamasa da cihaz kaydını düş */
+  }
+  await unregisterDevicePushToken();
 }
 
 const LOGIN_PROMPT_KEY = "dipbilet.pushLoginPrompted";
