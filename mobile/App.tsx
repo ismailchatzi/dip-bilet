@@ -326,16 +326,13 @@ export default function App() {
             >
               <Text style={styles.buttonText}>Güncelle</Text>
             </Pressable>
-            <Pressable
-              style={[styles.button, styles.forceUpdateCancel]}
-              onPress={() => exitApp()}
-            >
-              <Text style={styles.buttonText}>İptal</Text>
-            </Pressable>
-            {Platform.OS === "ios" ? (
-              <Text style={styles.forceUpdateNote}>
-                iPhone’da uygulama kendiliğinden kapanmaz; Güncelle ile App Store’a gitmen gerekir.
-              </Text>
+            {Platform.OS === "android" ? (
+              <Pressable
+                style={[styles.button, styles.forceUpdateCancel]}
+                onPress={() => exitApp()}
+              >
+                <Text style={styles.buttonText}>İptal</Text>
+              </Pressable>
             ) : null}
           </View>
         </SafeAreaView>
