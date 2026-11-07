@@ -137,8 +137,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
   }
 
-  async function onForgot(e: FormEvent) {
-    e.preventDefault();
+  async function sendForgotMail() {
     setError(null);
     setMessage(null);
     if (!configured) {
@@ -176,6 +175,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function onForgot(e: FormEvent) {
+    e.preventDefault();
+    await sendForgotMail();
   }
 
   async function onVerifyResetOtp(e: FormEvent) {
@@ -244,31 +248,42 @@ export function AuthForm({ mode }: { mode: Mode }) {
   if (mode === "login" && forgotOpen) {
     return (
       <div className="auth-card">
-        <form className="auth-form" onSubmit={onForgot}>
-          <label className="auth-field">
-            <span>E-posta</span>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ornek@mail.com"
-            />
-          </label>
-          {error && !resetSent ? (
-            <p className="auth-alert auth-alert--error">{error}</p>
-          ) : null}
-          {message ? (
-            <p className="auth-alert auth-alert--ok">{message}</p>
-          ) : null}
-          <button className="btn btn-signup auth-submit" type="submit" disabled={loading}>
-            {loading && !resetSent ? "Gönderiliyor..." : "Sıfırlama maili gönder"}
-          </button>
-        </form>
-
-        {resetSent ? (
-          <form className="auth-form" onSubmit={onVerifyResetOtp} style={{ marginTop: "1rem" }}>
+        {!resetSent ? (
+          <form className="auth-form" onSubmit={onForgot}>
+            <label className="auth-field">
+              <span>E-posta</span>
+              <input
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@mail.com"
+              />
+            </label>
+            {error ? (
+              <p className="auth-alert auth-alert--error">{error}</p>
+            ) : null}
+            {message ? (
+              <p className="auth-alert auth-alert--ok">{message}</p>
+            ) : null}
+            <button
+              className="btn btn-signup auth-submit"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? "Gönderiliyor..." : "Sıfırlama maili gönder"}
+            </button>
+          </form>
+        ) : (
+          <form className="auth-form" onSubmit={onVerifyResetOtp}>
+            <label className="auth-field">
+              <span>E-posta</span>
+              <input type="email" value={email} readOnly disabled />
+            </label>
+            {message ? (
+              <p className="auth-alert auth-alert--ok">{message}</p>
+            ) : null}
             <label className="auth-field">
               <span>Maildeki 8 haneli kod</span>
               <input
@@ -278,17 +293,35 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 pattern="[0-9]{8}"
                 maxLength={8}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                onChange={(e) =>
+                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))
+                }
                 placeholder="12345678"
                 required
               />
             </label>
-            {error ? <p className="auth-alert auth-alert--error">{error}</p> : null}
-            <button className="btn btn-signup auth-submit" type="submit" disabled={loading}>
+            {error ? (
+              <p className="auth-alert auth-alert--error">{error}</p>
+            ) : null}
+            <button
+              className="btn btn-signup auth-submit"
+              type="submit"
+              disabled={loading}
+            >
               {loading ? "Kontrol..." : "Kodu doğrula → yeni şifre"}
             </button>
+            <p className="auth-switch">
+              <button
+                type="button"
+                className="auth-text-btn"
+                disabled={loading}
+                onClick={() => void sendForgotMail()}
+              >
+                Kodu tekrar gönder
+              </button>
+            </p>
           </form>
-        ) : null}
+        )}
 
         <p className="auth-switch">
           <button

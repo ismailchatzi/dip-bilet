@@ -2,6 +2,23 @@ import { sendEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
+/** Serverless'te instance başına; çift tık / Enter spam'ini keser. */
+const RESET_WINDOW_MS = 15 * 60_000;
+const RESET_MAX_PER_WINDOW = 3;
+const resetHits = new Map<string, number[]>();
+
+function resetRateLimited(key: string): boolean {
+  const now = Date.now();
+  const prev = (resetHits.get(key) ?? []).filter((t) => now - t < RESET_WINDOW_MS);
+  if (prev.length >= RESET_MAX_PER_WINDOW) {
+    resetHits.set(key, prev);
+    return true;
+  }
+  prev.push(now);
+  resetHits.set(key, prev);
+  return false;
+}
+
 function siteOrigin(request: Request) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
   if (configured) return configured;
@@ -59,6 +76,16 @@ export async function POST(request: Request) {
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 });
+  }
+
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+
+  // Limit aşılsa da ok:true — enumeration + “sürekli mail” yok.
+  if (resetRateLimited(`e:${email}`) || resetRateLimited(`ip:${ip}`)) {
+    return NextResponse.json({ ok: true, limited: true });
   }
 
   const admin = createAdminClient();
