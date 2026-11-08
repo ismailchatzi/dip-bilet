@@ -5,10 +5,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const SESSION_KEY = "dipbilet_gmail_inbox_tip_session";
 const DURATION_MS = 20_000;
 
+/**
+ * SPA içinde sayfa/kart geçişinde component remount olsa bile aynı JS
+ * bağlamında bir daha gösterme. Sekme tamamen kapanınca hem bu flag hem
+ * sessionStorage sıfırlanır → sonraki ziyarette tekrar çıkar.
+ */
+let shownThisTab = false;
+
 /** Girişte temizlenir; sekme kapanınca sessionStorage zaten silinir. */
 export function clearGmailInboxTipSession() {
+  shownThisTab = false;
   try {
     sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function markTipSeen() {
+  shownThisTab = true;
+  try {
+    sessionStorage.setItem(SESSION_KEY, "1");
   } catch {
     /* ignore */
   }
@@ -26,22 +43,21 @@ export function GmailInboxTip() {
   const dismiss = useCallback(() => {
     if (closedRef.current) return;
     closedRef.current = true;
-    try {
-      sessionStorage.setItem(SESSION_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+    markTipSeen();
     setLeaving(true);
     window.setTimeout(() => setVisible(false), 320);
   }, []);
 
   useEffect(() => {
     try {
-      if (sessionStorage.getItem(SESSION_KEY) === "1") return;
-      sessionStorage.setItem(SESSION_KEY, "1");
+      if (shownThisTab || sessionStorage.getItem(SESSION_KEY) === "1") {
+        shownThisTab = true;
+        return;
+      }
     } catch {
-      return;
+      if (shownThisTab) return;
     }
+    markTipSeen();
     setVisible(true);
   }, []);
 

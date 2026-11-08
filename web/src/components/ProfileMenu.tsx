@@ -102,9 +102,11 @@ export function ProfileMenu() {
             </button>
           </div>
         </div>
-      ) : (
+      ) : null}
+      {/* Her zaman mount: menü/kart gezince remount olup tekrar basmasın */}
+      <div hidden={open} aria-hidden={open}>
         <GmailInboxTip />
-      )}
+      </div>
     </div>
   );
 }
